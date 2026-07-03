@@ -15,6 +15,7 @@ Le modèle de données (`docs/01`) a été conçu à partir de l'analyse réelle
 | Flux Power Automate (rappels, tâches, e-mails, PDF, archivage) | [`docs/04-flux-power-automate.md`](docs/04-flux-power-automate.md) |
 | Guide de mise en œuvre pas à pas | [`docs/05-guide-deploiement.md`](docs/05-guide-deploiement.md) |
 | Conseils d'amélioration & bonnes pratiques Microsoft | [`docs/06-bonnes-pratiques.md`](docs/06-bonnes-pratiques.md) |
+| Migration pas à pas de vos listes existantes vers le modèle final | [`docs/07-migration-listes-existantes.md`](docs/07-migration-listes-existantes.md) |
 
 ## Aperçu de l'interface web
 
