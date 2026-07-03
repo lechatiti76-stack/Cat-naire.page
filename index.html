@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registre des Vérifications de Matériel</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ============ EN-TÊTE ============ -->
+<header class="app-header">
+  <div class="app-header__brand">
+    <span class="icon icon--brand" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6l8-4z" fill="currentColor"/></svg>
+    </span>
+    <div>
+      <h1>Registre des Vérifications de Matériel</h1>
+      <p class="app-header__subtitle">Suivi de conformité &amp; contrôles périodiques</p>
+    </div>
+  </div>
+  <div class="app-header__actions">
+    <button id="btnExport" class="btn btn--ghost" type="button" title="Exporter les résultats affichés en CSV">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Exporter CSV
+    </button>
+    <button id="btnTheme" class="btn btn--ghost" type="button" title="Basculer le thème clair/sombre">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 109 9 9 9 0 11-9-9z" fill="currentColor"/></svg>
+      Thème
+    </button>
+  </div>
+</header>
+
+<main class="app-main">
+
+  <!-- ============ CARTES STATISTIQUES ============ -->
+  <section class="stats" aria-label="Statistiques de conformité">
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--total">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 9h16" stroke="currentColor" stroke-width="2"/></svg>
+      </span>
+      <div>
+        <p class="stat-card__value" id="statTotal">0</p>
+        <p class="stat-card__label">Matériels suivis</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--ok">
+        <svg viewBox="0 0 24 24"><path d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5z" fill="currentColor"/></svg>
+      </span>
+      <div>
+        <p class="stat-card__value" id="statConforme">0</p>
+        <p class="stat-card__label">Conformes</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--warn">
+        <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 6v6m0 3.2h.01" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div>
+        <p class="stat-card__value" id="statBientot">0</p>
+        <p class="stat-card__label">À vérifier prochainement</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--danger">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <p class="stat-card__value" id="statNonConforme">0</p>
+        <p class="stat-card__label">Non conformes</p>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--neutral">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 5l14 14" stroke="currentColor" stroke-width="2"/></svg>
+      </span>
+      <div>
+        <p class="stat-card__value" id="statHorsService">0</p>
+        <p class="stat-card__label">Hors service</p>
+      </div>
+    </div>
+
+    <div class="stat-card stat-card--rate">
+      <span class="stat-card__icon stat-card__icon--rate">
+        <svg viewBox="0 0 24 24"><path d="M4 20V10m6 10V4m6 16v-7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      </span>
+      <div>
+        <p class="stat-card__value" id="statTaux">0%</p>
+        <p class="stat-card__label">Taux de conformité</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BARRE DE RECHERCHE & FILTRES ============ -->
+  <section class="toolbar" aria-label="Recherche et filtres">
+    <div class="toolbar__search">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="search" id="searchInput" placeholder="Rechercher un matériel, un n° d'inventaire, un contrôleur…" aria-label="Recherche">
+    </div>
+
+    <div class="toolbar__filters">
+      <div class="field">
+        <label for="filterCategorie">Catégorie</label>
+        <select id="filterCategorie"><option value="">Toutes</option></select>
+      </div>
+
+      <div class="field">
+        <label for="filterConforme">Conformité</label>
+        <select id="filterConforme">
+          <option value="">Toutes</option>
+          <option value="oui">Conforme</option>
+          <option value="non">Non conforme</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="filterStatut">Statut</label>
+        <select id="filterStatut">
+          <option value="">Tous</option>
+          <option value="conforme">🟢 Conforme</option>
+          <option value="bientot">🟠 À vérifier prochainement</option>
+          <option value="nonconforme">🔴 Non conforme</option>
+          <option value="hs">⚪ Hors service</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="filterControleur">Contrôleur</label>
+        <select id="filterControleur"><option value="">Tous</option></select>
+      </div>
+
+      <div class="field">
+        <label for="filterDateFrom">Contrôle du</label>
+        <input type="date" id="filterDateFrom">
+      </div>
+
+      <div class="field">
+        <label for="filterDateTo">Au</label>
+        <input type="date" id="filterDateTo">
+      </div>
+
+      <button id="btnResetFilters" class="btn btn--ghost btn--small" type="button">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15a8 8 0 0014 3M19 9A8 8 0 005 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        Réinitialiser
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ LÉGENDE ============ -->
+  <section class="legend" aria-label="Légende des statuts">
+    <span class="legend__item"><span class="dot dot--ok"></span> Conforme</span>
+    <span class="legend__item"><span class="dot dot--warn"></span> À vérifier prochainement</span>
+    <span class="legend__item"><span class="dot dot--danger"></span> Non conforme</span>
+    <span class="legend__item"><span class="dot dot--neutral"></span> Hors service</span>
+    <span class="legend__count" id="resultCount"></span>
+  </section>
+
+  <!-- ============ TABLEAU ============ -->
+  <section class="table-wrapper" aria-label="Liste des vérifications">
+    <table class="data-table" id="dataTable">
+      <thead>
+        <tr>
+          <th data-sort="materiel">Matériel</th>
+          <th data-sort="numInventaire">N° inventaire</th>
+          <th data-sort="categorie">Catégorie</th>
+          <th data-sort="dateControle">Date contrôle</th>
+          <th data-sort="dateProchainControle">Prochain contrôle</th>
+          <th data-sort="controleur">Contrôleur</th>
+          <th data-sort="etat">État</th>
+          <th data-sort="conforme">Conforme</th>
+          <th>Observations</th>
+          <th>Actions correctives</th>
+          <th>Commentaires</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- Lignes générées dynamiquement par js/app.js -->
+      </tbody>
+    </table>
+    <p class="table-empty" id="emptyState" hidden>Aucun résultat ne correspond à ces critères.</p>
+  </section>
+</main>
+
+<!-- ============ MODALE DE DÉTAIL ============ -->
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal__close" id="modalClose" aria-label="Fermer">✕</button>
+    <h2 id="modalTitle">Détail du matériel</h2>
+    <div class="modal__body" id="modalBody"></div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  <p>Registre des Vérifications de Matériel — Connecté à la liste SharePoint <code>Controles</code>. Voir <code>docs/</code> pour la documentation complète (SharePoint, Power Apps, Power Automate).</p>
+</footer>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
