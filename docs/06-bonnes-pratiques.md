@@ -13,13 +13,16 @@
 - Charger le référentiel `Materiels` en collection locale (`ClearCollect` à `App.OnStart`) plutôt que de le relire à chaque écran.
 - Éviter les galeries imbriquées profondes ; préférer une galerie plate avec panneau de détail extensible (comme conçu en §2.5).
 - Limiter le nombre de colonnes remontées par les `Lookup` SharePoint aux seules colonnes réellement affichées (chaque colonne de projection ajoute un appel réseau).
+- **Ne jamais utiliser une colonne calculée SharePoint référençant `[Aujourd'hui]`/`TODAY()` pour un statut ou un compte à rebours** : ce type de colonne ne se recalcule qu'à la prochaine modification manuelle de la ligne, pas chaque jour (c'est ce qui a été constaté sur `Jours restant`/`Statut` de l'ancienne liste `VALIDITE`, avec la colonne `STATUTCONTROLE` comme rustine manuelle). Toujours calculer ces valeurs via un flux planifié qui écrit dans une colonne **normale** (docs/04, flux 4.2).
 
 ## 6.3 Maintenance et gouvernance des données
 
 - Verrouiller les colonnes **Choice** (Catégorie, État, Statut) en écriture directe SharePoint pour les utilisateurs finaux ; seules les interfaces (Power Apps, flux) doivent les modifier, afin de garantir la cohérence du référentiel de valeurs.
 - Documenter dans la description de chaque colonne SharePoint sa **règle de calcul** ou sa **source** (ex. "Calculé automatiquement par le flux 'Calcul statut', ne pas modifier manuellement").
 - Prévoir une revue annuelle des `Choice` (catégories, localisations) pour éviter la prolifération de valeurs obsolètes.
-- Mettre en place une **archive** (flux §4.6) pour garder la liste active performante sur la durée.
+- Mettre en place une **archive** (flux §4.7) pour garder la liste active performante sur la durée.
+- **Ne plus créer de liste SharePoint par équipement physique** (comme les anciennes listes `LECBV2-2411-01154`, `PerchePI56C2505005`…) : tout nouveau protocole de contrôle doit être ajouté dans `TypesPointControle`, jamais dans une liste dédiée à un numéro de série.
+- Clarifier et documenter le rôle exact de la liste `Bris de barrières` avant de décider si elle doit être fusionnée dans `Materiels` (nouvelle catégorie) ou conservée séparément (autre nature de suivi).
 
 ## 6.4 Sécurité
 
@@ -29,7 +32,7 @@
 
 ## 6.5 Évolutions possibles
 
-- Ajouter un **QR code** sur chaque matériel physique (référence `NumInventaire`) et un scanner Power Apps (`Barcode Scanner` control) pour ouvrir directement la fiche détail depuis le terrain.
+- Ajouter un **QR code** sur chaque matériel physique (référence `NumSerie`) et un scanner Power Apps (`Barcode Scanner` control) pour ouvrir directement la fiche détail depuis le terrain.
 - Ajouter une **carte / plan de site** interactif situant chaque matériel (composant Power Apps + coordonnées dans `Materiels`).
 - Étendre le tableau de bord avec **Power BI** (via le connecteur SharePoint) pour des analyses plus poussées et un partage direction plus riche que les graphiques Power Apps natifs.
 - Ajouter une notification **push Teams/Power Automate** en plus de l'e-mail pour les contrôles urgents (< 7 jours).

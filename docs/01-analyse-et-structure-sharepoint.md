@@ -1,96 +1,103 @@
 # 1. Analyse de la liste SharePoint & structure finale
 
-> **Hypothèse de travail** : aucune liste SharePoint existante ne m'a été fournie (export, capture d'écran ou schéma). J'ai donc reconstitué la structure **typique** qu'on trouve dans 90 % des suivis de vérification de matériel faits « à la main » sous SharePoint — une **liste plate unique** — à partir des champs que vous avez listés dans la demande. C'est cette structure de départ que j'analyse ci-dessous, avant de proposer le modèle final retenu pour le reste de la solution (HTML, Power Apps, Power Fx, Power Automate).
->
-> Si vous avez une liste existante, envoyez-moi son export de colonnes (Paramètres de liste → Colonnes) et j'ajusterai ce document en conséquence — la logique d'analyse ci-dessous reste valable.
+> Ce document est basé sur l'analyse réelle de vos listes SharePoint (site *Communication site*), consultées via captures d'écran : `VALIDITE`, `Source Application Dashboard Caténaire`, et les listes créées par équipement (ex. `LECBV2-2411-01154`, `PerchePI56C2505005`, `PerchePI56C2505004`). Le domaine est la sécurité des équipements caténaire ferroviaire (perches isolantes, LED de signalisation, VAT — Vérificateur d'Absence de Tension —, drapeaux, signaux d'arrêt à main).
 
-## 1.1 Structure de départ probable (liste plate unique)
+## 1.1 Ce qui existe aujourd'hui
 
-| Colonne | Type SharePoint utilisé habituellement | Problème identifié |
+### Liste `Source Application Dashboard Caténaire` (référentiel équipements / tableau de bord source)
+Colonnes observées : `Titre` (ex. "PERCHE 004", "LED BLEU N°54", "Signal d'Arrêt à Main N°5", "VAT", "Drapeaux bleu"), `Description` (ex. "PI56", "SAMNG (Rouge)", "Signal d'Absence Caténaire (bleu) N°1"), `N° Series` (ex. "PI56-C2505-004", "SAMNG-2305A-07870", "LECBV2-2411-01154"), `Statut` (A FAIRE…), `Priorité` (HAUTE/MOYENNE/BASSE), `Date de création`, `Deadline`, `Assignée à`, `Date de fin`, `Créer Par`.
+
+### Liste `VALIDITE` (suivi de conformité/échéance)
+Colonnes observées : `Matériels`, `N° series`, `Référence`, `Aujoud'hui` (colonne calculée `[Today]`), `Date de fin de validité`, `Jours restant` (calculé), `Datecontrole` (date du dernier contrôle), `Statut` (Valide / Expire dans 30 jrs / Expiré, mis en forme conditionnelle), `STATUTCONTROLE` (texte, quasi vide), `ID`, `date calcul` (colonne intermédiaire = `Date de fin` − 31 jours, utilisée comme seuil d'alerte).
+
+### Listes « une par équipement » (ex. `LECBV2-2411-01154`, `PerchePI56C2505005`, `PerchePI56C2505004`)
+Colonnes observées : `Titre` ("contrôle 1" à "contrôle 6"), `Equipement` (ex. "LECBV2"), `Point de contrôle` (ex. "Etat général de la lampe", "Absence de fissure ou d'impact important", "Plots de charge", "Attache sur clips", "Autonomie de la lampe", "Contrôle de la batterie"), `Effectuer` (case à cocher), `Rapport` (ex. "Validé"), `Statut` (ex. "Conforme"), `ID`.
+
+## 1.2 Problèmes identifiés (réels, pas hypothétiques)
+
+1. **Une liste SharePoint par équipement physique** (`LECBV2-2411-01154`, `PerchePI56C2505005`…) : chaque nouvel équipement acquis = une nouvelle liste à créer manuellement. Avec un parc de plusieurs centaines d'équipements, cela devient ingérable (maintenance, permissions, découverte, sauvegarde, Power Apps qui devrait connaître dynamiquement le nom de chaque liste).
+2. **Duplication du référentiel de points de contrôle** : les 6 points de contrôle d'une LED sont resaisis à l'identique dans la liste de *chaque* LED. Une évolution du protocole de contrôle (ajout/suppression d'un point) oblige à modifier toutes les listes une par une.
+3. **Pas d'historique du détail des contrôles** : les lignes "contrôle 1" à "contrôle 6" dans les listes par équipement ne sont pas des événements successifs dans le temps — ce sont les 6 points, **réécrits** à chaque inspection. Le résultat de l'inspection précédente est perdu.
+4. **`VALIDITE` ne conserve que l'état courant** : `Datecontrole`/`Date de fin de validité`/`Statut` semblent être mis à jour en place à chaque contrôle, sans garder trace des contrôles précédents pour un même équipement — problème identique à celui du point 3, au niveau global cette fois.
+5. **Colonnes calculées basées sur `[Today]`** (`Jours restant`, `Statut` de `VALIDITE`, colonne "Aujoud'hui") : dans SharePoint, une colonne calculée référençant la date du jour **ne se recalcule qu'à la prochaine modification de l'élément**, pas automatiquement chaque jour. C'est très probablement la cause de la colonne `STATUTCONTROLE` (visiblement un correctif manuel ponctuel, renseigné sur une seule ligne) : quelqu'un a dû constater qu'un statut était figé et l'a corrigé à la main. La solution robuste est un flux Power Automate planifié quotidien (voir docs/04) qui recalcule et écrit `Jours restant`/`Statut` dans un champ **normal** (non calculé).
+6. **Un même contrôle mélange deux niveaux d'information** : l'état global du contrôle (conforme/non conforme, date, contrôleur) et le détail point par point (6 sous-résultats pour une LED). Les représenter dans une seule liste plate oblige soit à dupliquer les infos globales sur 6 lignes, soit à perdre le détail.
+
+## 1.3 Schéma final retenu — modèle à 4 listes
+
+| Liste | Rôle | Fréquence de création de lignes |
 |---|---|---|
-| Titre | Single line text (Nom du matériel) | Colonne système « Title » détournée de son usage, peu descriptive |
-| Numéro d'inventaire | Single line text | Pas d'unicité garantie, pas de recherche indexée |
-| Catégorie | Single line text | Saisie libre → fautes de frappe, valeurs incohérentes ("EPI", "epi", "É.P.I.") |
-| Contrôleur | Single line text | Pas de lien avec l'annuaire M365, pas de photo/mail, filtrage fragile |
-| État | Single line text | Idem : pas de contrôle de saisie |
-| Conforme | Single line text ("Oui"/"Non") | Devrait être un booléen ou un Choice, pas du texte libre |
-| Date du contrôle | Date and Time | OK, mais souvent sans heure ni fuseau explicite |
-| Date du prochain contrôle | Date and Time | Saisie manuelle → oublis, incohérences avec la périodicité réelle |
-| Observations / Actions correctives / Commentaires | Multiple lines of text | Trois champs texte proches, souvent confondus par les utilisateurs |
-| Historique des contrôles | — (absent) | **Chaque contrôle écrase le précédent** : impossible de consulter l'historique d'un matériel |
-| Photos | Hyperlink ou pièce jointe classique | Peu ergonomique, pas de galerie native |
+| `Materiels` | Référentiel : un enregistrement par équipement physique (remplace la partie "identité" de `Source Application Dashboard Caténaire` + le principe des listes par équipement) | À l'acquisition d'un équipement |
+| `TypesPointControle` | Référentiel des points de contrôle **par catégorie** d'équipement, saisi une seule fois par catégorie | À la définition/évolution d'un protocole de contrôle |
+| `Controles` | Un enregistrement par **événement de contrôle** (remplace `VALIDITE`, avec historique complet) | À chaque inspection |
+| `ResultatsPointsControle` | Détail point par point d'un événement de contrôle (remplace les listes par équipement) | 1 ligne par point de contrôle, à chaque inspection |
 
-### Problèmes concrets que cette structure pose
+### Liste 1 — `Materiels`
 
-1. **Pas d'historique** : une liste plate à 1 ligne = 1 matériel ne peut stocker qu'un seul contrôle à la fois. Dès le 2ᵉ contrôle, on écrase les données du précédent (perte de traçabilité, non-conformité réglementaire pour les équipements soumis à contrôle périodique obligatoire — EPI, engins de levage, extincteurs…).
-2. **Champs texte libres** (Catégorie, État, Contrôleur, Conforme) : source d'erreurs de saisie, impossibles à fiabiliser dans les filtres Power Apps (`Filter` sur du texte libre = résultats incohérents).
-3. **Pas de délégation Power Apps garantie** : les colonnes texte libre avec recherche (`in`, `StartsWith` non indexé) et les listes qui dépassent le seuil de délégation (2 000 lignes par défaut) posent des soucis de performance si aucune colonne n'est indexée.
-4. **Calcul de statut absent** : rien ne détermine si un matériel est "🟢 Conforme / 🟠 À vérifier prochainement / 🔴 Non conforme / ⚪ Hors service" → ce calcul serait refait à chaque affichage (mobile, web), avec un risque d'incohérence entre les interfaces.
-5. **Pas de séparation référentiel / mouvement** : les informations stables du matériel (nom, catégorie, photo, périodicité) sont mélangées avec les informations d'un contrôle ponctuel (date, contrôleur, conformité) → duplication et risque d'incohérence si le nom du matériel change.
-
-## 1.2 Améliorations proposées
-
-| Objectif | Amélioration |
-|---|---|
-| **Performance / délégation Power Apps** | Indexer les colonnes utilisées en filtre (`NumInventaire`, `DateProchainControle`, `Categorie`, `Etat`) ; remplacer le texte libre par des colonnes **Choice** (listes de choix gérées, délégables) ; scinder en 2 listes pour réduire le volume de chaque requête |
-| **Maintenance / cohérence des données** | Colonnes **Choice** à valeurs fermées pour Catégorie, État, Conforme ; colonne **Person or Group** pour le Contrôleur (lié à l'annuaire Entra ID, photo + mail automatiques) |
-| **Facilité d'utilisation** | Calcul automatique de `DateProchainControle` par Power Automate (`DateControle + PeriodiciteMois`), évitant la saisie manuelle et les oublis |
-| **Historique réglementaire** | **Séparation en 2 listes** : `Materiels` (référentiel, 1 ligne = 1 équipement) et `Controles` (mouvement, 1 ligne = 1 vérification, en relation *Lookup* vers `Materiels`) → historique complet conservé |
-| **Compatibilité Power Apps** | Colonne calculée `Statut` stockée (et non recalculée à l'affichage) pour un rendu identique et performant sur tous les écrans (Power Apps délégable, JS, colonne de mise en forme SharePoint) |
-| **Photos / signature** | Colonnes **Image** (type moderne SharePoint, pas Hyperlink) pour les photos du matériel et du contrôle ; champ texte long pour stocker la signature encodée en base64 générée par le contrôle de signature Power Apps |
-| **Sécurité / traçabilité** | Colonnes `Créé par` / `Créé le` / `Modifié par` / `Modifié le` (nativement gérées par SharePoint) exploitées pour l'audit ; permissions au niveau liste (contrôleurs = Contribuer, direction = Lecture, admin = Contrôle total) |
-
-## 1.3 Schéma final retenu
-
-### Liste 1 — `Materiels` (référentiel, un enregistrement par équipement)
-
-| Nom interne | Nom affiché | Type de colonne | Détails / configuration |
+| Nom interne | Nom affiché | Type | Détails |
 |---|---|---|---|
-| `Title` | Nom du matériel | Single line text | Colonne titre native, obligatoire |
-| `NumInventaire` | N° d'inventaire | Single line text | **Indexée**, contrainte d'unicité (forcer via règle de validation de colonne : `=ISERROR(FIND(" ",NumInventaire))` n'est pas suffisant → l'unicité stricte se fait via une **règle de validation de liste** ou un flux Power Automate de contrôle à la création) |
-| `Categorie` | Catégorie | Choice | Extincteur, Échelle, EPI, Outillage électrique, Engin de levage, Véhicule, Autre |
-| `Localisation` | Localisation | Choice ou Lookup | Site / Bâtiment / Atelier |
-| `DateMiseEnService` | Date de mise en service | Date only | |
+| `Title` | Nom du matériel | Single line text | ex. "PERCHE 004", "LED BLEU N°54" |
+| `NumSerie` | N° série | Single line text | ex. "PI56-C2505-004" — **indexée** |
+| `Reference` | Référence | Single line text ou Choice | ex. "PI56", "SAMNG" — code produit/modèle |
+| `Categorie` | Catégorie | Choice | Perche isolante, LED signalisation, VAT, Drapeau, Signal d'arrêt à main, Autre *(pilote la sélection du protocole de contrôle dans `TypesPointControle`)* |
+| `Description` | Description | Single line text | Complément libre (ex. "Signal d'Absence Caténaire (bleu) N°1") |
+| `Responsable` | Responsable / Assignée à | Person or Group | |
 | `Etat` | État | Choice | En service, En réparation, Hors service, Réformé |
-| `PeriodiciteMois` | Périodicité de contrôle (mois) | Number | Utilisée par le flux de calcul automatique de la prochaine échéance |
-| `Responsable` | Responsable | Person or Group | Lié à l'annuaire M365 |
-| `Photo` | Photo du matériel | Image (colonne moderne) | |
-| `Actif` | Actif | Yes/No | Permet de masquer les matériels réformés sans les supprimer |
+| `PeriodiciteMois` | Périodicité de contrôle (mois) | Number | Utilisée pour calculer `DateProchainControle` |
+| `Photo` | Photo | Image | |
+| `Actif` | Actif | Yes/No | |
 
-### Liste 2 — `Controles` (mouvement, un enregistrement par vérification)
+### Liste 2 — `TypesPointControle` (nouvelle)
 
-| Nom interne | Nom affiché | Type de colonne | Détails / configuration |
+| Nom interne | Nom affiché | Type | Détails |
 |---|---|---|---|
-| `Title` | Référence du contrôle | Single line text | Généré automatiquement par flux : `[NumInventaire] – [DateControle]` |
-| `Materiel` | Matériel | **Lookup** vers `Materiels.Title` | **Indexée** ; autoriser aussi la remontée des colonnes `NumInventaire`, `Categorie`, `Photo` en colonnes de projection (*lookup columns* additionnelles) pour éviter des appels supplémentaires depuis Power Apps |
+| `Categorie` | Catégorie | Choice | Doit correspondre aux valeurs de `Materiels.Categorie` |
+| `Title` | Libellé du point de contrôle | Single line text | ex. "Etat général de la lampe", "Absence de fissure ou d'impact important" |
+| `Ordre` | Ordre d'affichage | Number | Pour un affichage stable dans les formulaires/rapports |
+
+*Exemple pour la catégorie "LED signalisation"* : 6 lignes (Etat général de la lampe, Absence de fissure ou d'impact important, Plots de charge, Attache sur clips, Autonomie de la lampe, Contrôle de la batterie) — exactement les points observés dans `LECBV2-2411-01154`, désormais saisis **une seule fois** pour toute la catégorie.
+
+### Liste 3 — `Controles`
+
+| Nom interne | Nom affiché | Type | Détails |
+|---|---|---|---|
+| `Title` | Référence du contrôle | Single line text | Généré par flux : `[NumSerie] – [DateControle]` |
+| `Materiel` | Matériel | Lookup vers `Materiels.Title` | **Indexée** ; projeter aussi `NumSerie`, `Categorie`, `Reference`, `Photo` |
 | `DateControle` | Date du contrôle | Date only | **Indexée** |
-| `DateProchainControle` | Date du prochain contrôle | Date only | **Indexée** ; calculée par Power Automate = `DateControle + PeriodiciteMois` du matériel lié (voir docs/04) |
+| `DateProchainControle` | Date du prochain contrôle | Date only | **Indexée** ; calculée = `DateControle + PeriodiciteMois` (flux, remplace le calcul figé de `VALIDITE`) |
 | `Controleur` | Contrôleur | Person or Group | |
-| `Conforme` | Conforme | Yes/No | |
-| `Statut` | Statut | Choice (calculé et **stocké** par Power Automate à chaque création/modification) | Conforme / À vérifier prochainement / Non conforme / Hors service — voir règle de calcul ci-dessous |
-| `Observations` | Observations | Multiple lines of text (texte brut) | |
-| `ActionsCorrectives` | Actions correctives | Multiple lines of text (texte brut) | |
-| `Commentaires` | Commentaires | Multiple lines of text (texte brut) | |
-| `PhotosControle` | Photos du contrôle | Image (colonne moderne, plusieurs pièces jointes autorisées) | |
-| `Signature` | Signature | Multiple lines of text (texte brut, stocke une image en base64) | Alimentée par le contrôle *Pen Input* / *Signature* de Power Apps |
+| `Conforme` | Conforme | Yes/No | Vrai seulement si tous les points de `ResultatsPointsControle` liés sont conformes |
+| `Statut` | Statut | Choice, **recalculé quotidiennement par flux** (pas une colonne calculée `[Today]`) | Conforme / À vérifier prochainement / Non conforme / Hors service |
+| `Observations` | Observations | Multiple lines of text | |
+| `ActionsCorrectives` | Actions correctives | Multiple lines of text | |
+| `Commentaires` | Commentaires | Multiple lines of text | |
+| `Signature` | Signature | Multiple lines of text | Image encodée en base64 (contrôle Pen Input Power Apps) |
 
-**Règle de calcul de `Statut`** (portée identiquement en Power Automate, Power Fx et JavaScript pour garantir un rendu cohérent partout) :
-1. Si `Etat` du matériel = "Hors service" → **Hors service** (⚪)
-2. Sinon si `Conforme` = Non → **Non conforme** (🔴)
-3. Sinon si `DateProchainControle` − aujourd'hui ≤ 30 jours → **À vérifier prochainement** (🟠)
-4. Sinon → **Conforme** (🟢)
+### Liste 4 — `ResultatsPointsControle` (nouvelle)
 
-### Pourquoi 2 listes plutôt qu'une seule ?
+| Nom interne | Nom affiché | Type | Détails |
+|---|---|---|---|
+| `Controle` | Contrôle | Lookup vers `Controles.Title` | **Indexée** |
+| `PointControle` | Point de contrôle | Lookup vers `TypesPointControle.Title` | |
+| `Effectue` | Effectué | Yes/No | Reprend la case à cocher "Effectuer" existante |
+| `Rapport` | Rapport | Choice | Validé, Non validé, Sans objet |
+| `Statut` | Statut | Choice | Conforme, Non conforme |
+| `Observation` | Observation | Single line text | Remarque spécifique à ce point, optionnelle |
 
-- **Historique complet** : un matériel peut avoir des dizaines de contrôles dans le temps ; chacun doit rester consultable (obligation réglementaire pour beaucoup d'équipements : EPI, engins de levage, électricité, incendie).
-- **Pas de duplication** : le nom, la catégorie, la photo du matériel ne sont saisis qu'une fois, dans `Materiels`.
-- **Performance Power Apps** : chaque écran ne charge que ce dont il a besoin (galerie de matériels **ou** historique d'un seul matériel via `Filter(Controles, Materiel.Id = ThisItem.ID)`), au lieu de charger une liste plate qui grossit indéfiniment.
-- **Délégation** : les deux listes restent sous le seuil de délégation plus longtemps, et les colonnes clés sont indexées.
+**Génération automatique** : à la création d'un `Controle`, un flux Power Automate (docs/04, flux n°1 bis) lit `TypesPointControle` filtré sur la catégorie du matériel concerné et crée automatiquement une ligne `ResultatsPointsControle` par point trouvé — l'utilisateur n'a plus qu'à cocher/qualifier chaque ligne, sans recréer de liste.
 
-### Vue « à plat » utilisée par l'interface HTML et les galeries Power Apps
+## 1.4 Correspondance avec l'existant
 
-L'interface de consultation (tableau HTML, galerie Power Apps) affiche une **jointure** `Controles` ⟶ `Materiels` (via la colonne Lookup `Materiel`), ce qui correspond exactement aux colonnes demandées dans le cahier des charges :
+| Existant | Devient |
+|---|---|
+| `Source Application Dashboard Caténaire` (partie identité) | `Materiels` |
+| `Source Application Dashboard Caténaire` (partie suivi/tâche : Statut A FAIRE, Priorité, Deadline, Assignée) | Conservée si utile en tant que liste de **tâches de maintenance** distincte, ou couverte par le flux "création de tâche corrective" (docs/04) déclenché automatiquement sur non-conformité |
+| `VALIDITE` | `Controles` (avec historique, calcul par flux au lieu de colonne `[Today]`) |
+| Listes par équipement (`LECBV2-2411-01154`, `PerchePI56C2505005`, `PerchePI56C2505004`…) | `TypesPointControle` (référentiel, 1 fois par catégorie) + `ResultatsPointsControle` (détail, historisé, 1 fois par contrôle) |
 
-Nom du matériel · Numéro d'inventaire · Catégorie · Date du contrôle · Date du prochain contrôle · Contrôleur · État · Conforme · Observations · Actions correctives · Commentaires.
+> La liste `Bris de barrières`, visible dans votre navigation, n'a pas encore été analysée — son rôle exact (catégorie d'équipement supplémentaire, ou liste d'incidents distincte) reste à confirmer avant de l'intégrer au modèle.
 
-> Si vous préférez une architecture plus simple à mettre en œuvre (une seule liste, pas d'historique multi-contrôles), il est possible de fusionner les deux listes en une seule "liste plate" ; toutes les formules Power Fx et flux Power Automate fournis restent quasi identiques, seule la partie `Lookup`/jointure disparaît. Je recommande toutefois le modèle à 2 listes pour toute exploitation professionnelle durable.
+## 1.5 Vue « à plat » utilisée par l'interface HTML et les galeries Power Apps
+
+L'interface de consultation affiche une jointure `Controles` ⟶ `Materiels`, avec un accès au détail `ResultatsPointsControle` en un clic (fiche/modale) :
+
+Nom du matériel · N° série · Catégorie · Référence · Date du contrôle · Date du prochain contrôle · Contrôleur · État · Conforme · Statut · Observations · Actions correctives · Commentaires · **Détail des points de contrôle** (nouveau, en fiche détaillée).

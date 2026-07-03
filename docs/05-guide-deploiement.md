@@ -3,13 +3,16 @@
 ## 5.1 Créer les listes SharePoint
 
 1. Sur le site SharePoint cible, cliquer **Nouveau → Liste → Liste vierge**.
-2. Créer la liste **`Materiels`** puis ajouter les colonnes du tableau 1.3 (docs/01) une par une : **Paramètres de la liste → Créer une colonne**, en choisissant le type exact indiqué (Choice, Person, Date only, Image, Number, Yes/No).
-3. Pour les colonnes **Choice** (Categorie, Etat), saisir les valeurs autorisées dans "Choix" et cocher "Valeur par défaut" si pertinent.
-4. Créer la liste **`Controles`** de la même façon avec les colonnes du tableau correspondant.
-5. Sur `Controles`, créer la colonne **`Materiel`** en type **Lookup**, pointant vers la liste `Materiels`, colonne affichée `Title`, puis cocher "Autoriser plusieurs valeurs" = **Non**, et ajouter en colonnes supplémentaires `NumInventaire`, `Categorie`, `Photo` (case "Ajouter une colonne pour chacune de ces valeurs supplémentaires").
-6. **Indexer les colonnes** utilisées en filtre : Paramètres de la liste → Colonnes d'index → Créer un index, pour `NumInventaire`, `Categorie`, `Etat` (sur `Materiels`) et `DateControle`, `DateProchainControle`, `Materiel` (sur `Controles`).
-7. Définir les **permissions** : Paramètres de la liste → Autorisations pour cette liste → arrêter l'héritage → attribuer "Contribuer" aux contrôleurs, "Lecture" aux autres collaborateurs, "Contrôle total" aux administrateurs.
-8. Vérifier l'unicité du n° d'inventaire via une **règle de validation de colonne** ou, plus fiable, via un flux Power Automate qui bloque la création si `NumInventaire` existe déjà (action "Obtenir les éléments" + condition avant `Create Item`).
+2. Créer la liste **`Materiels`** puis ajouter les colonnes du §1.3 (docs/01) une par une : **Paramètres de la liste → Créer une colonne**, en choisissant le type exact indiqué (Choice, Person, Date only, Image, Number, Yes/No).
+3. Créer la liste **`TypesPointControle`** : colonnes `Categorie` (Choice, mêmes valeurs que `Materiels.Categorie`), `Title` (libellé du point), `Ordre` (Number). La remplir une fois par catégorie (ex. saisir les 6 points "LED signalisation" observés dans votre ancienne liste `LECBV2-2411-01154`).
+4. Pour les colonnes **Choice** (Categorie, Etat, Statut), saisir les valeurs autorisées dans "Choix" et cocher "Valeur par défaut" si pertinent.
+5. Créer la liste **`Controles`** avec les colonnes correspondantes.
+6. Sur `Controles`, créer la colonne **`Materiel`** en type **Lookup**, pointant vers `Materiels`, colonne affichée `Title`, "Autoriser plusieurs valeurs" = **Non**, et ajouter en colonnes de projection `NumSerie`, `Categorie`, `Reference`, `Photo`.
+7. Créer la liste **`ResultatsPointsControle`** avec une colonne **Lookup** `Controle` → `Controles.Title` et une colonne **Lookup** `PointControle` → `TypesPointControle.Title`, plus `Effectue` (Yes/No), `Rapport` (Choice), `Statut` (Choice), `Observation` (texte).
+8. **Indexer les colonnes** utilisées en filtre : Paramètres de la liste → Colonnes d'index → Créer un index, pour `NumSerie`, `Categorie`, `Etat` (sur `Materiels`) et `DateControle`, `DateProchainControle`, `Materiel` (sur `Controles`), `Controle` (sur `ResultatsPointsControle`).
+9. Définir les **permissions** : Paramètres de la liste → Autorisations pour cette liste → arrêter l'héritage → attribuer "Contribuer" aux contrôleurs, "Lecture" aux autres collaborateurs, "Contrôle total" aux administrateurs.
+10. Vérifier l'unicité du n° de série via un flux Power Automate qui bloque la création si `NumSerie` existe déjà (action "Obtenir les éléments" + condition avant `Create Item`).
+11. **Migration des données existantes** : reprendre le contenu de `VALIDITE` pour peupler `Controles` (dernier contrôle connu par équipement), et le contenu de chaque liste par équipement (`LECBV2-2411-01154`, `PerchePI56C2505005`…) pour peupler `TypesPointControle` (une fois par catégorie, en dédoublonnant) puis `ResultatsPointsControle` (en les reliant au contrôle correspondant). Cette migration peut se faire manuellement pour un faible volume, ou via un flux Power Automate ponctuel pour un grand nombre d'équipements.
 
 ## 5.2 Créer l'application Power Apps
 
@@ -35,11 +38,11 @@
 
 ## 5.5 Mettre en place les automatisations
 
-1. Depuis [make.powerautomate.com](https://make.powerautomate.com), **Créer** un flux pour chacun des 6 flux décrits en docs/04, en choisissant le bon type de déclencheur (automatisé pour les flux liés à un événement SharePoint, planifié pour les flux périodiques).
+1. Depuis [make.powerautomate.com](https://make.powerautomate.com), **Créer** un flux pour chacun des 7 flux décrits en docs/04, en choisissant le bon type de déclencheur (automatisé pour les flux liés à un événement SharePoint, planifié pour les flux périodiques). Créer le flux 4.1 (génération des points de contrôle) en premier et le tester avant les autres : c'est lui qui remplace le geste manuel de création d'une liste par équipement.
 2. Configurer la connexion SharePoint (même site, mêmes listes) puis la connexion Outlook/Teams pour les notifications.
 3. Tester chaque flux avec **Tester → Manuellement** avant activation, en créant un enregistrement de test dans `Controles`.
 4. Activer les flux (**Activé** en haut de l'éditeur) et vérifier dans **Historique des exécutions** après quelques jours d'utilisation réelle.
-5. Pour le flux de génération PDF (§4.5), vérifier la disponibilité d'un connecteur de conversion PDF dans votre licence Microsoft 365/Power Automate (certains connecteurs premium nécessitent un plan Power Automate dédié).
+5. Pour le flux de génération PDF (§4.6), vérifier la disponibilité d'un connecteur de conversion PDF dans votre licence Microsoft 365/Power Automate (certains connecteurs premium nécessitent un plan Power Automate dédié).
 
 ## 5.6 Mettre en ligne l'interface HTML de consultation
 

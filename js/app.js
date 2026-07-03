@@ -109,7 +109,7 @@
 
     let rows = materielsData.filter((item) => {
       if (term) {
-        const haystack = [item.materiel, item.numInventaire, item.controleur, item.observations]
+        const haystack = [item.materiel, item.numSerie, item.reference, item.controleur, item.observations]
           .join(" ").toLowerCase();
         if (!haystack.includes(term)) return false;
       }
@@ -172,7 +172,8 @@
 
       tr.innerHTML = `
         <td class="cell-name">${escapeHtml(item.materiel)}</td>
-        <td>${escapeHtml(item.numInventaire)}</td>
+        <td>${escapeHtml(item.numSerie)}</td>
+        <td class="cell-muted">${escapeHtml(item.reference)}</td>
         <td>${escapeHtml(item.categorie)}</td>
         <td>${formatDate(item.dateControle)}</td>
         <td>${formatDate(item.dateProchainControle)}</td>
@@ -206,7 +207,8 @@
     els.modalBody.innerHTML = `
       <span class="badge ${statutInfo.badge}">${statutInfo.label}</span>
       <dl class="modal__grid" style="margin-top:16px;">
-        <div class="modal__field"><dt>N° inventaire</dt><dd>${escapeHtml(item.numInventaire)}</dd></div>
+        <div class="modal__field"><dt>N° série</dt><dd>${escapeHtml(item.numSerie)}</dd></div>
+        <div class="modal__field"><dt>Référence</dt><dd>${escapeHtml(item.reference)}</dd></div>
         <div class="modal__field"><dt>Catégorie</dt><dd>${escapeHtml(item.categorie)}</dd></div>
         <div class="modal__field"><dt>État</dt><dd>${escapeHtml(item.etat)}</dd></div>
         <div class="modal__field"><dt>Conforme</dt><dd>${item.conforme ? "Oui" : "Non"}</dd></div>
@@ -217,8 +219,31 @@
       <div class="modal__section"><h3>Observations</h3><p>${escapeHtml(item.observations) || "—"}</p></div>
       <div class="modal__section"><h3>Actions correctives</h3><p>${escapeHtml(item.actionsCorrectives) || "—"}</p></div>
       <div class="modal__section"><h3>Commentaires</h3><p>${escapeHtml(item.commentaires) || "—"}</p></div>
+      <div class="modal__section">
+        <h3>Points de contrôle</h3>
+        ${renderPointsControle(item.pointsControle)}
+      </div>
     `;
     els.modalOverlay.hidden = false;
+  }
+
+  function renderPointsControle(points) {
+    if (!points || points.length === 0) return "<p>Aucun point de contrôle défini pour cette catégorie.</p>";
+    const rows = points.map((p) => {
+      const ok = p.statut === "Conforme";
+      return `
+        <tr>
+          <td>${p.effectue ? "✅" : "⬜"}</td>
+          <td>${escapeHtml(p.libelle)}</td>
+          <td>${escapeHtml(p.rapport)}</td>
+          <td><span class="badge ${ok ? "badge--ok" : "badge--danger"}">${escapeHtml(p.statut)}</span></td>
+        </tr>`;
+    }).join("");
+    return `
+      <table class="points-controle-table">
+        <thead><tr><th></th><th>Point de contrôle</th><th>Rapport</th><th>Statut</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
 
   function closeModal() {

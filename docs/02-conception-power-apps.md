@@ -1,27 +1,28 @@
 # 2. Conception complète de l'application Power Apps
 
-Application **Canvas**, connectée aux deux listes SharePoint `Materiels` et `Controles` (voir docs/01). Format téléphone (mobile-first) avec mise en page adaptable tablette ; peut aussi être publiée en Tablette pour un usage sur poste fixe/atelier.
+Application **Canvas**, connectée aux quatre listes SharePoint `Materiels`, `TypesPointControle`, `Controles` et `ResultatsPointsControle` (voir docs/01). Format téléphone (mobile-first), adaptable tablette pour un usage terrain (agents caténaire).
 
 ## 2.1 Structure des écrans et navigation
 
 ```
-scrAccueil  ──▶  scrListe  ──▶  scrDetail  ──▶  scrModification
+scrAccueil  ──▶  scrListe  ──▶  scrDetail  ──▶  scrModification (en-tête du contrôle)
     │                │              │                  │
     ▼                ▼              ▼                  ▼
-scrTableauDeBord  (retour)     (Historique       (Ajout contrôle /
-                                des contrôles      Signature / Photos)
-                                en sous-galerie)
+scrTableauDeBord  (retour)   Historique des        scrPointsControle (saisie des
+                              contrôles +            points de contrôle un par un,
+                              détail des points       générés depuis TypesPointControle)
 ```
 
 | Écran | Rôle | Accès depuis |
 |---|---|---|
 | `scrAccueil` | Statistiques globales + boutons de navigation | Démarrage de l'app |
-| `scrListe` | Galerie filtrable de tous les matériels/contrôles | `scrAccueil`, barre de navigation |
-| `scrDetail` | Fiche complète d'un matériel : photo, infos, historique des contrôles | Clic sur un élément de `scrListe` |
-| `scrModification` | Formulaire d'ajout/modification d'un contrôle (+ photo + signature) | Bouton "+" de `scrListe`/`scrDetail` |
+| `scrListe` | Galerie filtrable de tous les contrôles (jointure Controles + Materiels) | `scrAccueil`, barre de navigation |
+| `scrDetail` | Fiche complète d'un matériel : photo, infos, historique des contrôles, détail des points par contrôle | Clic sur un élément de `scrListe` |
+| `scrModification` | En-tête d'un contrôle (date, contrôleur, conformité globale, photos, signature) | Bouton "+" de `scrListe`/`scrDetail` |
+| `scrPointsControle` | Liste des points de contrôle générés pour ce contrôle (cases Effectué/Rapport/Statut) | Depuis `scrModification`, après création de l'en-tête |
 | `scrTableauDeBord` | Indicateurs et graphiques de conformité | `scrAccueil` |
 
-Navigation gérée par `Navigate(scrCible, ScreenTransition.Fade, {paramètres})` ; un **bouton retour** (icône `Icon.ChevronLeft`) présent sur tous les écrans sauf l'accueil appelle `Back()`.
+Navigation gérée par `Navigate(scrCible, ScreenTransition.Fade, {paramètres})` ; bouton retour (`Icon.ChevronLeft`) sur tous les écrans sauf l'accueil, appelant `Back()`.
 
 ## 2.2 Variables et collections globales (`App.OnStart`)
 
@@ -31,115 +32,134 @@ Set(gColorWarn, ColorValue("#CA5010"));
 Set(gColorDanger, ColorValue("#D13438"));
 Set(gColorNeutral, ColorValue("#605E5C"));
 Set(gColorPrimary, ColorValue("#0078D4"));
-Set(gSeuilJours, 30);          // seuil "à vérifier prochainement"
+Set(gSeuilJours, 30);
 Set(gUtilisateur, User());
-Set(gEstControleur, User().Email in ["controleur1@contoso.com", "controleur2@contoso.com"] || IsMatch(User().Email, "@contoso.com$"));
+Set(gEstControleur, User().Email in ["controleur1@lhte76.fr", "controleur2@lhte76.fr"] || IsMatch(User().Email, "@lhte76"));
 
 ClearCollect(
     colMateriels,
     AddColumns(
         Materiels,
         'DernierControle', LookUp(Controles, Materiel.Id = Materiels.Id, DateControle, SortOrder.Descending),
-        'DernierStatut', LookUp(Controles, Materiel.Id = Materiels.Id, Statut, SortOrder.Descending)
+        'DernierStatut', LookUp(Controles, Materiel.Id = Materiels.Id, Statut.Value, SortOrder.Descending)
     )
 );
 
 ClearCollect(colCategories, Distinct(Materiels, Categorie.Value));
 ClearCollect(colControleurs, Distinct(Controles, Controleur.DisplayName));
+ClearCollect(colTypesPointControle, TypesPointControle);
 ```
 
-- `colMateriels` : mise en cache locale du référentiel pour une navigation instantanée entre les écrans (évite de re-télécharger à chaque écran).
-- `colCategories` / `colControleurs` : alimentent les menus déroulants de filtre.
-- `gEstControleur` : variable de rôle utilisée pour afficher/masquer les actions de modification/suppression (RBAC applicatif, en plus des permissions SharePoint).
+- `colMateriels` : cache locale du référentiel équipements (perches, LED, VAT, drapeaux, signaux…) pour une navigation instantanée.
+- `colTypesPointControle` : cache du référentiel des points de contrôle par catégorie, utilisé pour générer les lignes de `scrPointsControle`.
+- `gEstControleur` : rôle applicatif (les permissions réelles restent gérées au niveau SharePoint).
 
 ## 2.3 Écran d'accueil (`scrAccueil`)
 
-**Composants :**
-- En-tête avec logo, titre "Registre des Vérifications de Matériel"
-- 5 **cartes de statistiques** (galerie horizontale ou 5 conteneurs) :
-  - Nombre de matériels : `CountRows(colMateriels)`
-  - Nombre conformes : `CountRows(Filter(Controles, Statut.Value = "Conforme"))`
-  - Nombre non conformes : `CountRows(Filter(Controles, Statut.Value = "Non conforme"))`
-  - Contrôles arrivant à échéance (30 jours) : `CountRows(Filter(Controles, DateProchainControle <= Today() + gSeuilJours && DateProchainControle >= Today()))`
-  - Contrôles expirés : `CountRows(Filter(Controles, DateProchainControle < Today()))`
-- **Boutons de navigation** (icônes Fluent UI) :
-  - "Voir la liste" → `Navigate(scrListe)`
-  - "Tableau de bord" → `Navigate(scrTableauDeBord)`
-  - "Nouveau contrôle" (visible si `gEstControleur`) → `Navigate(scrModification, ScreenTransition.Fade, {modeCreation: true})`
+5 cartes de statistiques :
+- Nombre d'équipements suivis : `CountRows(colMateriels)`
+- Conformes : `CountRows(Filter(Controles, Statut.Value = "Conforme"))`
+- Non conformes : `CountRows(Filter(Controles, Statut.Value = "Non conforme"))`
+- À échéance sous 30 jours : `CountRows(Filter(Controles, DateProchainControle <= Today() + gSeuilJours && DateProchainControle >= Today()))`
+- Expirés : `CountRows(Filter(Controles, DateProchainControle < Today()))`
 
-**Couleurs** : fond `RGBA(243,242,241,1)` (gris Fluent clair), cartes blanches, coin arrondi 8, ombre légère (`DropShadow` = Light), icônes colorées selon le même code que le HTML (vert/orange/rouge/gris).
+Boutons : "Voir la liste" → `Navigate(scrListe)` ; "Tableau de bord" → `Navigate(scrTableauDeBord)` ; "Nouveau contrôle" (si `gEstControleur`) → `Navigate(scrModification, ScreenTransition.Fade, {modeCreation: true})`.
 
 ## 2.4 Écran Liste (`scrListe`)
 
-**Composants :**
-- `txtRecherche` (Text input) — recherche instantanée
-- 4 `Dropdown`/`ComboBox` de filtre : `ddCategorie`, `ddConformite`, `ddControleur`, `ddStatut`
-- 2 `DatePicker` : `dpDateDebut`, `dpDateFin`
-- `galListe` (Gallery, mise en page verticale) liée à la formule de filtrage combinée (voir docs/03)
-- Icône de statut + pastille couleur en tête de chaque carte de la galerie
-- Bouton flottant "+" (visible si `gEstControleur`) → `Navigate(scrModification)`
-
-**Tri** : bouton bascule croissant/décroissant sur la date de contrôle, piloté par une variable `varTriOrdre` (`SortOrder.Ascending`/`Descending`) combinée à `varTriColonne`.
-
-**Chaque carte de la galerie affiche** : nom du matériel, n° d'inventaire, catégorie (icône dédiée par catégorie), pastille de statut colorée, date du prochain contrôle, contrôleur.
+- `txtRecherche`, 4 filtres (`ddCategorie`, `ddConformite`, `ddControleur`, `ddStatut`), 2 `DatePicker` (plage de dates de contrôle).
+- `galListe` : chaque carte affiche nom du matériel, N° série, catégorie (icône dédiée), pastille de statut colorée, date du prochain contrôle, contrôleur.
+- Bouton flottant "+" (si `gEstControleur`) → `Navigate(scrModification)`.
 
 ## 2.5 Écran Détail (`scrDetail`)
 
 Ouvert avec `Navigate(scrDetail, ScreenTransition.Cover, {materielSelectionne: ThisItem})`.
 
-**Composants :**
-- Image du matériel (`Image` control, `Materiels[@Photo]`)
-- En-tête : nom, n° d'inventaire, catégorie, badge de statut coloré
-- Section "Informations" : localisation, date de mise en service, périodicité, responsable
-- **Galerie "Historique des contrôles"** : `SortByColumns(Filter(Controles, Materiel.Id = varMaterielSelectionne.Id), "DateControle", Descending)` — chaque ligne affiche date, contrôleur, conformité (icône ✓/✗), statut
-- Clic sur une ligne d'historique → affiche Observations / Actions correctives / Commentaires dans un panneau extensible (`Visible: varLigneEtendue = ThisItem.ID`)
-- Bouton "Nouveau contrôle sur ce matériel" → `Navigate(scrModification, ScreenTransition.Fade, {materielCible: varMaterielSelectionne, modeCreation: true})`
-- Bouton "Modifier le dernier contrôle" (visible si `gEstControleur`) → mode édition
+- Photo, nom, N° série, catégorie, référence, badge de statut.
+- Informations : localisation/responsable, état, périodicité.
+- **Galerie "Historique des contrôles"** : `SortByColumns(Filter(Controles, Materiel.Id = varMaterielSelectionne.Id), "DateControle", Descending)`.
+- Clic sur un contrôle de l'historique → **sous-galerie des points de contrôle** de cet événement :
+  ```powerapps
+  Filter(ResultatsPointsControle, Controle.Id = varControleSelectionne.Id)
+  ```
+  affichant pour chaque point : libellé (`PointControle.Title`), icône Effectué/non effectué, `Rapport`, `Statut` coloré.
+- Bouton "Nouveau contrôle sur ce matériel" → `Navigate(scrModification, ScreenTransition.Fade, {materielCible: varMaterielSelectionne, modeCreation: true})`.
 
-## 2.6 Écran Modification (`scrModification`)
+## 2.6 Écran Modification — en-tête du contrôle (`scrModification`)
 
-**Composants :**
-- `Form1` (Edit form) source `Controles`, `DefaultMode` = `New` ou `Edit` selon le paramètre `modeCreation`
-- Champs de saisie : matériel concerné (verrouillé si venant de `scrDetail`), date du contrôle (`DatePicker`, défaut `Today()`), contrôleur (`ComboBox` sur `Office365Users.SearchUser()` ou choix parmi `colControleurs`), conformité (`Toggle` Oui/Non), observations/actions correctives/commentaires (`Text input` multiligne)
-- `AddMediaButton` ou `Camera` control pour l'ajout de photos → stocké dans la colonne `PhotosControle`
-- Contrôle **Pen Input** (signature) → au clic sur "Valider", conversion en image et sauvegarde dans `Signature` (`PenInput1.Image`, encodée puis stockée, ou pièce jointe dédiée)
-- Boutons : "Enregistrer" (`SubmitForm(Form1)`), "Annuler" (`Back()`), "Supprimer" (visible uniquement si `gEstControleur` **et** l'utilisateur est l'auteur ou un administrateur) → `Remove(Controles, ThisItem)` avec confirmation (`Confirm` popup)
+- `Form1` (Edit form) source `Controles` : matériel concerné (verrouillé si venant de `scrDetail`), date du contrôle (défaut `Today()`), contrôleur, observations/actions correctives/commentaires.
+- `AddMediaButton`/`Camera` pour les photos.
+- Contrôle **Pen Input** pour la signature.
+- Bouton "Continuer vers les points de contrôle" — **crée l'en-tête ET génère les lignes de détail** :
 
-**Validation avant enregistrement :**
 ```powerapps
+// OnSelect du bouton "Continuer"
 If(
     IsBlank(drpMateriel.Selected) || IsBlank(dpDateControle.SelectedDate),
     Notify("Veuillez renseigner le matériel et la date du contrôle.", NotificationType.Warning),
-    SubmitForm(Form1)
+    (
+        Set(
+            varControleCree,
+            Patch(
+                Controles,
+                Defaults(Controles),
+                {
+                    Materiel: drpMateriel.Selected,
+                    DateControle: dpDateControle.SelectedDate,
+                    DateProchainControle: DateAdd(dpDateControle.SelectedDate, drpMateriel.Selected.PeriodiciteMois, TimeUnit.Months),
+                    Controleur: gUtilisateur,
+                    Observations: txtObservations.Text,
+                    ActionsCorrectives: txtActionsCorrectives.Text,
+                    Commentaires: txtCommentaires.Text
+                }
+            )
+        );
+        // Génère une ligne ResultatsPointsControle par point défini pour la catégorie du matériel
+        ForAll(
+            Filter(colTypesPointControle, Categorie.Value = drpMateriel.Selected.Categorie.Value),
+            Patch(
+                ResultatsPointsControle,
+                Defaults(ResultatsPointsControle),
+                {
+                    Controle: varControleCree,
+                    PointControle: ThisRecord,
+                    Effectue: false,
+                    Rapport: {Value: "Non validé"},
+                    Statut: {Value: "Non conforme"}
+                }
+            )
+        );
+        Navigate(scrPointsControle, ScreenTransition.Fade, {controleCourant: varControleCree})
+    )
 )
 ```
 
-## 2.7 Tableau de bord (`scrTableauDeBord`)
+## 2.7 Écran Points de contrôle (`scrPointsControle`) — nouveau
 
-**Composants :**
-- **Jauge de conformité globale** (`Gauge` control ou anneau construit avec 2 arcs) : `CountRows(Filter(Controles, Conforme=true)) / CountRows(Controles)`
-- **Graphique en secteurs** (Répartition des statuts) : `PieChart`/`Column chart` alimenté par une collection agrégée :
-  ```powerapps
-  ClearCollect(
-      colRepartitionStatuts,
-      {Statut: "Conforme", Nombre: CountRows(Filter(Controles, Statut.Value="Conforme")), Couleur: gColorOk},
-      {Statut: "À vérifier prochainement", Nombre: CountRows(Filter(Controles, Statut.Value="À vérifier prochainement")), Couleur: gColorWarn},
-      {Statut: "Non conforme", Nombre: CountRows(Filter(Controles, Statut.Value="Non conforme")), Couleur: gColorDanger},
-      {Statut: "Hors service", Nombre: CountRows(Filter(Controles, Statut.Value="Hors service")), Couleur: gColorNeutral}
-  )
-  ```
-- **Graphique en courbes/colonnes** (Contrôles par mois, tendance) : agrégation par `Text(DateControle, "[$-fr-FR]mmm yyyy")`
-- Liste des **contrôles expirés** et **contrôles à venir sous 30 jours** (deux galeries compactes avec lien direct vers `scrDetail`)
+- Galerie `galPoints` : `Items = Filter(ResultatsPointsControle, Controle.Id = varControleCourant.Id)`, triée par `PointControle.Ordre`.
+- Chaque ligne : libellé du point, `Toggle` "Effectué", `ComboBox` "Rapport" (Validé/Non validé/Sans objet), `ComboBox` "Statut" (Conforme/Non conforme), champ observation optionnel.
+- Bouton "Valider le contrôle" :
+```powerapps
+// Met à jour Conforme et Statut de l'en-tête à partir du détail des points
+UpdateIf(
+    Controles,
+    ID = varControleCourant.ID,
+    {
+        Conforme: CountRows(Filter(ResultatsPointsControle, Controle.Id = varControleCourant.Id, Statut.Value = "Non conforme")) = 0
+    }
+);
+Notify("Contrôle enregistré.", NotificationType.Success);
+Navigate(scrDetail, ScreenTransition.Fade, {materielSelectionne: drpMateriel.Selected})
+```
+(Le champ `Statut` global de `Controles` — Conforme/À vérifier prochainement/Non conforme/Hors service — est ensuite recalculé et écrit par le flux Power Automate quotidien, voir docs/04, pour éviter le problème des colonnes calculées `[Today]` figées constaté sur `VALIDITE`.)
 
-## 2.8 Charte graphique (Fluent Design)
+## 2.8 Tableau de bord (`scrTableauDeBord`)
 
-| Élément | Valeur |
-|---|---|
-| Police | Segoe UI (police par défaut Power Apps) |
-| Couleur primaire | `#0078D4` |
-| Conforme | `#107C10` sur fond `#DFF6DD` |
-| À vérifier prochainement | `#CA5010` sur fond `#FDF0D5` |
-| Non conforme | `#D13438` sur fond `#FDE7E9` |
-| Hors service | `#605E5C` sur fond `#EDEBE9` |
-| Rayon des coins | 8 px |
-| Icônes | Bibliothèque **Fluent UI System Icons** intégrée aux contrôles `Icon` de Power Apps (`Icon.CheckBadge`, `Icon.Warning`, `Icon.Cancel`, `Icon.Blocked2`, `Icon.Filter`, `Icon.Search`, `Icon.Camera`, `Icon.Signature` si disponible sinon `Icon.Edit`) |
+- Jauge de conformité globale : `CountRows(Filter(Controles, Conforme=true)) / CountRows(Controles)`.
+- Graphique de répartition des statuts (Conforme / À vérifier prochainement / Non conforme / Hors service), alimenté par une collection agrégée comme en v1.
+- Répartition par catégorie d'équipement (Perche, LED, VAT, Drapeau, Signal…) : utile pour identifier les catégories les plus problématiques.
+- Listes compactes "Contrôles expirés" et "à échéance sous 30 jours" avec lien direct vers `scrDetail`.
+
+## 2.9 Charte graphique (Fluent Design)
+
+Identique à la version précédente : police Segoe UI, couleur primaire `#0078D4`, code couleur Conforme `#107C10`/Warn `#CA5010`/Danger `#D13438`/Neutre `#605E5C`, rayon de coin 8px, icônes Fluent UI System Icons.

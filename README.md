@@ -1,6 +1,8 @@
 # Registre des Vérifications de Matériel
 
-Solution complète de gestion des vérifications de matériel : liste SharePoint, application Power Apps, automatisations Power Automate et interface web de consultation.
+Solution complète de gestion des vérifications de matériel de sécurité caténaire ferroviaire (perches isolantes, LED de signalisation, VAT, drapeaux, signaux d'arrêt à main) : listes SharePoint, application Power Apps, automatisations Power Automate et interface web de consultation.
+
+Le modèle de données (`docs/01`) a été conçu à partir de l'analyse réelle des listes existantes (`VALIDITE`, `Source Application Dashboard Caténaire`, et les listes créées par équipement comme `LECBV2-2411-01154`), pour supprimer la pratique d'une liste SharePoint par équipement et fiabiliser le calcul des statuts.
 
 ## Contenu du dépôt
 
