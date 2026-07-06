@@ -1,7 +1,7 @@
 /**
- * data.js — Jeu de données de DÉMONSTRATION, utilisé uniquement quand la page
- * n'est pas ouverte depuis le site SharePoint (voir js/sharepoint.js
- * `estDisponible()`). Reproduit la même forme que les données réelles
+ * data.js — Jeu de données de DÉMONSTRATION, utilisé par défaut avant que
+ * l'utilisateur ne clique sur "Se connecter avec Google" (voir
+ * js/google-sheets.js). Reproduit la même forme que les données réelles
  * ({ materiels, typesPointControle, controles }) pour que js/app.js n'ait
  * aucune différence de traitement entre démo et données réelles.
  */
@@ -114,7 +114,7 @@ function genererPointsDemo(categorie, conforme, libelleNonConforme, typesPointCo
  * Power Automate quotidien (docs/04, flux 4.2) et côté Power Apps par une
  * formule Switch() (docs/03), pour un rendu identique partout.
  */
-function calculerStatut(item, seuilJours = SHAREPOINT_CONFIG.seuilJours) {
+function calculerStatut(item, seuilJours = GOOGLE_CONFIG.seuilJours) {
   if (item.etat === "Hors service") return "hs";
   if (!item.conforme) return "nonconforme";
 

@@ -2,7 +2,8 @@
  * app.js — Logique de l'interface du registre de vérifications.
  * Accueil à vignettes par catégorie, vue catégorie, tableau général,
  * fiche matériel avec historique, écran de contrôle avec écriture
- * SharePoint réelle (ou simulation locale en mode démonstration).
+ * Google Sheets réelle après connexion (ou simulation locale en mode
+ * démonstration, actif par défaut avant connexion).
  */
 
 (function () {
@@ -40,9 +41,7 @@
   async function demarrer() {
     cacherElements();
     lierEvenements();
-    afficherChargement(true);
-    await chargerDonnees();
-    afficherChargement(false);
+    chargerDemo();
     peuplerFiltresTableau();
     afficherVue("accueil");
   }
@@ -74,6 +73,7 @@
       btnReset: document.getElementById("btnResetFilters"),
       btnExport: document.getElementById("btnExport"),
       btnTheme: document.getElementById("btnTheme"),
+      btnGoogleConnect: document.getElementById("btnGoogleConnect"),
       table: document.getElementById("dataTable"),
       modalOverlay: document.getElementById("modalOverlay"),
       modalTitle: document.getElementById("modalTitle"),
@@ -94,34 +94,43 @@
     });
   }
 
-  // -- Chargement des données (SharePoint réel, ou démonstration) -----------
-  async function chargerDonnees() {
-    if (window.SharePointAPI && SharePointAPI.estDisponible()) {
-      try {
-        const [donnees, utilisateur] = await Promise.all([
-          SharePointAPI.chargerDonnees(),
-          SharePointAPI.utilisateurCourant(),
-        ]);
-        Object.assign(state, donnees);
-        state.modeDemo = false;
-        state.utilisateur = utilisateur;
-        els.headerSubtitle.textContent = "Connecté à SharePoint — données en direct";
-        return;
-      } catch (e) {
-        console.error(e);
-        afficherBanniere(
-          "⚠️ Connexion à SharePoint impossible (" + e.message.split("\n")[0] + "). Mode démonstration activé.",
-          "warn"
-        );
-      }
-    }
+  // -- Chargement des données (démonstration par défaut, Google Sheets après connexion) --
+  function chargerDemo() {
     const demo = construireJeuDeDemonstration();
     Object.assign(state, demo);
     state.modeDemo = true;
     state.utilisateur = { id: null, nom: "Utilisateur de démonstration", email: "" };
-    els.headerSubtitle.textContent = "Mode démonstration — ouvrez cette page depuis votre site SharePoint pour les données réelles";
-    if (!els.bannerEtat.hidden) return;
-    afficherBanniere("ℹ️ Mode démonstration — données d'exemple, aucune écriture réelle dans SharePoint.", "info");
+    els.headerSubtitle.textContent = "Mode démonstration — cliquez sur \"Se connecter avec Google\" pour vos données réelles";
+    afficherBanniere("ℹ️ Mode démonstration — données d'exemple, aucune écriture réelle. Connectez-vous à Google pour vos vraies données.", "info");
+  }
+
+  async function connecterGoogle() {
+    if (GOOGLE_CONFIG.spreadsheetId === "COLLEZ_ICI_L_ID_DE_VOTRE_CLASSEUR") {
+      afficherBanniere("⚠️ Configuration incomplète : ajoutez l'ID de votre classeur dans js/google-config.js.", "warn");
+      return;
+    }
+    els.btnGoogleConnect.disabled = true;
+    els.btnGoogleConnect.textContent = "Connexion…";
+    try {
+      await GoogleSheetsAPI.connecter();
+      const [donnees, utilisateur] = await Promise.all([
+        GoogleSheetsAPI.chargerDonnees(),
+        GoogleSheetsAPI.utilisateurCourant(),
+      ]);
+      Object.assign(state, donnees);
+      state.modeDemo = false;
+      state.utilisateur = utilisateur;
+      els.headerSubtitle.textContent = `Connecté à Google Sheets — ${utilisateur.nom}`;
+      els.btnGoogleConnect.textContent = "✅ Connecté";
+      afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
+      peuplerFiltresTableau();
+      afficherVue("accueil");
+    } catch (e) {
+      console.error(e);
+      els.btnGoogleConnect.disabled = false;
+      els.btnGoogleConnect.textContent = "🔑 Se connecter avec Google";
+      afficherBanniere("⚠️ Connexion à Google impossible : " + e.message.split("\n")[0], "warn");
+    }
   }
 
   function afficherBanniere(texte, type) {
@@ -176,6 +185,7 @@
     });
     els.btnExport.addEventListener("click", exporterCsv);
     els.btnTheme.addEventListener("click", toggleTheme);
+    els.btnGoogleConnect.addEventListener("click", connecterGoogle);
     els.table.querySelectorAll("thead th[data-sort]").forEach((th) => {
       th.addEventListener("click", () => {
         const key = th.dataset.sort;
@@ -429,7 +439,7 @@
     let statut = "Conforme";
     if (materiel.etat === "Hors service") statut = "Hors service";
     else if (!conforme) statut = "Non conforme";
-    else if (joursRestants <= SHAREPOINT_CONFIG.seuilJours) statut = "À vérifier prochainement";
+    else if (joursRestants <= GOOGLE_CONFIG.seuilJours) statut = "À vérifier prochainement";
     return { conforme, statut, dateProchainControle: dateProchain };
   }
 
@@ -457,12 +467,12 @@
     try {
       let resultat;
       if (!state.modeDemo) {
-        resultat = await SharePointAPI.enregistrerControle({
-          materiel, dateControle, controleurId: state.utilisateur.id,
+        resultat = await GoogleSheetsAPI.enregistrerControle({
+          materiel, dateControle, controleurNom: state.utilisateur.nom,
           observations, actionsCorrectives, commentaires, points,
         });
       } else {
-        // Simulation locale : aucune écriture SharePoint réelle en mode démonstration.
+        // Simulation locale : aucune écriture réelle en mode démonstration.
         resultat = calculerResultatControle(materiel, dateControle, points);
         resultat.id = Math.max(0, ...state.controles.map((c) => c.id)) + 1;
         state.controles.unshift({
@@ -479,7 +489,7 @@
       const info = STATUT_LABELS[cle];
       els.controleResultat.hidden = false;
       els.controleResultat.className = "controle-resultat controle-resultat--" + cle;
-      els.controleResultat.innerHTML = `<span class="badge ${info.badge}">${info.label}</span> Contrôle enregistré${state.modeDemo ? " (simulation locale)" : " dans SharePoint"}.`;
+      els.controleResultat.innerHTML = `<span class="badge ${info.badge}">${info.label}</span> Contrôle enregistré${state.modeDemo ? " (simulation locale)" : " dans Google Sheets"}.`;
       els.btnValiderControle.textContent = "✅ Contrôle enregistré";
 
       setTimeout(() => afficherVue("categorie", { categorie: materiel.categorie }), 1400);
