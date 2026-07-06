@@ -253,11 +253,11 @@
   // -- Export CSV -------------------------------------------------------------
   function exportCsv() {
     const rows = getFilteredData();
-    const headers = ["Matériel", "N° inventaire", "Catégorie", "Date contrôle", "Prochain contrôle",
+    const headers = ["Matériel", "N° série", "Référence", "Catégorie", "Date contrôle", "Prochain contrôle",
       "Contrôleur", "État", "Conforme", "Observations", "Actions correctives", "Commentaires"];
 
     const lines = rows.map((item) => [
-      item.materiel, item.numInventaire, item.categorie, item.dateControle, item.dateProchainControle,
+      item.materiel, item.numSerie, item.reference, item.categorie, item.dateControle, item.dateProchainControle,
       item.controleur, item.etat, item.conforme ? "Oui" : "Non",
       item.observations, item.actionsCorrectives, item.commentaires,
     ].map(csvEscape).join(";"));
