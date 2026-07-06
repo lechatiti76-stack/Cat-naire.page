@@ -44,11 +44,32 @@
 4. Activer les flux (**Activé** en haut de l'éditeur) et vérifier dans **Historique des exécutions** après quelques jours d'utilisation réelle.
 5. Pour le flux de génération PDF (§4.6), vérifier la disponibilité d'un connecteur de conversion PDF dans votre licence Microsoft 365/Power Automate (certains connecteurs premium nécessitent un plan Power Automate dédié).
 
-## 5.6 Mettre en ligne l'interface HTML de consultation
+## 5.6 Mettre en ligne l'interface HTML (avec écriture SharePoint réelle)
 
-Le dossier fourni (`index.html`, `css/`, `js/`) est autonome et peut être :
-- déposé dans une **bibliothèque SharePoint** puis ouvert via un lien direct (pratique pour une consultation rapide sans licence Power Apps) ;
-- publié sur un **hébergement statique** (GitHub Pages, Azure Static Web Apps) — c'est la configuration de ce dépôt ;
-- intégré dans une **page moderne SharePoint** via une Web Part "Intégrer" (Embed) pointant vers l'URL hébergée.
+L'interface (`index.html`, `css/`, `js/`) inclut `js/sharepoint.js`, qui lit et **écrit réellement** dans les 4 listes SharePoint via l'API REST — mais uniquement si la page est ouverte depuis le site SharePoint lui-même (authentification par cookie de session de l'utilisateur connecté). Ouverte ailleurs (aperçu local, GitHub Pages...), l'application bascule automatiquement en mode démonstration.
 
-Pour connecter les données réelles (au lieu du jeu de démonstration `js/data.js`), remplacer l'appel dans `js/data.js` par un appel à l'API REST SharePoint ou Microsoft Graph, comme documenté en commentaire en tête de ce fichier — cela nécessite que la page soit servie depuis le même site SharePoint (ou un domaine autorisé en CORS) et que l'utilisateur soit authentifié.
+### Étapes pour héberger la page sur `lhte76.sharepoint.com`
+
+1. **Récupérer les fichiers** : depuis GitHub, ouvrir la branche `claude/equipment-verification-solution-l7y0rh` du dépôt → bouton **Code → Download ZIP** → extraire sur votre poste. Vous devez obtenir `index.html`, le dossier `css/` et le dossier `js/`.
+2. **Créer une bibliothèque dédiée** sur le site : **Contenu du site → Nouveau → Bibliothèque de documents**, nommez-la par exemple `RegistreVerifications`.
+3. **Glisser-déposer** dans cette bibliothèque : le fichier `index.html` à la racine, puis le dossier `css` et le dossier `js` complets (le glisser-déposer d'un dossier dans une bibliothèque moderne SharePoint conserve l'arborescence automatiquement — pas besoin de recréer les sous-dossiers à la main).
+4. **Ouvrir `index.html`** : cliquez dessus dans la bibliothèque. Si SharePoint affiche un avertissement de sécurité avant ouverture, validez — c'est normal pour un fichier `.html`. Copiez ensuite l'URL de la page ouverte et ajoutez-la en favori, ou ajoutez un lien vers elle sur la page d'accueil du site (**Modifier la page → Ajouter une section → Web Part "Lien"**).
+5. **Vérifier la connexion** : le bandeau sous l'en-tête doit indiquer *« Connecté à SharePoint — données en direct »*. S'il affiche à la place *« Mode démonstration »* ou un message d'erreur, voir le dépannage ci-dessous.
+
+### Si la page ne s'exécute pas (avertissement de script bloqué)
+
+Certains sites SharePoint Online ont l'option **« Empêcher l'exécution de script personnalisé »** activée par défaut (paramètre de sécurité anti-XSS), ce qui peut empêcher le JavaScript de la page de s'exécuter correctement lorsqu'elle est ouverte directement depuis une bibliothèque. Si c'est le cas :
+- Un **administrateur SharePoint** peut lever cette restriction pour ce site précis via SharePoint Online Management Shell :
+  ```powershell
+  Connect-SPOService -Url https://lhte76-admin.sharepoint.com
+  Set-SPOSite -Identity https://lhte76.sharepoint.com -DenyAddAndCustomizePages 0
+  ```
+- Si vous n'avez pas ces droits, contactez votre administrateur Microsoft 365/SharePoint en lui indiquant ce paramètre.
+
+### Sécurité d'accès
+
+La page hérite des **permissions de la bibliothèque** `RegistreVerifications` : donnez l'accès en lecture/écriture aux contrôleurs habilités à créer des contrôles (mêmes personnes que celles ayant "Contribuer" sur les listes `Controles`/`ResultatsPointsControle`, voir §5.1.9), et en lecture seule aux autres.
+
+### Alternative sans écriture réelle
+
+Si vous préférez d'abord valider l'ergonomie sans toucher aux listes réelles, la page fonctionne aussi telle quelle sur un **hébergement statique** (GitHub Pages, Azure Static Web Apps — c'est la configuration actuelle de ce dépôt) : le mode démonstration s'active automatiquement, avec simulation locale du bouton "Valider le contrôle".
