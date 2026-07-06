@@ -8,7 +8,9 @@ Le modèle de données (`docs/01`) a été conçu à partir de l'analyse réelle
 
 | Élément | Emplacement |
 |---|---|
-| Interface web de consultation (HTML/CSS/JS, autonome) | [`index.html`](index.html), [`css/styles.css`](css/styles.css), [`js/app.js`](js/app.js), [`js/data.js`](js/data.js) |
+| Interface web (accueil à vignettes, catégories, tableau général, saisie de contrôle) | [`index.html`](index.html), [`css/styles.css`](css/styles.css), [`js/app.js`](js/app.js) |
+| Jeu de données de démonstration (mode hors SharePoint) | [`js/data.js`](js/data.js) |
+| Connexion SharePoint réelle (lecture des 4 listes + écriture d'un contrôle) | [`js/sharepoint.js`](js/sharepoint.js), [`js/sharepoint-config.js`](js/sharepoint-config.js) |
 | Analyse & schéma final des listes SharePoint | [`docs/01-analyse-et-structure-sharepoint.md`](docs/01-analyse-et-structure-sharepoint.md) |
 | Conception de l'application Power Apps (écrans, navigation, composants) | [`docs/02-conception-power-apps.md`](docs/02-conception-power-apps.md) |
 | Formules Power Fx (Filter, Search, Patch, Switch…) | [`docs/03-formules-power-fx.md`](docs/03-formules-power-fx.md) |
@@ -19,17 +21,19 @@ Le modèle de données (`docs/01`) a été conçu à partir de l'analyse réelle
 
 ## Aperçu de l'interface web
 
-Ouvrir `index.html` dans un navigateur (aucune installation requise). Fonctionnalités :
+Ouvrir `index.html` dans un navigateur (aucune installation requise). Parcours :
 
-- statistiques de conformité en temps réel (total, conformes, non conformes, à vérifier prochainement, hors service, taux de conformité) ;
-- recherche instantanée + filtres (catégorie, conformité, statut, contrôleur, plage de dates) ;
-- tableau trié par colonne, code couleur 🟢🟠🔴⚪ sur chaque ligne ;
-- fiche de détail en modale (observations, actions correctives, commentaires) ;
-- export CSV des résultats affichés ;
-- thème clair/sombre ;
-- responsive (poste de travail, tablette, mobile).
+- **Accueil** : statistiques globales + une vignette par catégorie d'équipement (avec répartition de conformité) + une vignette "Tableau général".
+- **Vue catégorie** : galerie des matériels de la catégorie choisie, avec accès à l'historique et au bouton **Nouveau contrôle**.
+- **Tableau général** : recherche instantanée, filtres (catégorie, conformité, statut, contrôleur, plage de dates), tri par colonne, code couleur 🟢🟠🔴⚪, export CSV.
+- **Fiche matériel** : historique complet des contrôles (accordéon), détail des points de contrôle par événement.
+- **Écran de contrôle** : case à cocher Conforme/Non conforme par point, observations/actions correctives/commentaires, bouton **✅ Valider le contrôle**.
+- Thème clair/sombre, responsive (poste de travail, tablette, mobile).
 
-Le jeu de données (`js/data.js`) est un jeu de démonstration reproduisant exactement le schéma SharePoint final (voir `docs/01`). Pour connecter vos données réelles, voir la section correspondante dans `docs/05-guide-deploiement.md`.
+### Deux modes de fonctionnement
+
+- **Mode démonstration** (par défaut, ex. aperçu local ou hébergement hors SharePoint) : les données viennent de `js/data.js` et le bouton "Valider le contrôle" simule l'enregistrement localement (rien n'est écrit dans SharePoint).
+- **Mode connecté** (page ouverte depuis le site SharePoint lui-même, `js/sharepoint.js`) : les 4 listes (`Materiels`, `TypesPointControle`, `Controles`, `ResultatsPointsControle`) sont lues via l'API REST SharePoint, et le bouton "Valider le contrôle" **crée réellement** l'enregistrement dans `Controles` + une ligne par point dans `ResultatsPointsControle`, avec l'utilisateur SharePoint connecté comme contrôleur. Voir `js/sharepoint-config.js` pour l'URL du site et les noms de liste, et `docs/05-guide-deploiement.md` §5.6 pour l'hébergement.
 
 ## Par où commencer
 

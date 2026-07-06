@@ -122,7 +122,112 @@ html, body {
   border-color: var(--border);
 }
 .toolbar .btn--ghost:hover { background: var(--border); }
-.btn--small { padding: 7px 12px; font-size: 12.5px; align-self: flex-end; }
+.btn--small { padding: 7px 12px; font-size: 12.5px; }
+
+.btn--primary { background: var(--color-primary); color: #fff; }
+.btn--primary:hover { background: var(--color-primary-dark); }
+.btn--primary:disabled { opacity: .6; cursor: default; }
+.btn--secondary { background: var(--surface-alt); color: var(--text); border-color: var(--border); }
+.btn--secondary:hover { background: var(--border); }
+
+/* ============ BANDEAU D'ÉTAT (connexion SharePoint / mode démo) ============ */
+.banner { text-align: center; padding: 8px 16px; font-size: 12.5px; font-weight: 600; }
+.banner--info { background: #EFF6FC; color: #004578; }
+.banner--warn { background: #FDF0D5; color: #6E3B00; }
+:root[data-theme="dark"] .banner--info { background: #082338; color: #C7E0F4; }
+:root[data-theme="dark"] .banner--warn { background: #3A2718; color: #FDF0D5; }
+
+/* ============ FIL D'ARIANE ============ */
+.breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 13.5px; }
+.breadcrumb__link {
+  border: none; background: none; color: var(--color-primary); font-weight: 600;
+  font-size: 13.5px; cursor: pointer; padding: 4px 0;
+}
+.breadcrumb__link:hover { text-decoration: underline; }
+.breadcrumb__sep { color: var(--text-muted); }
+.breadcrumb__current { color: var(--text-muted); font-weight: 600; }
+
+/* ============ VIGNETTES (ACCUEIL) ============ */
+.tiles-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;
+}
+.tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; box-shadow: var(--shadow); cursor: pointer; text-align: left;
+  font-family: inherit; transition: transform .12s ease, box-shadow .12s ease;
+}
+.tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.tile--tableau { background: linear-gradient(135deg, var(--surface), var(--surface-alt)); }
+.tile__icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.tile__titre { font-size: 16px; font-weight: 700; }
+.tile__sous-titre { font-size: 12.5px; color: var(--text-muted); }
+.tile__repartition { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12.5px; margin-top: 4px; }
+.tile__repartition .dot { margin-right: 3px; }
+.tile__aucun { color: var(--text-muted); }
+
+/* ============ GALERIE DE MATÉRIELS (VUE CATÉGORIE) ============ */
+.cards-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;
+}
+.materiel-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px;
+}
+.materiel-card__entete { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.materiel-card__nom { margin: 0; font-weight: 700; font-size: 15px; }
+.materiel-card__meta { margin: 2px 0 0; font-size: 12.5px; color: var(--text-muted); }
+.materiel-card__info { margin: 0; font-size: 13px; color: var(--text-muted); }
+.materiel-card__actions { display: flex; gap: 8px; margin-top: 4px; }
+
+/* ============ ÉCRAN DE CONTRÔLE ============ */
+.controle-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 24px; max-width: 760px; margin: 0 auto;
+}
+.controle-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.controle-header h2 { margin: 0; font-size: 18px; }
+.controle-soustitre { margin: 2px 0 0; font-size: 13px; color: var(--text-muted); }
+.controle-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 8px; }
+.controle-champs--texte { grid-template-columns: 1fr; margin-top: 12px; }
+.field--full textarea {
+  width: 100%; padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-family: inherit; font-size: 13px; resize: vertical;
+}
+.controle-controleur { margin: 0; font-weight: 600; padding: 7px 0; }
+.controle-section-titre { font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); margin: 20px 0 10px; }
+
+.controle-points-liste { display: flex; flex-direction: column; gap: 8px; }
+.controle-point {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-alt);
+}
+.controle-point__libelle { font-size: 13.5px; }
+.controle-point__toggle { display: flex; gap: 6px; flex-shrink: 0; }
+.toggle-btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+  padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.toggle-btn--ok.is-active { background: var(--color-ok-bg); color: var(--color-ok); border-color: var(--color-ok); }
+.toggle-btn--danger.is-active { background: var(--color-danger-bg); color: var(--color-danger); border-color: var(--color-danger); }
+
+.controle-resultat {
+  margin-top: 16px; padding: 12px 14px; border-radius: 6px; font-size: 13.5px;
+  display: flex; align-items: center; gap: 10px; background: var(--surface-alt);
+}
+.controle-resultat[hidden] { display: none; }
+.controle-resultat--erreur { background: var(--color-danger-bg); color: var(--color-danger); }
+
+.controle-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+/* ============ HISTORIQUE (dans la fiche matériel) ============ */
+.historique-ligne { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+.historique-ligne__entete {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 9px 12px; background: var(--surface-alt); cursor: pointer; font-size: 13px;
+}
+.historique-ligne__detail { padding: 10px 12px; font-size: 13px; }
+.historique-ligne__detail p { margin: 0 0 6px; }
 
 /* ============ CONTENU PRINCIPAL ============ */
 .app-main { padding: 24px 28px 40px; max-width: 1600px; margin: 0 auto; }
