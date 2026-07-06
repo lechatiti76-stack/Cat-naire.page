@@ -10,8 +10,8 @@ const GOOGLE_CONFIG = {
   // Identifiant OAuth créé dans Google Cloud Console (type "Application Web")
   clientId: "114999137274-ennjft19eqj2abtb4nlril7kc2bdi16e.apps.googleusercontent.com",
 
-  // À compléter : identifiant du classeur Google Sheets (voir docs/08)
-  spreadsheetId: "COLLEZ_ICI_L_ID_DE_VOTRE_CLASSEUR",
+  // Identifiant du classeur Google Sheets (voir docs/08)
+  spreadsheetId: "1WkMoTAVbprOkWfU77djyDx2GMIdtHMZPDRQmly41gGU",
 
   // Noms EXACTS des 4 onglets du classeur
   feuilles: {
