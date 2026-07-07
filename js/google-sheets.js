@@ -243,6 +243,12 @@ const GoogleSheetsAPI = (() => {
     return trouve ? trouve.role : ROLE_PAR_DEFAUT;
   }
 
+  /** Retrouve la ligne Utilisateurs d'un e-mail (pour afficher le nom déclaré, ex. "PATON ROMUALD", plutôt que le nom du compte Google). */
+  function trouverUtilisateur(email, utilisateurs) {
+    if (!email || !utilisateurs) return null;
+    return utilisateurs.find((u) => u.email === email.trim().toLowerCase()) || null;
+  }
+
   async function ajouterLigne(feuille, valeurs) {
     return ajouterLignes(feuille, [valeurs]);
   }
@@ -291,5 +297,5 @@ const GoogleSheetsAPI = (() => {
     return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain };
   }
 
-  return { connecter, estConnecte, deconnecter, utilisateurCourant, chargerDonnees, enregistrerControle, determinerRole };
+  return { connecter, estConnecte, deconnecter, utilisateurCourant, chargerDonnees, enregistrerControle, determinerRole, trouverUtilisateur };
 })();

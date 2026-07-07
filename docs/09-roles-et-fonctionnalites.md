@@ -12,11 +12,17 @@ julien.marchand@example.com    | Julien Marchand  | Contrôleur
 amandine.roy@example.com       | Amandine Roy     | Administrateur
 ```
 
-- **Rôles reconnus** : `Administrateur`, `Contrôleur`, `Utilisateur`.
-- **Administrateur** et **Contrôleur** : peuvent créer/valider des contrôles (boutons "🆕 Nouveau contrôle" et "✅ Valider le contrôle" visibles).
-- **Utilisateur** : consultation seule, ces boutons sont masqués.
+- **Rôles reconnus** : `Administrateur`, `Contrôleur`, `Utilisateur`. Chaque rôle combine deux droits (`js/google-config.js`, `ROLES_CONFIG`) :
+
+  | Rôle | Peut créer/valider un contrôle | Accès Tableau général / Calendrier / Ressources / Historique / Export PDF |
+  |---|---|---|
+  | **Administrateur** | Oui | Oui — accès à tout |
+  | **Contrôleur** | Oui | **Non** — voit uniquement les vignettes de catégorie et le bouton "Nouveau contrôle" |
+  | **Utilisateur** | Non (boutons masqués) | Oui — consultation complète, sans pouvoir créer de contrôle |
+
+- Le nom affiché dans l'application (contrôleur présélectionné, en-tête) est celui de la colonne **`Nom`** de l'onglet `Utilisateurs` (ex. "PATON ROMUALD"), pas le nom du compte Google — pratique si le nom du compte Google diffère du nom d'usage.
 - Si l'onglet `Utilisateurs` est **absent ou vide**, ou si l'adresse e-mail de la personne connectée n'y figure pas, elle est traitée comme **Contrôleur** par défaut (pour ne pas bloquer l'usage tant que la liste n'est pas complétée). Ajustable dans `js/google-config.js` (`ROLE_PAR_DEFAUT`).
-- Le rôle est affiché dans un badge en haut à droite de la page une fois connecté.
+- Le rôle est affiché dans un badge en haut à droite de la page une fois connecté. Toute tentative d'atteindre une section non autorisée (ex. URL directe, ancien signet) affiche un message d'avertissement et renvoie à l'accueil.
 
 **⚠️ Important — ceci n'est PAS une sécurité réelle** : c'est un confort d'affichage côté navigateur (masquer des boutons). Un utilisateur techniquement averti pourrait contourner ces masquages puisque tout le code s'exécute dans son propre navigateur. La vraie sécurité reste le **partage du classeur Google Sheets** : seules les personnes ayant un accès **Éditeur** peuvent réellement écrire des données, quel que soit ce que montre l'interface. Pour restreindre réellement l'écriture, gérez les accès du classeur (Partager → Éditeur / Lecteur) en cohérence avec les rôles déclarés dans l'onglet `Utilisateurs`.
 

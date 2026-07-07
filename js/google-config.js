@@ -41,9 +41,13 @@ const GOOGLE_CONFIG = {
 // uniquement — la vraie sécurité reste le partage du classeur Google Sheets,
 // voir docs/09-roles-et-fonctionnalites.md).
 const ROLES_CONFIG = {
-  Administrateur: { peutControler: true, peutGererUtilisateurs: true },
-  "Contrôleur":   { peutControler: true, peutGererUtilisateurs: false },
-  Utilisateur:    { peutControler: false, peutGererUtilisateurs: false },
+  // peutControler : peut créer/valider un contrôle.
+  // peutVoirTout  : accès au Tableau général, Calendrier, Ressources, historique/fiche
+  //                 matériel et export PDF. Sans ce droit, seuls l'accueil (vignettes de
+  //                 catégorie) et l'écran "Nouveau contrôle" restent accessibles.
+  Administrateur: { peutControler: true,  peutVoirTout: true },
+  "Contrôleur":   { peutControler: true,  peutVoirTout: false },
+  Utilisateur:    { peutControler: false, peutVoirTout: true },
 };
 const ROLE_PAR_DEFAUT = "Contrôleur";
 

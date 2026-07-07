@@ -42,6 +42,9 @@
   function peutControler() {
     return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutControler;
   }
+  function peutVoirTout() {
+    return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutVoirTout;
+  }
 
   const els = {};
 
@@ -149,7 +152,11 @@
       state.utilisateur = utilisateur;
       state.role = GoogleSheetsAPI.determinerRole(utilisateur.email, donnees.utilisateurs);
       state.controleurs = donnees.utilisateurs.filter((u) => (ROLES_CONFIG[u.role] || {}).peutControler);
-      els.headerSubtitle.textContent = `Connecté à Google Sheets — ${utilisateur.nom}`;
+      // Utilise le nom déclaré dans l'onglet Utilisateurs (ex. "PATON ROMUALD") plutôt
+      // que le nom du compte Google, s'il est renseigné.
+      const ligneUtilisateur = GoogleSheetsAPI.trouverUtilisateur(utilisateur.email, donnees.utilisateurs);
+      if (ligneUtilisateur && ligneUtilisateur.nom) state.utilisateur.nom = ligneUtilisateur.nom;
+      els.headerSubtitle.textContent = `Connecté à Google Sheets — ${state.utilisateur.nom}`;
       els.btnGoogleConnect.textContent = "✅ Connecté";
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
       afficherRoleBadge();
@@ -174,7 +181,13 @@
   }
 
   // -- Navigation entre vues --------------------------------------------------
+  const VUES_RESTREINTES = ["tableau", "calendrier", "ressources"];
+
   function afficherVue(vue, options = {}) {
+    if (VUES_RESTREINTES.includes(vue) && !peutVoirTout()) {
+      afficherBanniere("⛔ Votre rôle (" + state.role + ") n'a pas accès à cette section.", "warn");
+      vue = "accueil";
+    }
     state.vue = vue;
     els.viewAccueil.hidden = vue !== "accueil";
     els.viewCategorie.hidden = vue !== "categorie";
@@ -287,50 +300,52 @@
     const categories = CATEGORIES_CONFIG.filter((c) => state.materiels.some((m) => m.categorie === c.nom));
     els.tilesGrid.innerHTML = "";
 
-    // Vignette "Tableau général"
-    const tuileTableau = document.createElement("button");
-    tuileTableau.type = "button";
-    tuileTableau.className = "tile tile--tableau";
-    tuileTableau.innerHTML = `
-      <span class="tile__icon" style="background:#EFF6FC;color:var(--color-primary)">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h16v16H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M10 4v16" stroke="currentColor" stroke-width="2"/></svg>
-      </span>
-      <span class="tile__titre">Tableau général</span>
-      <span class="tile__sous-titre">${state.controles.length} contrôle${state.controles.length > 1 ? "s" : ""} enregistré${state.controles.length > 1 ? "s" : ""}</span>
-    `;
-    tuileTableau.addEventListener("click", () => afficherVue("tableau"));
-    els.tilesGrid.appendChild(tuileTableau);
+    if (peutVoirTout()) {
+      // Vignette "Tableau général"
+      const tuileTableau = document.createElement("button");
+      tuileTableau.type = "button";
+      tuileTableau.className = "tile tile--tableau";
+      tuileTableau.innerHTML = `
+        <span class="tile__icon" style="background:#EFF6FC;color:var(--color-primary)">
+          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h16v16H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M10 4v16" stroke="currentColor" stroke-width="2"/></svg>
+        </span>
+        <span class="tile__titre">Tableau général</span>
+        <span class="tile__sous-titre">${state.controles.length} contrôle${state.controles.length > 1 ? "s" : ""} enregistré${state.controles.length > 1 ? "s" : ""}</span>
+      `;
+      tuileTableau.addEventListener("click", () => afficherVue("tableau"));
+      els.tilesGrid.appendChild(tuileTableau);
 
-    // Vignette "Calendrier"
-    const echeancesProches = state.materiels
-      .map((m) => dernierControle(m.id))
-      .filter((c) => c && new Date(c.dateProchainControle) >= new Date() && new Date(c.dateProchainControle) <= new Date(Date.now() + 30 * 86400000));
-    const tuileCalendrier = document.createElement("button");
-    tuileCalendrier.type = "button";
-    tuileCalendrier.className = "tile";
-    tuileCalendrier.innerHTML = `
-      <span class="tile__icon" style="background:#FDF0D5;color:var(--color-warn)">
-        <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </span>
-      <span class="tile__titre">Calendrier</span>
-      <span class="tile__sous-titre">${echeancesProches.length} contrôle${echeancesProches.length > 1 ? "s" : ""} sous 30 jours</span>
-    `;
-    tuileCalendrier.addEventListener("click", () => afficherVue("calendrier"));
-    els.tilesGrid.appendChild(tuileCalendrier);
+      // Vignette "Calendrier"
+      const echeancesProches = state.materiels
+        .map((m) => dernierControle(m.id))
+        .filter((c) => c && new Date(c.dateProchainControle) >= new Date() && new Date(c.dateProchainControle) <= new Date(Date.now() + 30 * 86400000));
+      const tuileCalendrier = document.createElement("button");
+      tuileCalendrier.type = "button";
+      tuileCalendrier.className = "tile";
+      tuileCalendrier.innerHTML = `
+        <span class="tile__icon" style="background:#FDF0D5;color:var(--color-warn)">
+          <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <span class="tile__titre">Calendrier</span>
+        <span class="tile__sous-titre">${echeancesProches.length} contrôle${echeancesProches.length > 1 ? "s" : ""} sous 30 jours</span>
+      `;
+      tuileCalendrier.addEventListener("click", () => afficherVue("calendrier"));
+      els.tilesGrid.appendChild(tuileCalendrier);
 
-    // Vignette "Ressources"
-    const tuileRessources = document.createElement("button");
-    tuileRessources.type = "button";
-    tuileRessources.className = "tile";
-    tuileRessources.innerHTML = `
-      <span class="tile__icon" style="background:#EDEBE9;color:var(--color-neutral)">
-        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h9l3 3h4v13H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-      </span>
-      <span class="tile__titre">Ressources</span>
-      <span class="tile__sous-titre">${state.ressources.length} document${state.ressources.length > 1 ? "s" : ""}</span>
-    `;
-    tuileRessources.addEventListener("click", () => afficherVue("ressources"));
-    els.tilesGrid.appendChild(tuileRessources);
+      // Vignette "Ressources"
+      const tuileRessources = document.createElement("button");
+      tuileRessources.type = "button";
+      tuileRessources.className = "tile";
+      tuileRessources.innerHTML = `
+        <span class="tile__icon" style="background:#EDEBE9;color:var(--color-neutral)">
+          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h9l3 3h4v13H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="tile__titre">Ressources</span>
+        <span class="tile__sous-titre">${state.ressources.length} document${state.ressources.length > 1 ? "s" : ""}</span>
+      `;
+      tuileRessources.addEventListener("click", () => afficherVue("ressources"));
+      els.tilesGrid.appendChild(tuileRessources);
+    }
 
     // Une vignette par catégorie présente dans le référentiel
     categories.forEach((cat) => {
@@ -366,6 +381,7 @@
   // -- Vue Catégorie : galerie de matériels ----------------------------------
   function renderCartesCategorie(categorie) {
     const materiels = state.materiels.filter((m) => m.categorie === categorie);
+    const voirTout = peutVoirTout();
     els.cardsGrid.innerHTML = "";
 
     materiels.forEach((m) => {
@@ -381,15 +397,16 @@
             <p class="materiel-card__nom">${escapeHtml(m.title)}</p>
             <p class="materiel-card__meta">${escapeHtml(m.numSerie)} · ${escapeHtml(m.reference)}</p>
           </div>
-          ${statutInfo ? `<span class="badge ${statutInfo.badge}">${statutInfo.label}</span>` : `<span class="badge badge--neutral">Jamais contrôlé</span>`}
+          ${voirTout ? (statutInfo ? `<span class="badge ${statutInfo.badge}">${statutInfo.label}</span>` : `<span class="badge badge--neutral">Jamais contrôlé</span>`) : ""}
         </div>
-        <p class="materiel-card__info">État : ${escapeHtml(m.etat)}${c ? ` · Dernier contrôle le ${formatDate(c.dateControle)}` : ""}</p>
+        ${voirTout ? `<p class="materiel-card__info">État : ${escapeHtml(m.etat)}${c ? ` · Dernier contrôle le ${formatDate(c.dateControle)}` : ""}</p>` : ""}
         <div class="materiel-card__actions">
-          <button class="btn btn--secondary btn--small btn--historique" type="button" ${c ? "" : "disabled"}>Historique</button>
+          ${voirTout ? `<button class="btn btn--secondary btn--small btn--historique" type="button" ${c ? "" : "disabled"}>Historique</button>` : ""}
           ${peutControler() ? '<button class="btn btn--primary btn--small btn--nouveau-controle" type="button">🆕 Nouveau contrôle</button>' : ""}
         </div>
       `;
-      carte.querySelector(".btn--historique").addEventListener("click", () => ouvrirFicheMateriel(m.id));
+      const btnHistorique = carte.querySelector(".btn--historique");
+      if (btnHistorique) btnHistorique.addEventListener("click", () => ouvrirFicheMateriel(m.id));
       const btnNouveau = carte.querySelector(".btn--nouveau-controle");
       if (btnNouveau) btnNouveau.addEventListener("click", () => ouvrirEcranControle(m.id));
       els.cardsGrid.appendChild(carte);
@@ -398,6 +415,10 @@
 
   // -- Fiche matériel (historique des contrôles) -----------------------------
   function ouvrirFicheMateriel(materielId) {
+    if (!peutVoirTout()) {
+      afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de consulter l'historique.", "warn");
+      return;
+    }
     const materiel = state.materiels.find((m) => m.id === materielId);
     const historique = state.controles
       .filter((c) => c.materielId === materielId)
