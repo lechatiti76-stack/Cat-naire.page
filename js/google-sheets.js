@@ -154,6 +154,19 @@ const GoogleSheetsAPI = (() => {
   }
 
   /**
+   * Fait correspondre le texte saisi dans la colonne Role (quels que soient
+   * la casse ou les espaces superflus, ex. "administrateur ", "ADMIN") à l'un
+   * des rôles connus de ROLES_CONFIG. Retombe sur ROLE_PAR_DEFAUT si aucune
+   * correspondance (cellule vide, faute de frappe...).
+   */
+  function normaliserRole(valeur) {
+    const texte = String(valeur || "").trim().toLowerCase();
+    if (!texte) return ROLE_PAR_DEFAUT;
+    const trouve = Object.keys(ROLES_CONFIG).find((r) => r.toLowerCase() === texte);
+    return trouve || ROLE_PAR_DEFAUT;
+  }
+
+  /**
    * Normalise une date lue depuis Google Sheets en "AAAA-MM-JJ" quel que soit
    * son format d'origine : texte ISO déjà correct, date localisée
    * ("07/12/2026"), ou nombre de série Google Sheets (jours depuis le
@@ -242,7 +255,7 @@ const GoogleSheetsAPI = (() => {
         ligne: u._ligne,
         email: (u.Email || "").trim().toLowerCase(),
         nom: u.Nom || u.Name || u.Email || "",
-        role: (u.Role || "").trim() || ROLE_PAR_DEFAUT,
+        role: normaliserRole(u.Role),
       }))
       .filter((u) => u.email);
 
