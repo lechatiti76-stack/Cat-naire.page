@@ -74,6 +74,20 @@ const GoogleSheetsAPI = (() => {
     });
   }
 
+  /**
+   * Tentative de reconnexion sans clic explicite (appelée automatiquement au
+   * chargement si l'utilisateur s'était déjà connecté lors d'une session
+   * précédente). Fonctionne si le navigateur a encore une session Google
+   * active et le consentement déjà accordé ; échoue silencieusement sinon
+   * (l'appelant doit alors simplement laisser le bouton "Se connecter"
+   * visible). Google Identity Services ne garantit pas une reconnexion
+   * totalement invisible dans tous les navigateurs — un bref flash de la
+   * fenêtre de compte Google est possible.
+   */
+  function connecterSilencieux() {
+    return connecter();
+  }
+
   function estConnecte() {
     return !!accessToken;
   }
@@ -121,13 +135,15 @@ const GoogleSheetsAPI = (() => {
     }
   }
 
+  /** Convertit les lignes brutes en objets {Colonne: valeur}, en gardant le numéro de ligne réel du classeur (_ligne, 1-based) même après avoir écarté les lignes vides — nécessaire pour modifier/supprimer une ligne précise (voir modifierUtilisateur/supprimerUtilisateur). */
   function lignesEnObjets(lignes) {
     if (lignes.length === 0) return [];
     const entetes = lignes[0].map((h) => String(h).trim());
     return lignes.slice(1)
-      .filter((ligne) => ligne.length > 0 && ligne.some((v) => v !== ""))
-      .map((ligne) => {
-        const obj = {};
+      .map((ligne, i) => ({ ligne, numeroLigne: i + 2 }))
+      .filter((x) => x.ligne.length > 0 && x.ligne.some((v) => v !== ""))
+      .map(({ ligne, numeroLigne }) => {
+        const obj = { _ligne: numeroLigne };
         entetes.forEach((h, i) => { obj[h] = ligne[i] !== undefined ? ligne[i] : ""; });
         return obj;
       });
@@ -223,6 +239,7 @@ const GoogleSheetsAPI = (() => {
 
     const utilisateurs = lignesEnObjets(utilisateursRows)
       .map((u) => ({
+        ligne: u._ligne,
         email: (u.Email || "").trim().toLowerCase(),
         nom: u.Nom || u.Name || u.Email || "",
         role: (u.Role || "").trim() || ROLE_PAR_DEFAUT,
@@ -247,6 +264,25 @@ const GoogleSheetsAPI = (() => {
   function trouverUtilisateur(email, utilisateurs) {
     if (!email || !utilisateurs) return null;
     return utilisateurs.find((u) => u.email === email.trim().toLowerCase()) || null;
+  }
+
+  /** Ajoute un utilisateur dans l'onglet Utilisateurs (écran Administration). */
+  async function creerUtilisateur({ email, nom, role }) {
+    await ajouterLigne(GOOGLE_CONFIG.feuilles.utilisateurs, [email, nom, role]);
+  }
+
+  /** Modifie un utilisateur existant (identifié par son numéro de ligne réel dans le classeur). */
+  async function modifierUtilisateur(ligne, { email, nom, role }) {
+    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:C${ligne}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
+    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [[email, nom, role]] }) });
+  }
+
+  /** Supprime un utilisateur (vide sa ligne — les lignes vides sont ignorées à la lecture). */
+  async function supprimerUtilisateur(ligne) {
+    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:C${ligne}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}:clear`;
+    await appelJson(url, { method: "POST" });
   }
 
   async function ajouterLigne(feuille, valeurs) {
@@ -297,5 +333,9 @@ const GoogleSheetsAPI = (() => {
     return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain };
   }
 
-  return { connecter, estConnecte, deconnecter, utilisateurCourant, chargerDonnees, enregistrerControle, determinerRole, trouverUtilisateur };
+  return {
+    connecter, connecterSilencieux, estConnecte, deconnecter, utilisateurCourant, chargerDonnees,
+    enregistrerControle, determinerRole, trouverUtilisateur,
+    creerUtilisateur, modifierUtilisateur, supprimerUtilisateur,
+  };
 })();

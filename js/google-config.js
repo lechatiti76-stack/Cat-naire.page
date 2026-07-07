@@ -45,9 +45,10 @@ const ROLES_CONFIG = {
   // peutVoirTout  : accès au Tableau général, Calendrier, Ressources, historique/fiche
   //                 matériel et export PDF. Sans ce droit, seuls l'accueil (vignettes de
   //                 catégorie) et l'écran "Nouveau contrôle" restent accessibles.
-  Administrateur: { peutControler: true,  peutVoirTout: true },
-  "Contrôleur":   { peutControler: true,  peutVoirTout: false },
-  Utilisateur:    { peutControler: false, peutVoirTout: true },
+  // peutGererUtilisateurs : accès à l'écran Administration (gestion de l'onglet Utilisateurs).
+  Administrateur: { peutControler: true,  peutVoirTout: true,  peutGererUtilisateurs: true },
+  "Contrôleur":   { peutControler: true,  peutVoirTout: false, peutGererUtilisateurs: false },
+  Utilisateur:    { peutControler: false, peutVoirTout: true,  peutGererUtilisateurs: false },
 };
 const ROLE_PAR_DEFAUT = "Contrôleur";
 

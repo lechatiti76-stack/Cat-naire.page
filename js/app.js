@@ -45,7 +45,11 @@
   function peutVoirTout() {
     return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutVoirTout;
   }
+  function peutGererUtilisateurs() {
+    return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutGererUtilisateurs;
+  }
 
+  const CLE_DEJA_CONNECTE = "gsheets_deja_connecte";
   const els = {};
 
   document.addEventListener("DOMContentLoaded", demarrer);
@@ -56,6 +60,16 @@
     chargerDemo();
     peuplerFiltresTableau();
     afficherVue("accueil");
+
+    // Reconnexion automatique si l'utilisateur s'était déjà connecté lors
+    // d'une session précédente sur ce navigateur (voir docs/09).
+    if (localStorage.getItem(CLE_DEJA_CONNECTE) === "1" && GOOGLE_CONFIG.spreadsheetId !== "COLLEZ_ICI_L_ID_DE_VOTRE_CLASSEUR") {
+      try {
+        await connecterGoogle({ silencieux: true });
+      } catch (e) {
+        // Échec silencieux : on reste en mode démonstration, bouton "Se connecter" visible.
+      }
+    }
   }
 
   function cacherElements() {
@@ -72,6 +86,12 @@
       viewControle: document.getElementById("viewControle"),
       viewCalendrier: document.getElementById("viewCalendrier"),
       viewRessources: document.getElementById("viewRessources"),
+      viewAdministration: document.getElementById("viewAdministration"),
+      administrationTableau: document.getElementById("administrationTableau"),
+      formUtilisateur: document.getElementById("formUtilisateur"),
+      nouvelEmail: document.getElementById("nouvelEmail"),
+      nouveauNom: document.getElementById("nouveauNom"),
+      nouveauRole: document.getElementById("nouveauRole"),
       tilesGrid: document.getElementById("tilesGrid"),
       cardsGrid: document.getElementById("cardsGrid"),
       roleBadge: document.getElementById("roleBadge"),
@@ -134,15 +154,20 @@
     els.roleBadge.hidden = false;
   }
 
-  async function connecterGoogle() {
+  async function connecterGoogle(options = {}) {
+    const silencieux = !!options.silencieux;
     if (GOOGLE_CONFIG.spreadsheetId === "COLLEZ_ICI_L_ID_DE_VOTRE_CLASSEUR") {
-      afficherBanniere("⚠️ Configuration incomplète : ajoutez l'ID de votre classeur dans js/google-config.js.", "warn");
+      if (!silencieux) afficherBanniere("⚠️ Configuration incomplète : ajoutez l'ID de votre classeur dans js/google-config.js.", "warn");
       return;
     }
-    els.btnGoogleConnect.disabled = true;
-    els.btnGoogleConnect.textContent = "Connexion…";
+    if (!silencieux) {
+      els.btnGoogleConnect.disabled = true;
+      els.btnGoogleConnect.textContent = "Connexion…";
+    }
     try {
-      await GoogleSheetsAPI.connecter();
+      if (silencieux) await GoogleSheetsAPI.connecterSilencieux();
+      else await GoogleSheetsAPI.connecter();
+
       const [donnees, utilisateur] = await Promise.all([
         GoogleSheetsAPI.chargerDonnees(),
         GoogleSheetsAPI.utilisateurCourant(),
@@ -156,6 +181,7 @@
       // que le nom du compte Google, s'il est renseigné.
       const ligneUtilisateur = GoogleSheetsAPI.trouverUtilisateur(utilisateur.email, donnees.utilisateurs);
       if (ligneUtilisateur && ligneUtilisateur.nom) state.utilisateur.nom = ligneUtilisateur.nom;
+      localStorage.setItem(CLE_DEJA_CONNECTE, "1");
       els.headerSubtitle.textContent = `Connecté à Google Sheets — ${state.utilisateur.nom}`;
       els.btnGoogleConnect.textContent = "✅ Connecté";
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
@@ -164,9 +190,12 @@
       afficherVue("accueil");
     } catch (e) {
       console.error(e);
-      els.btnGoogleConnect.disabled = false;
-      els.btnGoogleConnect.textContent = "🔑 Se connecter avec Google";
-      afficherBanniere("⚠️ Connexion à Google impossible : " + e.message.split("\n")[0], "warn");
+      if (!silencieux) {
+        els.btnGoogleConnect.disabled = false;
+        els.btnGoogleConnect.textContent = "🔑 Se connecter avec Google";
+        afficherBanniere("⚠️ Connexion à Google impossible : " + e.message.split("\n")[0], "warn");
+      }
+      throw e;
     }
   }
 
@@ -188,6 +217,10 @@
       afficherBanniere("⛔ Votre rôle (" + state.role + ") n'a pas accès à cette section.", "warn");
       vue = "accueil";
     }
+    if (vue === "administration" && !peutGererUtilisateurs()) {
+      afficherBanniere("⛔ Votre rôle (" + state.role + ") n'a pas accès à l'administration des utilisateurs.", "warn");
+      vue = "accueil";
+    }
     state.vue = vue;
     els.viewAccueil.hidden = vue !== "accueil";
     els.viewCategorie.hidden = vue !== "categorie";
@@ -195,6 +228,7 @@
     els.viewControle.hidden = vue !== "controle";
     els.viewCalendrier.hidden = vue !== "calendrier";
     els.viewRessources.hidden = vue !== "ressources";
+    els.viewAdministration.hidden = vue !== "administration";
 
     if (vue === "accueil") {
       els.crumbSep.hidden = true;
@@ -220,6 +254,10 @@
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Ressources";
       renderRessources();
+    } else if (vue === "administration") {
+      els.crumbSep.hidden = false;
+      els.crumbCourant.textContent = "Administration des utilisateurs";
+      renderAdministration();
     }
     renderStatsGlobales();
   }
@@ -262,6 +300,16 @@
     els.btnMoisSuivant.addEventListener("click", () => {
       state.moisCalendrier.setMonth(state.moisCalendrier.getMonth() + 1);
       renderCalendrier();
+    });
+
+    Object.keys(ROLES_CONFIG).forEach((r) => {
+      const opt = document.createElement("option");
+      opt.value = r; opt.textContent = r;
+      els.nouveauRole.appendChild(opt);
+    });
+    els.formUtilisateur.addEventListener("submit", (e) => {
+      e.preventDefault();
+      creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value);
     });
 
     applyTheme(localStorage.getItem("theme") || "light");
@@ -345,6 +393,21 @@
       `;
       tuileRessources.addEventListener("click", () => afficherVue("ressources"));
       els.tilesGrid.appendChild(tuileRessources);
+    }
+
+    if (peutGererUtilisateurs()) {
+      const tuileAdmin = document.createElement("button");
+      tuileAdmin.type = "button";
+      tuileAdmin.className = "tile";
+      tuileAdmin.innerHTML = `
+        <span class="tile__icon" style="background:#F3E8FD;color:#8764B8">
+          <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="8" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 14.5c2.4.3 4.2 2.4 4.2 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <span class="tile__titre">Administration</span>
+        <span class="tile__sous-titre">${state.utilisateurs.length} utilisateur${state.utilisateurs.length > 1 ? "s" : ""}</span>
+      `;
+      tuileAdmin.addEventListener("click", () => afficherVue("administration"));
+      els.tilesGrid.appendChild(tuileAdmin);
     }
 
     // Une vignette par catégorie présente dans le référentiel
@@ -817,6 +880,95 @@
         </ul>
       </div>
     `).join("");
+  }
+
+  // -- Vue Administration : gestion des utilisateurs (Email | Nom | Rôle) -----
+  function renderAdministration() {
+    if (!state.utilisateurs || state.utilisateurs.length === 0) {
+      els.administrationTableau.innerHTML = `<p>Aucun utilisateur déclaré pour l'instant — tout le monde est traité comme "${ROLE_PAR_DEFAUT}" par défaut. Ajoutez des personnes ci-dessous.</p>`;
+    } else {
+      els.administrationTableau.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>E-mail</th><th>Nom</th><th>Rôle</th><th></th></tr></thead>
+          <tbody>
+            ${state.utilisateurs.map((u, i) => `
+              <tr data-index="${i}">
+                <td>${escapeHtml(u.email)}</td>
+                <td><input type="text" class="admin-input admin-input--nom" value="${escapeHtml(u.nom)}"></td>
+                <td>
+                  <select class="admin-input admin-input--role">
+                    ${Object.keys(ROLES_CONFIG).map((r) => `<option value="${r}" ${r === u.role ? "selected" : ""}>${r}</option>`).join("")}
+                  </select>
+                </td>
+                <td class="admin-table__actions">
+                  <button type="button" class="btn btn--secondary btn--small btn--modifier-utilisateur">Enregistrer</button>
+                  <button type="button" class="btn btn--secondary btn--small btn--supprimer-utilisateur">Supprimer</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+      els.administrationTableau.querySelectorAll("tr[data-index]").forEach((ligne) => {
+        const index = Number(ligne.dataset.index);
+        ligne.querySelector(".btn--modifier-utilisateur").addEventListener("click", () => {
+          const nom = ligne.querySelector(".admin-input--nom").value.trim();
+          const role = ligne.querySelector(".admin-input--role").value;
+          modifierUtilisateurAction(index, nom, role);
+        });
+        ligne.querySelector(".btn--supprimer-utilisateur").addEventListener("click", () => {
+          if (confirm("Supprimer cet utilisateur ?")) supprimerUtilisateurAction(index);
+        });
+      });
+    }
+  }
+
+  async function creerUtilisateurAction(email, nom, role) {
+    if (!email) { afficherBanniere("⚠️ L'adresse e-mail est obligatoire.", "warn"); return; }
+    try {
+      if (!state.modeDemo) {
+        await GoogleSheetsAPI.creerUtilisateur({ email, nom, role });
+      }
+      state.utilisateurs.push({ email: email.toLowerCase(), nom, role, ligne: state.utilisateurs.length + 2 });
+      state.controleurs = state.utilisateurs.filter((u) => (ROLES_CONFIG[u.role] || {}).peutControler);
+      els.formUtilisateur.reset();
+      renderAdministration();
+      afficherBanniere("✅ Utilisateur ajouté" + (state.modeDemo ? " (simulation locale)." : "."), "info");
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur lors de l'ajout : " + e.message.split("\n")[0], "warn");
+    }
+  }
+
+  async function modifierUtilisateurAction(index, nom, role) {
+    const u = state.utilisateurs[index];
+    try {
+      if (!state.modeDemo) {
+        await GoogleSheetsAPI.modifierUtilisateur(u.ligne, { email: u.email, nom, role });
+      }
+      u.nom = nom; u.role = role;
+      state.controleurs = state.utilisateurs.filter((x) => (ROLES_CONFIG[x.role] || {}).peutControler);
+      afficherBanniere("✅ Utilisateur modifié" + (state.modeDemo ? " (simulation locale)." : "."), "info");
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur lors de la modification : " + e.message.split("\n")[0], "warn");
+    }
+  }
+
+  async function supprimerUtilisateurAction(index) {
+    const u = state.utilisateurs[index];
+    try {
+      if (!state.modeDemo) {
+        await GoogleSheetsAPI.supprimerUtilisateur(u.ligne);
+      }
+      state.utilisateurs.splice(index, 1);
+      state.controleurs = state.utilisateurs.filter((x) => (ROLES_CONFIG[x.role] || {}).peutControler);
+      renderAdministration();
+      afficherBanniere("✅ Utilisateur supprimé" + (state.modeDemo ? " (simulation locale)." : "."), "info");
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur lors de la suppression : " + e.message.split("\n")[0], "warn");
+    }
   }
 
   // -- Export PDF (impression navigateur) --------------------------------------
