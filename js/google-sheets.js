@@ -128,6 +128,26 @@ const GoogleSheetsAPI = (() => {
     return ["Oui", "TRUE", "true", "1", true].includes(valeur);
   }
 
+  /**
+   * Normalise une date lue depuis Google Sheets en "AAAA-MM-JJ" quel que soit
+   * son format d'origine : texte ISO déjà correct, date localisée
+   * ("07/12/2026"), ou nombre de série Google Sheets (jours depuis le
+   * 30/12/1899) renvoyé quand la cellule est formatée en "Nombre" au lieu de
+   * "Date".
+   */
+  function normaliserDate(valeur) {
+    if (!valeur) return "";
+    const texte = String(valeur).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(texte)) return texte.slice(0, 10);
+    if (/^\d+(\.\d+)?$/.test(texte)) {
+      const epoqueSheets = Date.UTC(1899, 11, 30);
+      return new Date(epoqueSheets + Number(texte) * 86400000).toISOString().slice(0, 10);
+    }
+    const analysee = new Date(texte);
+    if (!Number.isNaN(analysee.getTime())) return analysee.toISOString().slice(0, 10);
+    return texte;
+  }
+
   /** Charge Materiels + TypesPointControle + Controles + ResultatsPointsControle. */
   async function chargerDonnees() {
     const [materielsRows, typesRows, controlesRows, resultatsRows] = await Promise.all([
@@ -141,13 +161,13 @@ const GoogleSheetsAPI = (() => {
       .filter((m) => !("Actif" in m) || estVrai(m.Actif) || m.Actif === "")
       .map((m, i) => ({
         id: i + 1,
-        numSerie: m.NumSerie,
+        numSerie: m.NumSerie || m["N° Series"] || m["N° Série"],
         title: m.Title,
-        reference: m.Reference,
+        reference: m.Reference || m.Description,
         categorie: m.Categorie,
-        etat: m.Etat,
+        etat: m.Etat || m.Valeurs,
         periodiciteMois: Number(m.PeriodiciteMois) || 6,
-        responsable: m.Responsable || "",
+        responsable: m.Responsable || m["Assignée à"] || "",
       }));
 
     const typesPointControle = {};
@@ -178,8 +198,8 @@ const GoogleSheetsAPI = (() => {
         reference: materiel.reference || "",
         categorie: materiel.categorie || "",
         etat: materiel.etat || "",
-        dateControle: c.DateControle,
-        dateProchainControle: c.DateProchainControle,
+        dateControle: normaliserDate(c.DateControle),
+        dateProchainControle: normaliserDate(c.DateProchainControle),
         controleur: c.Controleur,
         conforme: estVrai(c.Conforme),
         statut: c.Statut,
