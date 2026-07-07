@@ -10,9 +10,13 @@
  *
  * Schéma attendu (voir docs/08-migration-google-sheets.md) :
  *   Materiels                : NumSerie | Title | Reference | Categorie | Etat | PeriodiciteMois | Responsable | Actif
- *   TypesPointControle       : Categorie | Libelle | Ordre
+ *   TypesPointControle       : Categorie | Title (libellé du point) | Ordre
  *   Controles                : ControleId | NumSerie | DateControle | DateProchainControle | Controleur | Conforme | Statut | Observations | ActionsCorrectives | Commentaires
- *   ResultatsPointsControle  : ControleId | Libelle | Effectue | Rapport | Statut
+ *   ResultatsPointsControle  : Title | Controle (= ControleId) | Effectue | Observation | PointControle (libellé) | Rapport | Statut
+ *
+ * Des colonnes supplémentaires (ex. "Item Type", "Path" laissées par un export
+ * SharePoint) peuvent exister sans problème : seules les colonnes ci-dessus
+ * sont lues/écrites, le reste est ignoré.
  */
 
 const GoogleSheetsAPI = (() => {
@@ -148,8 +152,10 @@ const GoogleSheetsAPI = (() => {
 
     const typesPointControle = {};
     lignesEnObjets(typesRows).forEach((t) => {
+      const libelle = t.Title || t.Libelle;
+      if (!libelle) return;
       if (!typesPointControle[t.Categorie]) typesPointControle[t.Categorie] = [];
-      typesPointControle[t.Categorie].push({ libelle: t.Libelle, ordre: Number(t.Ordre) || 0 });
+      typesPointControle[t.Categorie].push({ libelle, ordre: Number(t.Ordre) || 0 });
     });
     Object.values(typesPointControle).forEach((arr) => arr.sort((a, b) => a.ordre - b.ordre));
 
@@ -157,8 +163,13 @@ const GoogleSheetsAPI = (() => {
     const controles = lignesEnObjets(controlesRows).map((c) => {
       const materiel = materiels.find((m) => m.numSerie === c.NumSerie) || {};
       const points = resultatsObjs
-        .filter((r) => r.ControleId === c.ControleId)
-        .map((r) => ({ libelle: r.Libelle, effectue: estVrai(r.Effectue), rapport: r.Rapport, statut: r.Statut }));
+        .filter((r) => (r.Controle || r.ControleId) === c.ControleId)
+        .map((r) => ({
+          libelle: r.PointControle || r.Libelle,
+          effectue: estVrai(r.Effectue),
+          rapport: r.Rapport,
+          statut: r.Statut,
+        }));
       return {
         id: c.ControleId,
         materielId: materiel.id,
@@ -183,8 +194,13 @@ const GoogleSheetsAPI = (() => {
   }
 
   async function ajouterLigne(feuille, valeurs) {
+    return ajouterLignes(feuille, [valeurs]);
+  }
+
+  /** Ajoute plusieurs lignes en un seul appel réseau (plus rapide qu'un appel par ligne). */
+  async function ajouterLignes(feuille, lignesDeValeurs) {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(feuille)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-    await appelJson(url, { method: "POST", body: JSON.stringify({ values: [valeurs] }) });
+    await appelJson(url, { method: "POST", body: JSON.stringify({ values: lignesDeValeurs }) });
   }
 
   function ajouterMois(dateIso, nbMois) {
@@ -213,11 +229,14 @@ const GoogleSheetsAPI = (() => {
       conformeGlobal ? "Oui" : "Non", statutGlobal, observations || "", actionsCorrectives || "", commentaires || "",
     ]);
 
-    for (const point of points) {
-      await ajouterLigne(GOOGLE_CONFIG.feuilles.resultatsPointsControle, [
-        controleId, point.libelle, "Oui", point.statut === "Conforme" ? "Validé" : "Non validé", point.statut,
-      ]);
-    }
+    // Une ligne par point, en un seul appel réseau : Title | Controle | Effectue | Observation | PointControle | Rapport | Statut
+    await ajouterLignes(
+      GOOGLE_CONFIG.feuilles.resultatsPointsControle,
+      points.map((point) => [
+        point.libelle, controleId, "Oui", "", point.libelle,
+        point.statut === "Conforme" ? "Validé" : "Non validé", point.statut,
+      ])
+    );
 
     return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain };
   }

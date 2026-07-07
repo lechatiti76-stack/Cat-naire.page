@@ -15,13 +15,14 @@ Contrairement à SharePoint (qui refuse d'exécuter du script personnalisé sur 
    NumSerie | Title | Reference | Categorie | Etat | PeriodiciteMois | Responsable | Actif
    ```
 4. Ajoutez 3 onglets supplémentaires (bouton **+** en bas), avec ces en-têtes exacts en ligne 1 :
-   - **`TypesPointControle`** : `Categorie | Libelle | Ordre`
+   - **`TypesPointControle`** : `Categorie | Title | Ordre` (`Title` = libellé du point de contrôle)
    - **`Controles`** : `ControleId | NumSerie | DateControle | DateProchainControle | Controleur | Conforme | Statut | Observations | ActionsCorrectives | Commentaires`
-   - **`ResultatsPointsControle`** : `ControleId | Libelle | Effectue | Rapport | Statut`
+   - **`ResultatsPointsControle`** : `Title | Controle | Effectue | Observation | PointControle | Rapport | Statut` (`Controle` = identifiant du contrôle parent, `PointControle` = libellé du point)
 5. Remplissez `Materiels` (une ligne par équipement) et `TypesPointControle` (une ligne par point de contrôle et par catégorie — voir la liste en §1.3/docs/01 pour LED signalisation, VAT, etc.). Les onglets `Controles` et `ResultatsPointsControle` peuvent rester vides : ils se remplissent automatiquement via le bouton "Valider le contrôle" de la page.
 6. Copiez l'**identifiant du classeur** dans l'URL : `https://docs.google.com/spreadsheets/d/`**`CET_IDENTIFIANT`**`/edit` et collez-le dans `js/google-config.js`, propriété `spreadsheetId`.
 
-> Les noms d'onglets doivent correspondre EXACTEMENT à ceux configurés dans `GOOGLE_CONFIG.feuilles` (`js/google-config.js`).
+> Les noms d'onglets doivent correspondre EXACTEMENT à ceux configurés dans `GOOGLE_CONFIG.feuilles` (`js/google-config.js`). Des colonnes supplémentaires (ex. `Item Type`, `Path` issues d'un export SharePoint) ne posent aucun problème : seules les colonnes listées ci-dessus sont utilisées.
+> Sur `Controles`, les 10 colonnes ci-dessus doivent exister avec ces noms exacts — si cet onglet a été créé à partir d'un ancien export (type liste `VALIDITE`), remplacez sa ligne d'en-tête et videz les anciennes lignes de données avant de l'utiliser.
 
 ## 8.3 Configuration Google Cloud déjà réalisée
 
