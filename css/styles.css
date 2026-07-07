@@ -447,9 +447,9 @@ html, body {
 
 /* ============ LOGO & BADGE DE RÔLE ============ */
 .icon--logo-lhte {
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: .02em;
+  background: #fff;
+  object-fit: contain;
+  padding: 6px;
 }
 
 .role-badge {
