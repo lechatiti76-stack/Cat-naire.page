@@ -445,12 +445,88 @@ html, body {
 .points-controle-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
 .points-controle-table tbody tr:last-child td { border-bottom: none; }
 
+/* ============ LOGO & BADGE DE RÔLE ============ */
+.icon--logo-lhte {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .02em;
+}
+
+.role-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.35);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ============ CALENDRIER ============ */
+.calendrier-carte {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 20px;
+}
+.calendrier-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.calendrier-nav h2 { margin: 0; font-size: 16px; text-transform: capitalize; }
+.calendrier-entete-jours {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: 6px; text-align: center;
+}
+.calendrier-grille-jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.calendrier-jour {
+  min-height: 84px; border: 1px solid var(--border); border-radius: 6px; padding: 6px;
+  display: flex; flex-direction: column; gap: 4px; background: var(--surface-alt);
+}
+.calendrier-jour--vide { background: transparent; border: none; }
+.calendrier-jour--aujourdhui { border-color: var(--color-primary); border-width: 2px; }
+.calendrier-jour__numero { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.calendrier-echeance {
+  display: block; width: 100%; text-align: left; border: none; border-radius: 4px;
+  padding: 3px 6px; font-size: 11px; font-weight: 600; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ============ RESSOURCES ============ */
+.ressources-groupe { margin-bottom: 20px; }
+.ressources-groupe h3 { font-size: 14px; margin: 0 0 8px; }
+.ressources-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ressources-liste li {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px;
+}
+.ressources-liste a { color: var(--color-primary); text-decoration: none; font-weight: 600; }
+.ressources-liste a:hover { text-decoration: underline; }
+
+/* ============ ZONE D'IMPRESSION (export PDF) ============ */
+.zone-impression { display: none; }
+@media print {
+  body > *:not(.zone-impression) { display: none !important; }
+  .zone-impression {
+    display: block !important; color: #000; background: #fff; padding: 20px; font-family: Arial, sans-serif;
+  }
+  .zone-impression h1 { font-size: 20px; margin-bottom: 12px; }
+  .zone-impression h2 { font-size: 15px; margin-top: 20px; }
+  .zone-impression h3 { font-size: 13px; margin-bottom: 6px; }
+  .impression-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 12px; }
+  .impression-champ dt { font-size: 11px; color: #555; }
+  .impression-champ dd { margin: 0; font-weight: 600; }
+  .impression-controle { border-top: 1px solid #ccc; padding-top: 10px; margin-top: 10px; }
+  .impression-controle table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 6px; }
+  .impression-controle th, .impression-controle td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
+}
+
 /* ============ PIED DE PAGE ============ */
 .app-footer {
   text-align: center;
   padding: 18px;
   font-size: 12px;
   color: var(--text-muted);
+}
+.app-footer__org {
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 10px;
+  line-height: 1.6;
 }
 .app-footer code {
   background: var(--surface-alt);

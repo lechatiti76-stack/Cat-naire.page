@@ -11,15 +11,14 @@
 <!-- ============ EN-TÊTE ============ -->
 <header class="app-header">
   <div class="app-header__brand">
-    <span class="icon icon--brand" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.4 8.7-8 10-4.6-1.3-8-5-8-10V6l8-4z" fill="currentColor"/></svg>
-    </span>
+    <span class="icon icon--brand icon--logo-lhte" aria-hidden="true" title="Terminal Multimodal du Havre">LHTE</span>
     <div>
       <h1>Registre des Vérifications de Matériel</h1>
       <p class="app-header__subtitle" id="headerSubtitle">Suivi de conformité &amp; contrôles périodiques</p>
     </div>
   </div>
   <div class="app-header__actions">
+    <span class="role-badge" id="roleBadge" hidden></span>
     <button id="btnGoogleConnect" class="btn btn--ghost" type="button" title="Se connecter à votre classeur Google Sheets">
       🔑 Se connecter avec Google
     </button>
@@ -176,8 +175,8 @@
           <input type="date" id="controleDate">
         </div>
         <div class="field">
-          <label>Contrôleur</label>
-          <p class="controle-controleur" id="controleControleur">—</p>
+          <label for="controleControleurSelect">Contrôleur</label>
+          <select id="controleControleurSelect"></select>
         </div>
       </div>
 
@@ -207,7 +206,27 @@
       </div>
     </div>
   </section>
+
+  <!-- ============ VUE CALENDRIER : CONTRÔLES À VENIR ============ -->
+  <section id="viewCalendrier" class="calendrier-view" hidden>
+    <div class="calendrier-carte">
+      <div class="calendrier-nav">
+        <button class="btn btn--secondary btn--small" id="btnMoisPrecedent" type="button">‹ Mois précédent</button>
+        <h2 id="calendrierTitre"></h2>
+        <button class="btn btn--secondary btn--small" id="btnMoisSuivant" type="button">Mois suivant ›</button>
+      </div>
+      <div id="calendrierGrille"></div>
+    </div>
+  </section>
+
+  <!-- ============ VUE RESSOURCES : DOCUMENTS ============ -->
+  <section id="viewRessources" class="ressources-view" hidden>
+    <div id="ressourcesListe"></div>
+  </section>
 </main>
+
+<!-- ============ ZONE D'IMPRESSION (export PDF, visible uniquement à l'impression) ============ -->
+<div id="zoneImpression" class="zone-impression"></div>
 
 <!-- ============ FICHE MATÉRIEL (historique + détail) ============ -->
 <div class="modal-overlay" id="modalOverlay" hidden>
@@ -219,6 +238,10 @@
 </div>
 
 <footer class="app-footer">
+  <div class="app-footer__org">
+    <strong>Terminal Multimodal du Havre</strong> — Service Circulation Ferroviaire<br>
+    Agent caténaire · Habilitation Agent E CH1CB1
+  </div>
   <p>Registre des Vérifications de Matériel — connecté à votre classeur Google Sheets après clic sur « Se connecter avec Google ». Voir <code>docs/</code> pour la documentation complète.</p>
 </footer>
 

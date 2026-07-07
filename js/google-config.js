@@ -13,17 +13,39 @@ const GOOGLE_CONFIG = {
   // Identifiant du classeur Google Sheets (voir docs/08)
   spreadsheetId: "1WkMoTAVbprOkWfU77djyDx2GMIdtHMZPDRQmly41gGU",
 
-  // Noms EXACTS des 4 onglets du classeur
+  // Noms EXACTS des onglets du classeur
   feuilles: {
     materiels: "Materiels",
     typesPointControle: "TypesPointControle",
     controles: "Controles",
     resultatsPointsControle: "ResultatsPointsControle",
+    // Onglet Email | Nom | Role (Administrateur / Contrôleur / Utilisateur).
+    // Optionnel : s'il est absent ou vide, tout le monde est traité comme Contrôleur.
+    utilisateurs: "Utilisateurs",
+    // Onglet Titre | Lien | Categorie (documents/ressources, optionnel)
+    ressources: "Ressources",
   },
 
   // Nombre de jours avant échéance déclenchant le statut "À vérifier prochainement"
   seuilJours: 30,
+
+  // Organisation affichée dans le pied de page
+  organisation: {
+    nom: "Terminal Multimodal du Havre",
+    service: "Service Circulation Ferroviaire",
+    mentions: "Agent caténaire · Habilitation Agent E CH1CB1",
+  },
 };
+
+// Rôles disponibles et permissions associées (gestion d'affichage côté client
+// uniquement — la vraie sécurité reste le partage du classeur Google Sheets,
+// voir docs/09-roles-et-fonctionnalites.md).
+const ROLES_CONFIG = {
+  Administrateur: { peutControler: true, peutGererUtilisateurs: true },
+  "Contrôleur":   { peutControler: true, peutGererUtilisateurs: false },
+  Utilisateur:    { peutControler: false, peutGererUtilisateurs: false },
+};
+const ROLE_PAR_DEFAUT = "Contrôleur";
 
 // Catégories connues, avec un accent visuel (indépendant du code couleur de conformité)
 const CATEGORIES_CONFIG = [

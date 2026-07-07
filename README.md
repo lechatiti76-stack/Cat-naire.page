@@ -18,17 +18,20 @@ Solution complète de gestion des vérifications de matériel de sécurité cat�
 | Guide de mise en œuvre pas à pas (SharePoint/Power Apps) | [`docs/05-guide-deploiement.md`](docs/05-guide-deploiement.md) |
 | Conseils d'amélioration & bonnes pratiques Microsoft | [`docs/06-bonnes-pratiques.md`](docs/06-bonnes-pratiques.md) |
 | Migration pas à pas de vos listes existantes vers le modèle final | [`docs/07-migration-listes-existantes.md`](docs/07-migration-listes-existantes.md) |
+| Rôles, calendrier, ressources, export PDF, personnalisation | [`docs/09-roles-et-fonctionnalites.md`](docs/09-roles-et-fonctionnalites.md) |
 
 ## Aperçu de l'interface web
 
 Ouvrir `index.html` dans un navigateur (aucune installation requise). Parcours :
 
-- **Accueil** : statistiques globales + une vignette par catégorie d'équipement (avec répartition de conformité) + une vignette "Tableau général".
-- **Vue catégorie** : galerie des matériels de la catégorie choisie, avec accès à l'historique et au bouton **Nouveau contrôle**.
+- **Accueil** : statistiques globales + une vignette par catégorie d'équipement (avec répartition de conformité) + vignettes "Tableau général", "Calendrier" et "Ressources".
+- **Vue catégorie** : galerie des matériels de la catégorie choisie, avec accès à l'historique et au bouton **Nouveau contrôle** (masqué pour le rôle Utilisateur).
 - **Tableau général** : recherche instantanée, filtres (catégorie, conformité, statut, contrôleur, plage de dates), tri par colonne, code couleur 🟢🟠🔴⚪, export CSV.
-- **Fiche matériel** : historique complet des contrôles (accordéon), détail des points de contrôle par événement.
-- **Écran de contrôle** : case à cocher Conforme/Non conforme par point, observations/actions correctives/commentaires, bouton **✅ Valider le contrôle**.
-- Thème clair/sombre, responsive (poste de travail, tablette, mobile).
+- **Calendrier** : vue mensuelle des prochains contrôles par équipement, navigable mois par mois.
+- **Ressources** : liste de documents/liens regroupés par catégorie (onglet `Ressources`, voir docs/09).
+- **Fiche matériel** : historique complet des contrôles (accordéon), détail des points de contrôle par événement, export PDF.
+- **Écran de contrôle** : sélection du contrôleur, case à cocher Conforme/Non conforme par point, observations/actions correctives/commentaires, bouton **✅ Valider le contrôle**.
+- Gestion des rôles (Administrateur/Contrôleur/Utilisateur, voir docs/09), thème clair/sombre, responsive (poste de travail, tablette, mobile).
 
 ### Deux modes de fonctionnement
 

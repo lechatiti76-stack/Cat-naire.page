@@ -112,6 +112,15 @@ const GoogleSheetsAPI = (() => {
     return json.values || [];
   }
 
+  /** Comme obtenirValeurs(), mais renvoie [] si l'onglet n'existe pas encore (onglets optionnels Utilisateurs/Ressources). */
+  async function obtenirValeursOptionnel(feuille) {
+    try {
+      return await obtenirValeurs(feuille);
+    } catch (e) {
+      return [];
+    }
+  }
+
   function lignesEnObjets(lignes) {
     if (lignes.length === 0) return [];
     const entetes = lignes[0].map((h) => String(h).trim());
@@ -148,13 +157,15 @@ const GoogleSheetsAPI = (() => {
     return texte;
   }
 
-  /** Charge Materiels + TypesPointControle + Controles + ResultatsPointsControle. */
+  /** Charge Materiels + TypesPointControle + Controles + ResultatsPointsControle + Utilisateurs + Ressources. */
   async function chargerDonnees() {
-    const [materielsRows, typesRows, controlesRows, resultatsRows] = await Promise.all([
+    const [materielsRows, typesRows, controlesRows, resultatsRows, utilisateursRows, ressourcesRows] = await Promise.all([
       obtenirValeurs(GOOGLE_CONFIG.feuilles.materiels),
       obtenirValeurs(GOOGLE_CONFIG.feuilles.typesPointControle),
       obtenirValeurs(GOOGLE_CONFIG.feuilles.controles),
       obtenirValeurs(GOOGLE_CONFIG.feuilles.resultatsPointsControle),
+      obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.utilisateurs),
+      obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.ressources),
     ]);
 
     const materiels = lignesEnObjets(materielsRows)
@@ -210,7 +221,26 @@ const GoogleSheetsAPI = (() => {
       };
     });
 
-    return { materiels, typesPointControle, controles };
+    const utilisateurs = lignesEnObjets(utilisateursRows)
+      .map((u) => ({
+        email: (u.Email || "").trim().toLowerCase(),
+        nom: u.Nom || u.Name || u.Email || "",
+        role: (u.Role || "").trim() || ROLE_PAR_DEFAUT,
+      }))
+      .filter((u) => u.email);
+
+    const ressources = lignesEnObjets(ressourcesRows)
+      .map((r) => ({ titre: r.Titre || r.Title, lien: r.Lien || r.Link || r.URL, categorie: r.Categorie || "" }))
+      .filter((r) => r.titre && r.lien);
+
+    return { materiels, typesPointControle, controles, utilisateurs, ressources };
+  }
+
+  /** Détermine le rôle d'un utilisateur à partir de l'onglet Utilisateurs (absent/vide => rôle par défaut, voir docs/09). */
+  function determinerRole(email, utilisateurs) {
+    if (!email || !utilisateurs || utilisateurs.length === 0) return ROLE_PAR_DEFAUT;
+    const trouve = utilisateurs.find((u) => u.email === email.trim().toLowerCase());
+    return trouve ? trouve.role : ROLE_PAR_DEFAUT;
   }
 
   async function ajouterLigne(feuille, valeurs) {
@@ -261,5 +291,5 @@ const GoogleSheetsAPI = (() => {
     return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain };
   }
 
-  return { connecter, estConnecte, deconnecter, utilisateurCourant, chargerDonnees, enregistrerControle };
+  return { connecter, estConnecte, deconnecter, utilisateurCourant, chargerDonnees, enregistrerControle, determinerRole };
 })();

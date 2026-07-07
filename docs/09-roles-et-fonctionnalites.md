@@ -1,0 +1,54 @@
+# 9. Rôles, calendrier, ressources et export PDF
+
+Ce document couvre les fonctionnalités ajoutées après la mise en service initiale : gestion des rôles, sélection du contrôleur, calendrier des échéances, ressources documentaires, export PDF, et personnalisation (logo, pied de page).
+
+## 9.1 Gestion des rôles
+
+Un nouvel onglet optionnel **`Utilisateurs`** peut être ajouté au classeur Google Sheets :
+
+```
+Email                          | Nom              | Role
+julien.marchand@example.com    | Julien Marchand  | Contrôleur
+amandine.roy@example.com       | Amandine Roy     | Administrateur
+```
+
+- **Rôles reconnus** : `Administrateur`, `Contrôleur`, `Utilisateur`.
+- **Administrateur** et **Contrôleur** : peuvent créer/valider des contrôles (boutons "🆕 Nouveau contrôle" et "✅ Valider le contrôle" visibles).
+- **Utilisateur** : consultation seule, ces boutons sont masqués.
+- Si l'onglet `Utilisateurs` est **absent ou vide**, ou si l'adresse e-mail de la personne connectée n'y figure pas, elle est traitée comme **Contrôleur** par défaut (pour ne pas bloquer l'usage tant que la liste n'est pas complétée). Ajustable dans `js/google-config.js` (`ROLE_PAR_DEFAUT`).
+- Le rôle est affiché dans un badge en haut à droite de la page une fois connecté.
+
+**⚠️ Important — ceci n'est PAS une sécurité réelle** : c'est un confort d'affichage côté navigateur (masquer des boutons). Un utilisateur techniquement averti pourrait contourner ces masquages puisque tout le code s'exécute dans son propre navigateur. La vraie sécurité reste le **partage du classeur Google Sheets** : seules les personnes ayant un accès **Éditeur** peuvent réellement écrire des données, quel que soit ce que montre l'interface. Pour restreindre réellement l'écriture, gérez les accès du classeur (Partager → Éditeur / Lecteur) en cohérence avec les rôles déclarés dans l'onglet `Utilisateurs`.
+
+## 9.2 Sélection du contrôleur
+
+Sur l'écran "Nouveau contrôle", le champ Contrôleur est désormais une **liste déroulante** peuplée à partir de l'onglet `Utilisateurs` (personnes avec le rôle Administrateur ou Contrôleur). L'utilisateur actuellement connecté est présélectionné s'il figure dans la liste ; sinon il est ajouté en tête de liste avec la mention "(vous)". Ça permet à un contrôleur de déclarer un contrôle réalisé par un collègue sans que ce dernier ait besoin de se connecter lui-même.
+
+## 9.3 Calendrier des contrôles à venir
+
+Nouvelle vue accessible depuis la vignette **"Calendrier"** sur l'accueil : affiche un mois à la fois, avec chaque équipement positionné sur le jour de son **prochain contrôle** (calculé à partir du dernier contrôle enregistré + périodicité du matériel). Couleur de la pastille = statut (🟢🟠🔴⚪, cohérent avec le reste de l'application). Navigation mois précédent/suivant. Un clic sur une échéance ouvre la fiche du matériel concerné.
+
+## 9.4 Ressources documentaires
+
+Nouvel onglet optionnel **`Ressources`** :
+
+```
+Titre                                          | Lien                              | Categorie
+Procédure de contrôle des perches isolantes    | https://drive.google.com/...      | Procédures
+Fiche de sécurité VAT                          | https://drive.google.com/...      | Sécurité
+```
+
+- `Lien` peut pointer vers n'importe quelle URL : fichier Google Drive (partagé en lecture aux personnes concernées), page web, PDF hébergé ailleurs, etc.
+- `Categorie` est optionnelle ; les documents sont regroupés par catégorie dans la vue "Ressources" de l'application.
+- Vignette "Ressources" sur l'accueil, indiquant le nombre de documents disponibles.
+
+## 9.5 Export PDF par équipement
+
+Depuis la fiche d'un matériel (bouton **🖨️ Exporter en PDF**), l'application génère une vue imprimable propre (informations du matériel + historique complet des contrôles + détail des points de contrôle) et ouvre directement la boîte d'impression du navigateur. Choisissez **"Enregistrer au format PDF"** comme imprimante dans cette boîte de dialogue pour obtenir un fichier PDF.
+
+Ce choix (impression navigateur plutôt que génération directe) évite d'ajouter une bibliothèque JavaScript supplémentaire au projet ; il fonctionne dans tous les navigateurs modernes sans configuration.
+
+## 9.6 Logo et pied de page
+
+- Le logo en haut à gauche est actuellement un badge texte **"LHTE"** (`index.html`, classe `.icon--logo-lhte`), en attendant le fichier image du vrai logo. Pour l'intégrer : remplacez le `<span>` par une balise `<img src="assets/logo-lhte.png" alt="LHTE">` et déposez le fichier dans un dossier `assets/`.
+- Le pied de page affiche les coordonnées de l'organisation (Terminal Multimodal du Havre — Service Circulation Ferroviaire — Agent caténaire · Habilitation Agent E CH1CB1), modifiables directement dans `index.html` (section `<footer>`) ou via `GOOGLE_CONFIG.organisation` dans `js/google-config.js` si vous préférez centraliser cette information.

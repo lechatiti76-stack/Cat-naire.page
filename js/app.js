@@ -24,15 +24,24 @@
     materiels: [],
     typesPointControle: {},
     controles: [],
+    utilisateurs: [],
+    ressources: [],
+    controleurs: [],
+    role: ROLE_PAR_DEFAUT,
     modeDemo: true,
     utilisateur: null,
     vue: "accueil",
     categorieCourante: null,
     materielControleCourant: null,
     pointsControleCourants: [],
+    moisCalendrier: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   };
 
   let currentSort = { key: "dateControle", dir: "desc" };
+
+  function peutControler() {
+    return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutControler;
+  }
 
   const els = {};
 
@@ -58,8 +67,17 @@
       viewCategorie: document.getElementById("viewCategorie"),
       viewTableau: document.getElementById("viewTableau"),
       viewControle: document.getElementById("viewControle"),
+      viewCalendrier: document.getElementById("viewCalendrier"),
+      viewRessources: document.getElementById("viewRessources"),
       tilesGrid: document.getElementById("tilesGrid"),
       cardsGrid: document.getElementById("cardsGrid"),
+      roleBadge: document.getElementById("roleBadge"),
+      calendrierGrille: document.getElementById("calendrierGrille"),
+      calendrierTitre: document.getElementById("calendrierTitre"),
+      btnMoisPrecedent: document.getElementById("btnMoisPrecedent"),
+      btnMoisSuivant: document.getElementById("btnMoisSuivant"),
+      ressourcesListe: document.getElementById("ressourcesListe"),
+      zoneImpression: document.getElementById("zoneImpression"),
       tableBody: document.getElementById("tableBody"),
       emptyState: document.getElementById("emptyState"),
       resultCount: document.getElementById("resultCount"),
@@ -83,7 +101,7 @@
       controleSousTitre: document.getElementById("controleSousTitre"),
       controleBadgeCategorie: document.getElementById("controleBadgeCategorie"),
       controleDate: document.getElementById("controleDate"),
-      controleControleur: document.getElementById("controleControleur"),
+      controleControleurSelect: document.getElementById("controleControleurSelect"),
       controlePointsListe: document.getElementById("controlePointsListe"),
       controleObservations: document.getElementById("controleObservations"),
       controleActions: document.getElementById("controleActions"),
@@ -99,9 +117,18 @@
     const demo = construireJeuDeDemonstration();
     Object.assign(state, demo);
     state.modeDemo = true;
+    state.role = "Administrateur"; // toutes les fonctionnalités visibles en démonstration
+    state.controleurs = state.utilisateurs;
     state.utilisateur = { id: null, nom: "Utilisateur de démonstration", email: "" };
     els.headerSubtitle.textContent = "Mode démonstration — cliquez sur \"Se connecter avec Google\" pour vos données réelles";
     afficherBanniere("ℹ️ Mode démonstration — données d'exemple, aucune écriture réelle. Connectez-vous à Google pour vos vraies données.", "info");
+    afficherRoleBadge();
+  }
+
+  function afficherRoleBadge() {
+    if (!els.roleBadge) return;
+    els.roleBadge.textContent = state.role;
+    els.roleBadge.hidden = false;
   }
 
   async function connecterGoogle() {
@@ -120,9 +147,12 @@
       Object.assign(state, donnees);
       state.modeDemo = false;
       state.utilisateur = utilisateur;
+      state.role = GoogleSheetsAPI.determinerRole(utilisateur.email, donnees.utilisateurs);
+      state.controleurs = donnees.utilisateurs.filter((u) => (ROLES_CONFIG[u.role] || {}).peutControler);
       els.headerSubtitle.textContent = `Connecté à Google Sheets — ${utilisateur.nom}`;
       els.btnGoogleConnect.textContent = "✅ Connecté";
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
+      afficherRoleBadge();
       peuplerFiltresTableau();
       afficherVue("accueil");
     } catch (e) {
@@ -150,6 +180,8 @@
     els.viewCategorie.hidden = vue !== "categorie";
     els.viewTableau.hidden = vue !== "tableau";
     els.viewControle.hidden = vue !== "controle";
+    els.viewCalendrier.hidden = vue !== "calendrier";
+    els.viewRessources.hidden = vue !== "ressources";
 
     if (vue === "accueil") {
       els.crumbSep.hidden = true;
@@ -167,6 +199,14 @@
     } else if (vue === "controle") {
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Nouveau contrôle";
+    } else if (vue === "calendrier") {
+      els.crumbSep.hidden = false;
+      els.crumbCourant.textContent = "Calendrier des contrôles";
+      renderCalendrier();
+    } else if (vue === "ressources") {
+      els.crumbSep.hidden = false;
+      els.crumbCourant.textContent = "Ressources";
+      renderRessources();
     }
     renderStatsGlobales();
   }
@@ -201,6 +241,15 @@
 
     els.btnAnnulerControle.addEventListener("click", () => afficherVue("categorie", { categorie: state.categorieCourante || (state.materielControleCourant || {}).categorie }));
     els.btnValiderControle.addEventListener("click", validerControle);
+
+    els.btnMoisPrecedent.addEventListener("click", () => {
+      state.moisCalendrier.setMonth(state.moisCalendrier.getMonth() - 1);
+      renderCalendrier();
+    });
+    els.btnMoisSuivant.addEventListener("click", () => {
+      state.moisCalendrier.setMonth(state.moisCalendrier.getMonth() + 1);
+      renderCalendrier();
+    });
 
     applyTheme(localStorage.getItem("theme") || "light");
   }
@@ -251,6 +300,37 @@
     `;
     tuileTableau.addEventListener("click", () => afficherVue("tableau"));
     els.tilesGrid.appendChild(tuileTableau);
+
+    // Vignette "Calendrier"
+    const echeancesProches = state.materiels
+      .map((m) => dernierControle(m.id))
+      .filter((c) => c && new Date(c.dateProchainControle) >= new Date() && new Date(c.dateProchainControle) <= new Date(Date.now() + 30 * 86400000));
+    const tuileCalendrier = document.createElement("button");
+    tuileCalendrier.type = "button";
+    tuileCalendrier.className = "tile";
+    tuileCalendrier.innerHTML = `
+      <span class="tile__icon" style="background:#FDF0D5;color:var(--color-warn)">
+        <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <span class="tile__titre">Calendrier</span>
+      <span class="tile__sous-titre">${echeancesProches.length} contrôle${echeancesProches.length > 1 ? "s" : ""} sous 30 jours</span>
+    `;
+    tuileCalendrier.addEventListener("click", () => afficherVue("calendrier"));
+    els.tilesGrid.appendChild(tuileCalendrier);
+
+    // Vignette "Ressources"
+    const tuileRessources = document.createElement("button");
+    tuileRessources.type = "button";
+    tuileRessources.className = "tile";
+    tuileRessources.innerHTML = `
+      <span class="tile__icon" style="background:#EDEBE9;color:var(--color-neutral)">
+        <svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 4h9l3 3h4v13H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="tile__titre">Ressources</span>
+      <span class="tile__sous-titre">${state.ressources.length} document${state.ressources.length > 1 ? "s" : ""}</span>
+    `;
+    tuileRessources.addEventListener("click", () => afficherVue("ressources"));
+    els.tilesGrid.appendChild(tuileRessources);
 
     // Une vignette par catégorie présente dans le référentiel
     categories.forEach((cat) => {
@@ -306,11 +386,12 @@
         <p class="materiel-card__info">État : ${escapeHtml(m.etat)}${c ? ` · Dernier contrôle le ${formatDate(c.dateControle)}` : ""}</p>
         <div class="materiel-card__actions">
           <button class="btn btn--secondary btn--small btn--historique" type="button" ${c ? "" : "disabled"}>Historique</button>
-          <button class="btn btn--primary btn--small btn--nouveau-controle" type="button">🆕 Nouveau contrôle</button>
+          ${peutControler() ? '<button class="btn btn--primary btn--small btn--nouveau-controle" type="button">🆕 Nouveau contrôle</button>' : ""}
         </div>
       `;
       carte.querySelector(".btn--historique").addEventListener("click", () => ouvrirFicheMateriel(m.id));
-      carte.querySelector(".btn--nouveau-controle").addEventListener("click", () => ouvrirEcranControle(m.id));
+      const btnNouveau = carte.querySelector(".btn--nouveau-controle");
+      if (btnNouveau) btnNouveau.addEventListener("click", () => ouvrirEcranControle(m.id));
       els.cardsGrid.appendChild(carte);
     });
   }
@@ -334,16 +415,23 @@
         <div class="modal__field"><dt>Catégorie</dt><dd>${escapeHtml(materiel.categorie)}</dd></div>
         <div class="modal__field"><dt>État</dt><dd>${escapeHtml(materiel.etat)}</dd></div>
       </dl>
-      <button class="btn btn--primary btn--small" id="btnNouveauControleModal" type="button" style="margin-bottom:16px;">🆕 Nouveau contrôle</button>
+      <div style="display:flex; gap:8px; margin-bottom:16px;">
+        ${peutControler() ? '<button class="btn btn--primary btn--small" id="btnNouveauControleModal" type="button">🆕 Nouveau contrôle</button>' : ""}
+        <button class="btn btn--secondary btn--small" id="btnExporterPdf" type="button">🖨️ Exporter en PDF</button>
+      </div>
       <div class="modal__section">
         <h3>Historique des contrôles (${historique.length})</h3>
         ${historique.length ? historique.map((c, i) => renderLigneHistorique(c, i)).join("") : "<p>Aucun contrôle enregistré pour ce matériel.</p>"}
       </div>
     `;
-    els.modalBody.querySelector("#btnNouveauControleModal").addEventListener("click", () => {
-      fermerModal();
-      ouvrirEcranControle(materielId);
-    });
+    const btnNouveauModal = els.modalBody.querySelector("#btnNouveauControleModal");
+    if (btnNouveauModal) {
+      btnNouveauModal.addEventListener("click", () => {
+        fermerModal();
+        ouvrirEcranControle(materielId);
+      });
+    }
+    els.modalBody.querySelector("#btnExporterPdf").addEventListener("click", () => exporterPdfMateriel(materiel, historique));
     els.modalBody.querySelectorAll(".historique-ligne__entete").forEach((el) => {
       el.addEventListener("click", () => {
         const detail = el.nextElementSibling;
@@ -383,6 +471,10 @@
 
   // -- Vue Contrôle : checklist + validation ----------------------------------
   function ouvrirEcranControle(materielId) {
+    if (!peutControler()) {
+      afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de créer de contrôle.", "warn");
+      return;
+    }
     const materiel = state.materiels.find((m) => m.id === materielId);
     state.materielControleCourant = materiel;
 
@@ -394,7 +486,7 @@
     els.controleBadgeCategorie.textContent = materiel.categorie;
     els.controleBadgeCategorie.className = "badge badge--neutral";
     els.controleDate.value = new Date().toISOString().slice(0, 10);
-    els.controleControleur.textContent = (state.utilisateur && state.utilisateur.nom) || "—";
+    renderSelecteurControleur();
     els.controleObservations.value = "";
     els.controleActions.value = "";
     els.controleCommentaires.value = "";
@@ -404,6 +496,27 @@
 
     renderPointsControleFormulaire();
     afficherVue("controle");
+  }
+
+  /** Liste déroulante des contrôleurs (onglet Utilisateurs), présélectionne l'utilisateur connecté s'il y figure. */
+  function renderSelecteurControleur() {
+    const nomCourant = (state.utilisateur && state.utilisateur.nom) || "";
+    if (!state.controleurs || state.controleurs.length === 0) {
+      els.controleControleurSelect.innerHTML = `<option value="${escapeHtml(nomCourant)}">${escapeHtml(nomCourant) || "—"}</option>`;
+      return;
+    }
+    els.controleControleurSelect.innerHTML = state.controleurs
+      .map((c) => `<option value="${escapeHtml(c.nom)}">${escapeHtml(c.nom)} (${escapeHtml(c.role)})</option>`)
+      .join("");
+    const correspond = state.controleurs.some((c) => c.nom === nomCourant);
+    if (correspond) els.controleControleurSelect.value = nomCourant;
+    else if (state.utilisateur && state.utilisateur.email) {
+      const opt = document.createElement("option");
+      opt.value = nomCourant;
+      opt.textContent = `${nomCourant} (vous)`;
+      els.controleControleurSelect.prepend(opt);
+      els.controleControleurSelect.value = nomCourant;
+    }
   }
 
   function renderPointsControleFormulaire() {
@@ -460,6 +573,7 @@
     const actionsCorrectives = els.controleActions.value;
     const commentaires = els.controleCommentaires.value;
     const points = state.pointsControleCourants;
+    const controleurNom = els.controleControleurSelect.value || (state.utilisateur && state.utilisateur.nom) || "";
 
     els.btnValiderControle.disabled = true;
     els.btnValiderControle.textContent = "Enregistrement…";
@@ -468,7 +582,7 @@
       let resultat;
       if (!state.modeDemo) {
         resultat = await GoogleSheetsAPI.enregistrerControle({
-          materiel, dateControle, controleurNom: state.utilisateur.nom,
+          materiel, dateControle, controleurNom,
           observations, actionsCorrectives, commentaires, points,
         });
       } else {
@@ -479,7 +593,7 @@
           id: resultat.id, materielId: materiel.id, materiel: materiel.title,
           numSerie: materiel.numSerie, reference: materiel.reference, categorie: materiel.categorie,
           etat: materiel.etat, dateControle, dateProchainControle: resultat.dateProchainControle,
-          controleur: state.utilisateur.nom, conforme: resultat.conforme, statut: resultat.statut,
+          controleur: controleurNom, conforme: resultat.conforme, statut: resultat.statut,
           observations, actionsCorrectives, commentaires,
           pointsControle: points.map((p) => ({ libelle: p.libelle, effectue: true, rapport: p.statut === "Conforme" ? "Validé" : "Non validé", statut: p.statut })),
         });
@@ -608,6 +722,105 @@
   function csvEscape(value) {
     const v = String(value ?? "");
     return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  }
+
+  // -- Vue Calendrier : contrôles à venir par mois ----------------------------
+  function renderCalendrier() {
+    const mois = state.moisCalendrier;
+    const annee = mois.getFullYear();
+    const moisIndex = mois.getMonth();
+    els.calendrierTitre.textContent = mois.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+    // Prochain contrôle par matériel = dateProchainControle de son dernier contrôle connu
+    const echeances = state.materiels
+      .map((m) => ({ materiel: m, controle: dernierControle(m.id) }))
+      .filter((e) => e.controle && e.controle.dateProchainControle);
+
+    const premierJourMois = new Date(annee, moisIndex, 1);
+    const decalage = (premierJourMois.getDay() + 6) % 7; // semaine commençant lundi
+    const nbJours = new Date(annee, moisIndex + 1, 0).getDate();
+
+    let html = `
+      <div class="calendrier-entete-jours">
+        ${["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((j) => `<div>${j}</div>`).join("")}
+      </div>
+      <div class="calendrier-grille-jours">
+    `;
+    for (let i = 0; i < decalage; i++) html += `<div class="calendrier-jour calendrier-jour--vide"></div>`;
+    for (let jour = 1; jour <= nbJours; jour++) {
+      const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+      const echeancesJour = echeances.filter((e) => e.controle.dateProchainControle === dateJour);
+      const estAujourdhui = dateJour === new Date().toISOString().slice(0, 10);
+      html += `
+        <div class="calendrier-jour ${estAujourdhui ? "calendrier-jour--aujourdhui" : ""}">
+          <span class="calendrier-jour__numero">${jour}</span>
+          ${echeancesJour.map((e) => {
+            const info = STATUT_LABELS[statutDeControle(e.controle)];
+            return `<button type="button" class="calendrier-echeance ${info.badge}" title="${escapeHtml(e.materiel.title)}">${escapeHtml(e.materiel.title)}</button>`;
+          }).join("")}
+        </div>`;
+    }
+    html += `</div>`;
+    els.calendrierGrille.innerHTML = html;
+
+    // Association clic → fiche matériel
+    let index = 0;
+    for (let jour = 1; jour <= nbJours; jour++) {
+      const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
+      const echeancesJour = echeances.filter((e) => e.controle.dateProchainControle === dateJour);
+      echeancesJour.forEach((e) => {
+        const btn = els.calendrierGrille.querySelectorAll(".calendrier-echeance")[index];
+        if (btn) btn.addEventListener("click", () => ouvrirFicheMateriel(e.materiel.id));
+        index++;
+      });
+    }
+  }
+
+  // -- Vue Ressources : documents/liens ---------------------------------------
+  function renderRessources() {
+    if (!state.ressources || state.ressources.length === 0) {
+      els.ressourcesListe.innerHTML = `<p>Aucune ressource pour l'instant. Ajoutez des lignes (Titre | Lien | Categorie) dans l'onglet <code>Ressources</code> de votre classeur Google Sheets.</p>`;
+      return;
+    }
+    const parCategorie = {};
+    state.ressources.forEach((r) => {
+      const cat = r.categorie || "Général";
+      if (!parCategorie[cat]) parCategorie[cat] = [];
+      parCategorie[cat].push(r);
+    });
+    els.ressourcesListe.innerHTML = Object.entries(parCategorie).map(([cat, items]) => `
+      <div class="ressources-groupe">
+        <h3>${escapeHtml(cat)}</h3>
+        <ul class="ressources-liste">
+          ${items.map((r) => `<li><a href="${escapeHtml(r.lien)}" target="_blank" rel="noopener">📄 ${escapeHtml(r.titre)}</a></li>`).join("")}
+        </ul>
+      </div>
+    `).join("");
+  }
+
+  // -- Export PDF (impression navigateur) --------------------------------------
+  function exporterPdfMateriel(materiel, historique) {
+    const genererLigne = (label, valeur) => `<div class="impression-champ"><dt>${label}</dt><dd>${escapeHtml(valeur) || "—"}</dd></div>`;
+    els.zoneImpression.innerHTML = `
+      <h1>${escapeHtml(materiel.title)}</h1>
+      <dl class="impression-grille">
+        ${genererLigne("N° série", materiel.numSerie)}
+        ${genererLigne("Référence", materiel.reference)}
+        ${genererLigne("Catégorie", materiel.categorie)}
+        ${genererLigne("État", materiel.etat)}
+      </dl>
+      <h2>Historique des contrôles (${historique.length})</h2>
+      ${historique.map((c) => `
+        <div class="impression-controle">
+          <h3>${formatDate(c.dateControle)} — ${escapeHtml(c.controleur)} — ${escapeHtml(c.statut)}</h3>
+          <p><strong>Observations :</strong> ${escapeHtml(c.observations) || "—"}</p>
+          <p><strong>Actions correctives :</strong> ${escapeHtml(c.actionsCorrectives) || "—"}</p>
+          <p><strong>Commentaires :</strong> ${escapeHtml(c.commentaires) || "—"}</p>
+          ${renderPointsControle(c.pointsControle)}
+        </div>
+      `).join("")}
+    `;
+    window.print();
   }
 
   // -- Thème clair / sombre ---------------------------------------------------

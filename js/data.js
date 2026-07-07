@@ -91,7 +91,19 @@ function construireJeuDeDemonstration() {
     };
   });
 
-  return { materiels, typesPointControle: typesPointControleAvecId, controles };
+  const utilisateurs = [
+    { email: "julien.marchand@example.com", nom: "Julien Marchand", role: "Contrôleur" },
+    { email: "sophie.nguyen@example.com", nom: "Sophie Nguyen", role: "Contrôleur" },
+    { email: "karim.belaid@example.com", nom: "Karim Belaid", role: "Contrôleur" },
+    { email: "amandine.roy@example.com", nom: "Amandine Roy", role: "Administrateur" },
+  ];
+
+  const ressources = [
+    { titre: "Procédure de contrôle des perches isolantes", lien: "#", categorie: "Procédures" },
+    { titre: "Fiche de sécurité VAT", lien: "#", categorie: "Sécurité" },
+  ];
+
+  return { materiels, typesPointControle: typesPointControleAvecId, controles, utilisateurs, ressources };
 }
 
 function genererPointsDemo(categorie, conforme, libelleNonConforme, typesPointControleAvecId) {
