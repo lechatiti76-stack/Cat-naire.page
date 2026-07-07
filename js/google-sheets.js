@@ -154,6 +154,18 @@ const GoogleSheetsAPI = (() => {
   }
 
   /**
+   * Retrouve la valeur d'une colonne à partir du DÉBUT de son en-tête plutôt
+   * que son nom exact (ex. "Role (Role = Administrateur/Contrôleur/...)."
+   * correspond au préfixe "role") — évite de dépendre d'un intitulé de
+   * colonne rigide quand quelqu'un ajoute des précisions dans l'en-tête.
+   */
+  function valeurParPrefixe(objet, prefixe) {
+    const prefixeMin = prefixe.toLowerCase();
+    const cle = Object.keys(objet).find((k) => k.toLowerCase().startsWith(prefixeMin));
+    return cle ? objet[cle] : undefined;
+  }
+
+  /**
    * Fait correspondre le texte saisi dans la colonne Role (quels que soient
    * la casse ou les espaces superflus, ex. "administrateur ", "ADMIN") à l'un
    * des rôles connus de ROLES_CONFIG. Retombe sur ROLE_PAR_DEFAUT si aucune
@@ -253,9 +265,9 @@ const GoogleSheetsAPI = (() => {
     const utilisateurs = lignesEnObjets(utilisateursRows)
       .map((u) => ({
         ligne: u._ligne,
-        email: (u.Email || "").trim().toLowerCase(),
-        nom: u.Nom || u.Name || u.Email || "",
-        role: normaliserRole(u.Role),
+        email: (valeurParPrefixe(u, "email") || "").trim().toLowerCase(),
+        nom: valeurParPrefixe(u, "nom") || valeurParPrefixe(u, "name") || valeurParPrefixe(u, "email") || "",
+        role: normaliserRole(valeurParPrefixe(u, "role")),
       }))
       .filter((u) => u.email);
 
