@@ -110,7 +110,14 @@ const GoogleSheetsAPI = (() => {
     });
     if (!res.ok) {
       const texte = await res.text().catch(() => "");
-      throw new Error(`Erreur Google Sheets ${res.status}\n${texte}`);
+      // L'API Google renvoie {"error": {"code":400, "message": "...", "status": "..."}} :
+      // on extrait ce message précis plutôt que de se limiter au code HTTP.
+      let messagePrecis = "";
+      try {
+        const json = JSON.parse(texte);
+        messagePrecis = (json.error && json.error.message) || "";
+      } catch (e) { /* réponse non-JSON, on garde le texte brut ci-dessous */ }
+      throw new Error(`Erreur Google Sheets ${res.status}${messagePrecis ? " — " + messagePrecis : ""}${!messagePrecis && texte ? "\n" + texte : ""}`);
     }
     return res.json();
   }

@@ -196,7 +196,7 @@
       if (!silencieux) {
         els.btnGoogleConnect.disabled = false;
         els.btnGoogleConnect.textContent = "🔑 Se connecter avec Google";
-        afficherBanniere("⚠️ Connexion à Google impossible : " + e.message.split("\n")[0], "warn");
+        afficherBanniere("⚠️ Connexion à Google impossible : " + e.message, "warn");
       }
       throw e;
     }
@@ -953,7 +953,7 @@
       afficherBanniere("✅ Utilisateur ajouté" + (state.modeDemo ? " (simulation locale)." : "."), "info");
     } catch (e) {
       console.error(e);
-      afficherBanniere("⚠️ Erreur lors de l'ajout : " + e.message.split("\n")[0], "warn");
+      afficherBanniere("⚠️ Erreur lors de l'ajout : " + e.message, "warn");
     }
   }
 
@@ -968,7 +968,7 @@
       afficherBanniere("✅ Utilisateur modifié" + (state.modeDemo ? " (simulation locale)." : "."), "info");
     } catch (e) {
       console.error(e);
-      afficherBanniere("⚠️ Erreur lors de la modification : " + e.message.split("\n")[0], "warn");
+      afficherBanniere("⚠️ Erreur lors de la modification : " + e.message, "warn");
     }
   }
 
@@ -984,7 +984,7 @@
       afficherBanniere("✅ Utilisateur supprimé" + (state.modeDemo ? " (simulation locale)." : "."), "info");
     } catch (e) {
       console.error(e);
-      afficherBanniere("⚠️ Erreur lors de la suppression : " + e.message.split("\n")[0], "warn");
+      afficherBanniere("⚠️ Erreur lors de la suppression : " + e.message, "warn");
     }
   }
 
