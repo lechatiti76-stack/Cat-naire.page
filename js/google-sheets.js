@@ -358,6 +358,7 @@ const GoogleSheetsAPI = (() => {
   /** Ajoute une entrée au journal des actions (voir docs/10 §4). N'échoue jamais bruyamment : un souci de journalisation ne doit pas bloquer l'action elle-même. */
   async function enregistrerJournal({ utilisateur, action }) {
     try {
+      await assurerFeuille(GOOGLE_CONFIG.feuilles.journal, ["Date", "Heure", "Utilisateur", "Action", "Adresse IP"]);
       const maintenant = new Date();
       const date = maintenant.toISOString().slice(0, 10);
       const heure = maintenant.toTimeString().slice(0, 8);
@@ -366,6 +367,40 @@ const GoogleSheetsAPI = (() => {
     } catch (e) {
       console.warn("Journal des actions : échec de l'enregistrement (non bloquant)", e);
     }
+  }
+
+  async function listerFeuilles() {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}?fields=sheets.properties.title`;
+    const json = await appelJson(url);
+    return (json.sheets || []).map((s) => s.properties.title);
+  }
+
+  async function creerFeuille(nom) {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}:batchUpdate`;
+    await appelJson(url, { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: nom } } }] }) });
+  }
+
+  const feuillesConfirmees = new Set();
+  /**
+   * Crée un onglet (avec ses en-têtes) s'il n'existe pas encore dans le
+   * classeur, pour qu'un premier écriture n'échoue plus jamais avec
+   * "Unable to parse range" faute d'onglet — les onglets Utilisateurs/Journal
+   * sont facultatifs à la lecture (voir obtenirValeursOptionnel) mais doivent
+   * exister pour pouvoir y écrire.
+   */
+  async function assurerFeuille(nomFeuille, entetes) {
+    if (feuillesConfirmees.has(nomFeuille)) return;
+    const feuilles = await listerFeuilles();
+    if (!feuilles.includes(nomFeuille)) {
+      await creerFeuille(nomFeuille);
+      if (entetes && entetes.length) {
+        const derniereColonne = String.fromCharCode(64 + entetes.length);
+        const plage = `${nomFeuille}!A1:${derniereColonne}1`;
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
+        await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [entetes] }) });
+      }
+    }
+    feuillesConfirmees.add(nomFeuille);
   }
 
   /** Détermine le rôle d'un utilisateur à partir de l'onglet Utilisateurs (absent/vide => rôle par défaut, voir docs/09). */
@@ -398,6 +433,7 @@ const GoogleSheetsAPI = (() => {
 
   /** Ajoute un utilisateur dans l'onglet Utilisateurs (écran Administration). */
   async function creerUtilisateur({ email, nom, role, permissions, identifiant, motDePasseHash }) {
+    await assurerFeuille(GOOGLE_CONFIG.feuilles.utilisateurs, ["Email", "Nom", "Role", "Permissions", "Identifiant", "MotDePasseHash"]);
     await ajouterLigne(GOOGLE_CONFIG.feuilles.utilisateurs, [email, nom, role, (permissions || []).join(","), identifiant || "", motDePasseHash || ""]);
   }
 

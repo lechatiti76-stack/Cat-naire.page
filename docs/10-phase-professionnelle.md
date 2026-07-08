@@ -40,6 +40,10 @@ Email | Nom | Role | Permissions | Identifiant | MotDePasseHash
 
 ⚠️ Comme pour l'ancien verrou partagé, ceci reste une protection de confort côté navigateur (voir §0) : le hachage empêche la lecture directe d'un mot de passe dans le classeur, mais n'importe qui avec un accès Éditeur au classeur pourrait remplacer le hachage par un hachage qu'il connaît. La vraie barrière reste le partage du classeur Google Sheets.
 
+### Création automatique de l'onglet Utilisateurs
+
+Si l'onglet `Utilisateurs` n'existe pas encore dans le classeur (ou a été supprimé), l'ajout du premier utilisateur depuis l'écran Administration le crée automatiquement, avec ses en-têtes (`Email | Nom | Role | Permissions | Identifiant | MotDePasseHash`), avant d'y écrire la personne — plus besoin de créer l'onglet à la main. Il en va de même pour l'onglet `Journal` (§2) à la première action journalisée. Un onglet déjà présent n'est jamais touché (aucune création, aucun en-tête réécrit).
+
 ## 2. Journal des actions
 
 Nouvel onglet optionnel **`Journal`** (créé automatiquement au premier événement si absent), consultable dans l'écran Administration :
