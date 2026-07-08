@@ -64,8 +64,8 @@ const ROLE_PAR_DEFAUT = "Contrôleur";
  * malveillante avertie. Voir docs/09 pour l'alternative sécurisée (serveur).
  */
 const ADMIN_AUTH = {
-  identifiant: "admin",
-  motDePasse: "LHTE2026",
+  identifiant: "PATON",
+  motDePasse: "momiji",
 };
 
 // Catégories connues, avec un accent visuel (indépendant du code couleur de conformité)
