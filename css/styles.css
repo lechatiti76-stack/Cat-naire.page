@@ -267,6 +267,27 @@ html, body {
 .stat-card__value { margin: 0; font-size: 24px; font-weight: 700; line-height: 1; }
 .stat-card__label { margin: 4px 0 0; font-size: 12.5px; color: var(--text-muted); }
 
+/* ============ TABLEAU DE BORD (indicateurs + graphiques) ============ */
+.dashboard { margin-bottom: 22px; }
+.dashboard:empty { display: none; margin: 0; }
+.dashboard__stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 16px;
+}
+.dashboard__graphiques {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;
+}
+.dashboard__graphique {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 16px;
+}
+.dashboard__graphique h3 { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .02em; }
+.graphique-barres__ligne { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.graphique-barres__ligne:last-child { margin-bottom: 0; }
+.graphique-barres__label { flex: 0 0 130px; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.graphique-barres__piste { flex: 1 1 auto; height: 12px; border-radius: 6px; background: var(--surface-alt); overflow: hidden; }
+.graphique-barres__valeur { height: 100%; border-radius: 6px; min-width: 3px; transition: width .3s ease; }
+.graphique-barres__nombre { flex: 0 0 auto; width: 26px; text-align: right; font-size: 12.5px; font-weight: 600; }
+
 /* ============ BARRE D'OUTILS (recherche + filtres) ============ */
 .toolbar {
   background: var(--surface);

@@ -61,6 +61,7 @@
   }
 
   const CLE_DEJA_CONNECTE = "gsheets_deja_connecte";
+  const CLE_DERNIERE_SAUVEGARDE = "derniere_sauvegarde_locale";
   const els = {};
 
   document.addEventListener("DOMContentLoaded", demarrer);
@@ -128,6 +129,7 @@
       btnMoisSuivant: document.getElementById("btnMoisSuivant"),
       ressourcesListe: document.getElementById("ressourcesListe"),
       zoneImpression: document.getElementById("zoneImpression"),
+      dashboardExtra: document.getElementById("dashboardExtra"),
       tableBody: document.getElementById("tableBody"),
       emptyState: document.getElementById("emptyState"),
       resultCount: document.getElementById("resultCount"),
@@ -276,6 +278,7 @@
     } else if (vue === "tableau") {
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Tableau général";
+      renderDashboardExtra();
       renderTableau();
     } else if (vue === "controle") {
       els.crumbSep.hidden = false;
@@ -471,6 +474,65 @@
         btn.addEventListener("click", () => ouvrirFicheMateriel(Number(btn.dataset.materiel)));
       });
     }
+  }
+
+  // -- Tableau de bord : indicateurs complémentaires + graphiques -------------
+  function genererGraphiqueBarres(items) {
+    const max = Math.max(1, ...items.map((i) => i.valeur));
+    return items.map((i) => `
+      <div class="graphique-barres__ligne">
+        <span class="graphique-barres__label" title="${escapeHtml(i.label)}">${escapeHtml(i.label)}</span>
+        <div class="graphique-barres__piste"><div class="graphique-barres__valeur" style="width:${Math.round((i.valeur / max) * 100)}%; background:${i.couleur};"></div></div>
+        <span class="graphique-barres__nombre">${i.valeur}</span>
+      </div>
+    `).join("");
+  }
+
+  function renderDashboardExtra() {
+    if (!els.dashboardExtra || !aPermission("tableauBord")) { if (els.dashboardExtra) els.dashboardExtra.innerHTML = ""; return; }
+
+    const maintenant = new Date();
+    const derniers = state.materiels.map((m) => dernierControle(m.id)).filter(Boolean);
+    const enRetard = derniers.filter((c) => c.dateProchainControle && new Date(c.dateProchainControle) < maintenant).length;
+    const enAlerte = derniers.filter((c) => ["bientot", "nonconforme"].includes(statutDeControle(c))).length;
+    const echeancesDuMois = derniers.filter((c) => {
+      if (!c.dateProchainControle) return false;
+      const d = new Date(c.dateProchainControle);
+      return d.getFullYear() === maintenant.getFullYear() && d.getMonth() === maintenant.getMonth();
+    }).length;
+    const derniereSauvegarde = localStorage.getItem(CLE_DERNIERE_SAUVEGARDE);
+
+    const roleCounts = {};
+    state.utilisateurs.forEach((u) => { roleCounts[u.role] = (roleCounts[u.role] || 0) + 1; });
+    const detailUtilisateurs = Object.entries(roleCounts).map(([r, n]) => `${n} ${r}`).join(" · ") || "aucun";
+
+    els.dashboardExtra.innerHTML = `
+      <div class="dashboard__stats">
+        <div class="stat-card"><div><p class="stat-card__value">${state.controles.length}</p><p class="stat-card__label">Contrôles réalisés</p></div></div>
+        <div class="stat-card"><div><p class="stat-card__value">${enRetard}</p><p class="stat-card__label">Contrôles en retard</p></div></div>
+        <div class="stat-card"><div><p class="stat-card__value">${enAlerte}</p><p class="stat-card__label">Matériel en alerte</p></div></div>
+        <div class="stat-card"><div><p class="stat-card__value">${echeancesDuMois}</p><p class="stat-card__label">Échéances ce mois-ci</p></div></div>
+        <div class="stat-card"><div><p class="stat-card__value">${state.utilisateurs.length}</p><p class="stat-card__label">Utilisateurs déclarés (${detailUtilisateurs})</p></div></div>
+        <div class="stat-card"><div><p class="stat-card__value" style="font-size:15px;">${derniereSauvegarde ? formatDate(derniereSauvegarde) : "Jamais"}</p><p class="stat-card__label">Dernière sauvegarde</p></div></div>
+      </div>
+      <div class="dashboard__graphiques">
+        <div class="dashboard__graphique">
+          <h3>Matériel par catégorie</h3>
+          ${genererGraphiqueBarres(CATEGORIES_CONFIG.filter((c) => state.materiels.some((m) => m.categorie === c.nom)).map((c) => ({
+            label: c.nom, valeur: state.materiels.filter((m) => m.categorie === c.nom).length, couleur: c.accent,
+          })))}
+        </div>
+        <div class="dashboard__graphique">
+          <h3>Contrôles par statut</h3>
+          ${genererGraphiqueBarres([
+            { label: "Conforme", valeur: derniers.filter((c) => statutDeControle(c) === "conforme").length, couleur: "var(--color-ok)" },
+            { label: "À vérifier prochainement", valeur: derniers.filter((c) => statutDeControle(c) === "bientot").length, couleur: "var(--color-warn)" },
+            { label: "Non conforme", valeur: derniers.filter((c) => statutDeControle(c) === "nonconforme").length, couleur: "var(--color-danger)" },
+            { label: "Hors service", valeur: derniers.filter((c) => statutDeControle(c) === "hs").length, couleur: "var(--color-neutral)" },
+          ])}
+        </div>
+      </div>
+    `;
   }
 
   // -- Vue Accueil : vignettes par catégorie + tableau général ---------------

@@ -63,9 +63,14 @@ Email | Nom | Role | Permissions | Identifiant | MotDePasseHash
 
 ⚠️ Comme pour l'ancien verrou partagé, ceci reste une protection de confort côté navigateur (voir §0) : le hachage empêche la lecture directe d'un mot de passe dans le classeur, mais n'importe qui avec un accès Éditeur au classeur pourrait remplacer le hachage par un hachage qu'il connaît. La vraie barrière reste le partage du classeur Google Sheets.
 
+## 3bis. Tableau de bord enrichi
+
+La vue "Tableau général" affiche désormais, au-dessus de la recherche/filtres, des indicateurs complémentaires (contrôles réalisés, contrôles en retard, matériel en alerte, échéances du mois, utilisateurs déclarés par rôle, dernière sauvegarde) et deux graphiques en barres (répartition du matériel par catégorie, contrôles par statut). Les graphiques sont des barres CSS simples (largeur proportionnelle à la valeur max), pas une bibliothèque de graphiques tierce — suffisant pour ce volume de données et cohérent avec le thème clair/sombre.
+
+**Interprétation de "Utilisateurs connectés"** : sur une application 100% statique sans serveur, il n'existe pas de notion de session concurrente à observer (chaque navigateur a sa propre session Google indépendante). Le tableau de bord affiche donc plutôt le nombre de personnes **déclarées** dans l'onglet `Utilisateurs`, réparties par rôle. **"Dernière sauvegarde"** affichera la date du dernier export une fois la fonctionnalité de sauvegarde manuelle livrée (voir §4 ci-dessous) ; "Jamais" en attendant.
+
 ## 4. Ce qui reste (prochaine phase)
 
-- **Tableau de bord enrichi avec graphiques.**
 - **Galerie photos automatique** (dossier `assets/photos/` scanné via une petite GitHub Action générant un manifeste, pour ne jamais toucher au code) + diaporama.
 - **Responsive avancé et PWA installable** (manifeste + service worker ; les notifications *push* nécessitent un serveur et ne sont pas réalisables ici).
 - **Durcissement sécurité** : expiration de session par inactivité, anti-brute-force léger sur le verrou Administration.
