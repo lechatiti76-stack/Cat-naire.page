@@ -186,6 +186,21 @@ const GoogleSheetsAPI = (() => {
   }
 
   /**
+   * Hache un mot de passe avec SHA-256 (Web Crypto API, native au navigateur —
+   * aucune bibliothèque tierce). Le sel est l'identifiant lui-même : suffisant
+   * pour éviter de stocker un mot de passe en clair et pour que deux personnes
+   * avec le même mot de passe n'aient pas le même hash, mais ça reste une
+   * protection de confort côté navigateur, pas une sécurité de coffre-fort
+   * serveur (voir docs/10 §1bis).
+   */
+  async function hacherMotDePasse(identifiant, motDePasse) {
+    const texte = String(identifiant || "").trim().toLowerCase() + ":" + String(motDePasse || "");
+    const octets = new TextEncoder().encode(texte);
+    const empreinte = await crypto.subtle.digest("SHA-256", octets);
+    return [...new Uint8Array(empreinte)].map((o) => o.toString(16).padStart(2, "0")).join("");
+  }
+
+  /**
    * Calcule les permissions effectives d'une personne : si la colonne
    * "Permissions" de l'onglet Utilisateurs contient une liste (séparée par
    * des virgules) de clés reconnues (voir PERMISSIONS_CONFIG), on l'utilise
@@ -292,6 +307,8 @@ const GoogleSheetsAPI = (() => {
           nom: valeurParPrefixe(u, "nom") || valeurParPrefixe(u, "name") || valeurParPrefixe(u, "email") || "",
           role,
           permissions: analyserPermissions(permissionsTexte, role),
+          identifiant: valeurParPrefixe(u, "identifiant") || "",
+          motDePasseHash: valeurParPrefixe(u, "motdepasse") || valeurParPrefixe(u, "mot de passe") || "",
         };
       })
       .filter((u) => u.email);
@@ -364,21 +381,36 @@ const GoogleSheetsAPI = (() => {
     return utilisateurs.find((u) => u.email === email.trim().toLowerCase()) || null;
   }
 
+  /** Retrouve la ligne Utilisateurs d'un identifiant de connexion (écran Administration, voir docs/10 §1bis). */
+  function trouverUtilisateurParIdentifiant(identifiant, utilisateurs) {
+    if (!identifiant || !utilisateurs) return null;
+    const cle = String(identifiant).trim().toLowerCase();
+    return utilisateurs.find((u) => u.identifiant && u.identifiant.trim().toLowerCase() === cle) || null;
+  }
+
+  /** Vérifie un identifiant/mot de passe individuel contre l'onglet Utilisateurs. Renvoie la personne si correct, sinon null. */
+  async function verifierMotDePasse(identifiant, motDePasse, utilisateurs) {
+    const u = trouverUtilisateurParIdentifiant(identifiant, utilisateurs);
+    if (!u || !u.motDePasseHash) return null;
+    const hash = await hacherMotDePasse(identifiant, motDePasse);
+    return hash === u.motDePasseHash ? u : null;
+  }
+
   /** Ajoute un utilisateur dans l'onglet Utilisateurs (écran Administration). */
-  async function creerUtilisateur({ email, nom, role, permissions }) {
-    await ajouterLigne(GOOGLE_CONFIG.feuilles.utilisateurs, [email, nom, role, (permissions || []).join(",")]);
+  async function creerUtilisateur({ email, nom, role, permissions, identifiant, motDePasseHash }) {
+    await ajouterLigne(GOOGLE_CONFIG.feuilles.utilisateurs, [email, nom, role, (permissions || []).join(","), identifiant || "", motDePasseHash || ""]);
   }
 
   /** Modifie un utilisateur existant (identifié par son numéro de ligne réel dans le classeur). */
-  async function modifierUtilisateur(ligne, { email, nom, role, permissions }) {
-    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:D${ligne}`;
+  async function modifierUtilisateur(ligne, { email, nom, role, permissions, identifiant, motDePasseHash }) {
+    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:F${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
-    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [[email, nom, role, (permissions || []).join(",")]] }) });
+    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [[email, nom, role, (permissions || []).join(","), identifiant || "", motDePasseHash || ""]] }) });
   }
 
   /** Supprime un utilisateur (vide sa ligne — les lignes vides sont ignorées à la lecture). */
   async function supprimerUtilisateur(ligne) {
-    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:D${ligne}`;
+    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:F${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}:clear`;
     await appelJson(url, { method: "POST" });
   }
@@ -436,5 +468,6 @@ const GoogleSheetsAPI = (() => {
     enregistrerControle, determinerRole, trouverUtilisateur,
     creerUtilisateur, modifierUtilisateur, supprimerUtilisateur,
     chargerJournal, enregistrerJournal,
+    hacherMotDePasse, trouverUtilisateurParIdentifiant, verifierMotDePasse,
   };
 })();

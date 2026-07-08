@@ -226,7 +226,7 @@
 
   <!-- ============ VUE ADMINISTRATION : GESTION DES UTILISATEURS ============ -->
   <section id="viewAdministration" class="administration-view" hidden>
-    <!-- Second verrou : identifiant/mot de passe, indépendant du rôle Google Sheets -->
+    <!-- Second verrou : identifiant/mot de passe individuel, indépendant du rôle Google Sheets -->
     <div class="admin-carte" id="adminLoginCarte">
       <h2>🔒 Accès protégé</h2>
       <p class="admin-login-texte">Cet écran nécessite un identifiant et un mot de passe distincts de votre connexion Google.</p>
@@ -241,10 +241,30 @@
         </div>
         <button type="submit" class="btn btn--primary">🔓 Déverrouiller</button>
       </form>
+      <button type="button" class="btn btn--ghost btn--small" id="btnMotDePasseOublie" style="margin-top:10px;">Mot de passe oublié ?</button>
+      <p class="admin-login-texte" id="motDePasseOublieTexte" hidden style="margin-top:8px;">Vous ne pouvez pas réinitialiser votre mot de passe vous-même sur ce site (pas d'envoi d'e-mail possible sans serveur). Demandez à un administrateur de vous réinitialiser un mot de passe temporaire depuis l'écran Administration, puis changez-le dès votre connexion.</p>
     </div>
 
     <div id="adminContenu" hidden>
-      <div class="admin-carte">
+      <div class="admin-carte admin-carte--entete">
+        <p class="admin-login-texte" id="adminConnecteEnTantQue" style="margin:0;"></p>
+        <button type="button" class="btn btn--secondary btn--small" id="btnVerrouillerAdmin">🔒 Verrouiller</button>
+      </div>
+      <div class="admin-carte" style="margin-top:16px;">
+        <h2>Changer mon mot de passe</h2>
+        <form id="formChangerMotDePasse" class="admin-form">
+          <div class="field">
+            <label for="changerNouveauMdp">Nouveau mot de passe</label>
+            <input type="password" id="changerNouveauMdp" required autocomplete="new-password" minlength="6">
+          </div>
+          <div class="field">
+            <label for="changerNouveauMdpConfirm">Confirmer</label>
+            <input type="password" id="changerNouveauMdpConfirm" required autocomplete="new-password" minlength="6">
+          </div>
+          <button type="submit" class="btn btn--secondary">🔑 Changer le mot de passe</button>
+        </form>
+      </div>
+      <div class="admin-carte" style="margin-top:16px;">
         <h2>Ajouter un utilisateur</h2>
         <form id="formUtilisateur" class="admin-form">
           <div class="field">
@@ -258,6 +278,14 @@
           <div class="field">
             <label for="nouveauRole">Rôle</label>
             <select id="nouveauRole"></select>
+          </div>
+          <div class="field">
+            <label for="nouvelIdentifiant">Identifiant (optionnel — accès à l'écran Administration)</label>
+            <input type="text" id="nouvelIdentifiant" autocomplete="off" placeholder="PATON">
+          </div>
+          <div class="field">
+            <label for="nouveauMotDePasse">Mot de passe (optionnel)</label>
+            <input type="password" id="nouveauMotDePasse" autocomplete="new-password" minlength="6">
           </div>
           <fieldset class="admin-permissions" id="nouvellesPermissions">
             <legend>Permissions</legend>

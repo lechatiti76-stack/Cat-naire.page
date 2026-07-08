@@ -77,15 +77,18 @@ const ROLES_CONFIG = {
 const ROLE_PAR_DEFAUT = "Contrôleur";
 
 /**
- * Second verrou (identifiant + mot de passe) pour l'écran Administration,
- * indépendant du rôle détecté via l'onglet Utilisateurs — évite de dépendre
- * uniquement de la bonne lecture de cet onglet pour accéder à
- * l'administration. Changez ces valeurs !
+ * Identifiant de SECOURS pour l'écran Administration — utilisé seulement en
+ * bootstrap (avant que quiconque n'ait un identifiant/mot de passe individuel
+ * déclaré dans l'onglet Utilisateurs, colonnes Identifiant/MotDePasseHash,
+ * gérées depuis l'écran Administration lui-même une fois déverrouillé une
+ * première fois). Changez ces valeurs avant mise en production.
  *
  * ⚠️ Ce n'est pas un vrai secret cryptographique : visible dans le code
  * source de la page par quiconque saurait chercher (Affichage → Code
  * source). C'est un verrou pratique, pas une protection contre une personne
- * malveillante avertie. Voir docs/09 pour l'alternative sécurisée (serveur).
+ * malveillante avertie. Voir docs/10 §1bis pour le détail des comptes
+ * individuels (mot de passe haché SHA-256) qui remplacent ce mode de secours
+ * au quotidien.
  */
 const ADMIN_AUTH = {
   identifiant: "PATON",

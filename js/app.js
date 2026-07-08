@@ -38,6 +38,7 @@
     pointsControleCourants: [],
     moisCalendrier: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     adminDeverrouille: false,
+    adminUtilisateurCourant: null,
   };
 
   let currentSort = { key: "dateControle", dir: "desc" };
@@ -102,11 +103,20 @@
       formAdminLogin: document.getElementById("formAdminLogin"),
       adminIdentifiant: document.getElementById("adminIdentifiant"),
       adminMotDePasse: document.getElementById("adminMotDePasse"),
+      btnMotDePasseOublie: document.getElementById("btnMotDePasseOublie"),
+      motDePasseOublieTexte: document.getElementById("motDePasseOublieTexte"),
+      adminConnecteEnTantQue: document.getElementById("adminConnecteEnTantQue"),
+      btnVerrouillerAdmin: document.getElementById("btnVerrouillerAdmin"),
+      formChangerMotDePasse: document.getElementById("formChangerMotDePasse"),
+      changerNouveauMdp: document.getElementById("changerNouveauMdp"),
+      changerNouveauMdpConfirm: document.getElementById("changerNouveauMdpConfirm"),
       administrationTableau: document.getElementById("administrationTableau"),
       formUtilisateur: document.getElementById("formUtilisateur"),
       nouvelEmail: document.getElementById("nouvelEmail"),
       nouveauNom: document.getElementById("nouveauNom"),
       nouveauRole: document.getElementById("nouveauRole"),
+      nouvelIdentifiant: document.getElementById("nouvelIdentifiant"),
+      nouveauMotDePasse: document.getElementById("nouveauMotDePasse"),
       nouvellesPermissions: document.getElementById("nouvellesPermissions"),
       journalTableau: document.getElementById("journalTableau"),
       tilesGrid: document.getElementById("tilesGrid"),
@@ -334,23 +344,60 @@
     });
     renderPermissionsFormulaireAjout();
     els.nouveauRole.addEventListener("change", () => renderPermissionsFormulaireAjout());
-    els.formUtilisateur.addEventListener("submit", (e) => {
+    els.formUtilisateur.addEventListener("submit", async (e) => {
       e.preventDefault();
       const permissions = permissionsCocheesDans(els.nouvellesPermissions);
-      creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value, permissions);
+      const identifiant = els.nouvelIdentifiant.value.trim();
+      const motDePasse = els.nouveauMotDePasse.value;
+      const motDePasseHash = identifiant && motDePasse ? await GoogleSheetsAPI.hacherMotDePasse(identifiant, motDePasse) : "";
+      creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value, permissions, identifiant, motDePasseHash);
     });
 
-    els.formAdminLogin.addEventListener("submit", (e) => {
+    els.formAdminLogin.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const ok = els.adminIdentifiant.value.trim() === ADMIN_AUTH.identifiant
-        && els.adminMotDePasse.value === ADMIN_AUTH.motDePasse;
-      if (ok) {
+      const identifiant = els.adminIdentifiant.value.trim();
+      const motDePasse = els.adminMotDePasse.value;
+      let utilisateurConnecte = null;
+
+      if (!state.modeDemo) {
+        utilisateurConnecte = await GoogleSheetsAPI.verifierMotDePasse(identifiant, motDePasse, state.utilisateurs);
+      } else {
+        // Mode démonstration : aucun hash Sheets disponible, on compare le mot de passe fictif déclaré localement (data.js).
+        const trouve = state.utilisateurs.find((u) => u.identifiant && u.identifiant.toLowerCase() === identifiant.toLowerCase());
+        if (trouve && trouve.motDePasseDemo === motDePasse) utilisateurConnecte = trouve;
+      }
+
+      const secours = identifiant === ADMIN_AUTH.identifiant && motDePasse === ADMIN_AUTH.motDePasse;
+
+      if (utilisateurConnecte || secours) {
         state.adminDeverrouille = true;
+        state.adminUtilisateurCourant = utilisateurConnecte || { nom: "Administrateur (identifiant de secours)", identifiant: ADMIN_AUTH.identifiant, ligne: null };
         els.formAdminLogin.reset();
+        els.motDePasseOublieTexte.hidden = true;
         renderAdministration();
+        journaliser(`Connexion à l'écran Administration — ${state.adminUtilisateurCourant.nom}`);
       } else {
         afficherBanniere("⛔ Identifiant ou mot de passe incorrect.", "warn");
       }
+    });
+
+    els.btnMotDePasseOublie.addEventListener("click", () => {
+      els.motDePasseOublieTexte.hidden = !els.motDePasseOublieTexte.hidden;
+    });
+
+    els.btnVerrouillerAdmin.addEventListener("click", () => {
+      journaliser(`Verrouillage de l'écran Administration — ${(state.adminUtilisateurCourant || {}).nom || ""}`);
+      state.adminDeverrouille = false;
+      state.adminUtilisateurCourant = null;
+      afficherVue("accueil");
+    });
+
+    els.formChangerMotDePasse.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nouveau = els.changerNouveauMdp.value;
+      const confirmation = els.changerNouveauMdpConfirm.value;
+      if (nouveau !== confirmation) { afficherBanniere("⚠️ Les deux mots de passe ne correspondent pas.", "warn"); return; }
+      await changerMotDePasseAction(nouveau);
     });
 
     applyTheme(localStorage.getItem("theme") || "light");
@@ -998,12 +1045,17 @@
     els.adminContenu.hidden = !state.adminDeverrouille;
     if (!state.adminDeverrouille) return;
 
+    const admin = state.adminUtilisateurCourant;
+    els.adminConnecteEnTantQue.textContent = `Connecté en tant que ${(admin && admin.nom) || "?"}`;
+    // L'identifiant de secours (ADMIN_AUTH) n'a pas de ligne Utilisateurs associée : rien à mettre à jour.
+    els.formChangerMotDePasse.hidden = !(admin && admin.ligne);
+
     if (!state.utilisateurs || state.utilisateurs.length === 0) {
       els.administrationTableau.innerHTML = `<p>Aucun utilisateur déclaré pour l'instant — tout le monde est traité comme "${ROLE_PAR_DEFAUT}" par défaut. Ajoutez des personnes ci-dessous.</p>`;
     } else {
       els.administrationTableau.innerHTML = `
         <table class="admin-table">
-          <thead><tr><th>E-mail</th><th>Nom</th><th>Rôle</th><th></th></tr></thead>
+          <thead><tr><th>E-mail</th><th>Nom</th><th>Rôle</th><th>Identifiant</th><th>Nouveau mot de passe</th><th></th></tr></thead>
           <tbody>
             ${state.utilisateurs.map((u, i) => `
               <tr data-index="${i}">
@@ -1014,13 +1066,15 @@
                     ${Object.keys(ROLES_CONFIG).map((r) => `<option value="${r}" ${r === u.role ? "selected" : ""}>${r}</option>`).join("")}
                   </select>
                 </td>
+                <td><input type="text" class="admin-input admin-input--identifiant" value="${escapeHtml(u.identifiant || "")}" autocomplete="off"></td>
+                <td><input type="password" class="admin-input admin-input--nouveau-mdp" placeholder="Laisser vide pour ne pas changer" autocomplete="new-password"></td>
                 <td class="admin-table__actions">
                   <button type="button" class="btn btn--secondary btn--small btn--modifier-utilisateur">Enregistrer</button>
                   <button type="button" class="btn btn--secondary btn--small btn--supprimer-utilisateur">Supprimer</button>
                 </td>
               </tr>
               <tr data-index-permissions="${i}">
-                <td colspan="4">
+                <td colspan="6">
                   <fieldset class="admin-permissions">
                     <legend>Permissions</legend>
                     ${permissionsCheckboxesHtml(`permissions-${i}`, u.permissions || [])}
@@ -1039,11 +1093,19 @@
           const defauts = (ROLES_CONFIG[e.target.value] || {}).permissions || [];
           lignePermissions.querySelectorAll("input[type=checkbox]").forEach((c) => { c.checked = defauts.includes(c.value); });
         });
-        ligne.querySelector(".btn--modifier-utilisateur").addEventListener("click", () => {
+        ligne.querySelector(".btn--modifier-utilisateur").addEventListener("click", async () => {
           const nom = ligne.querySelector(".admin-input--nom").value.trim();
           const role = ligne.querySelector(".admin-input--role").value;
+          const identifiant = ligne.querySelector(".admin-input--identifiant").value.trim();
+          const nouveauMdp = ligne.querySelector(".admin-input--nouveau-mdp").value;
           const permissions = permissionsCocheesDans(lignePermissions);
-          modifierUtilisateurAction(index, nom, role, permissions);
+          const u = state.utilisateurs[index];
+          let motDePasseHash = u.motDePasseHash || "";
+          if (nouveauMdp) {
+            if (!identifiant) { afficherBanniere("⚠️ Renseignez un identifiant avant de définir un mot de passe.", "warn"); return; }
+            motDePasseHash = await GoogleSheetsAPI.hacherMotDePasse(identifiant, nouveauMdp);
+          }
+          modifierUtilisateurAction(index, nom, role, permissions, identifiant, motDePasseHash);
         });
         ligne.querySelector(".btn--supprimer-utilisateur").addEventListener("click", () => {
           if (confirm("Supprimer cet utilisateur ?")) supprimerUtilisateurAction(index);
@@ -1052,6 +1114,30 @@
     }
 
     renderJournal();
+  }
+
+  async function changerMotDePasseAction(nouveauMotDePasse) {
+    const admin = state.adminUtilisateurCourant;
+    if (!admin || !admin.ligne) {
+      afficherBanniere("⚠️ L'identifiant de secours ne peut pas être changé ici — modifiez ADMIN_AUTH dans js/google-config.js.", "warn");
+      return;
+    }
+    try {
+      const motDePasseHash = await GoogleSheetsAPI.hacherMotDePasse(admin.identifiant, nouveauMotDePasse);
+      if (!state.modeDemo) {
+        await GoogleSheetsAPI.modifierUtilisateur(admin.ligne, {
+          email: admin.email, nom: admin.nom, role: admin.role, permissions: admin.permissions,
+          identifiant: admin.identifiant, motDePasseHash,
+        });
+      }
+      admin.motDePasseHash = motDePasseHash;
+      els.formChangerMotDePasse.reset();
+      journaliser(`Changement de mot de passe — ${admin.nom}`);
+      afficherBanniere("✅ Mot de passe changé" + (state.modeDemo ? " (simulation locale)." : "."), "info");
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur lors du changement de mot de passe : " + e.message, "warn");
+    }
   }
 
   // -- Journal des actions (audit) ---------------------------------------------
@@ -1080,13 +1166,13 @@
     `;
   }
 
-  async function creerUtilisateurAction(email, nom, role, permissions) {
+  async function creerUtilisateurAction(email, nom, role, permissions, identifiant, motDePasseHash) {
     if (!email) { afficherBanniere("⚠️ L'adresse e-mail est obligatoire.", "warn"); return; }
     try {
       if (!state.modeDemo) {
-        await GoogleSheetsAPI.creerUtilisateur({ email, nom, role, permissions });
+        await GoogleSheetsAPI.creerUtilisateur({ email, nom, role, permissions, identifiant, motDePasseHash });
       }
-      state.utilisateurs.push({ email: email.toLowerCase(), nom, role, permissions, ligne: state.utilisateurs.length + 2 });
+      state.utilisateurs.push({ email: email.toLowerCase(), nom, role, permissions, identifiant: identifiant || "", motDePasseHash: motDePasseHash || "", ligne: state.utilisateurs.length + 2 });
       state.controleurs = state.utilisateurs.filter((u) => (u.permissions || []).includes("nouveauControle"));
       els.formUtilisateur.reset();
       renderPermissionsFormulaireAjout();
@@ -1099,13 +1185,13 @@
     }
   }
 
-  async function modifierUtilisateurAction(index, nom, role, permissions) {
+  async function modifierUtilisateurAction(index, nom, role, permissions, identifiant, motDePasseHash) {
     const u = state.utilisateurs[index];
     try {
       if (!state.modeDemo) {
-        await GoogleSheetsAPI.modifierUtilisateur(u.ligne, { email: u.email, nom, role, permissions });
+        await GoogleSheetsAPI.modifierUtilisateur(u.ligne, { email: u.email, nom, role, permissions, identifiant, motDePasseHash });
       }
-      u.nom = nom; u.role = role; u.permissions = permissions;
+      u.nom = nom; u.role = role; u.permissions = permissions; u.identifiant = identifiant; u.motDePasseHash = motDePasseHash;
       state.controleurs = state.utilisateurs.filter((x) => (x.permissions || []).includes("nouveauControle"));
       journaliser(`Modification de l'utilisateur ${nom || u.email}`);
       afficherBanniere("✅ Utilisateur modifié" + (state.modeDemo ? " (simulation locale)." : "."), "info");

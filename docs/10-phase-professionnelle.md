@@ -48,9 +48,23 @@ Bandeau fixé en bas de l'écran (façon bandeau d'actualités), qui liste les m
 
 Il disparaît automatiquement s'il n'y a aucune échéance dans la fenêtre. Un clic sur une alerte ouvre la fiche du matériel concerné (si la personne a la permission "Historique").
 
+## 1bis. Connexion individuelle (identifiant + mot de passe haché)
+
+Le verrou partagé unique (`ADMIN_AUTH`) devient un **identifiant de secours** utilisé seulement pour démarrer (avant que quiconque n'ait ses propres identifiants). L'onglet `Utilisateurs` gagne deux colonnes supplémentaires, facultatives :
+
+```
+Email | Nom | Role | Permissions | Identifiant | MotDePasseHash
+```
+
+- Depuis l'écran Administration, on peut donner à chaque personne un **Identifiant** et un **mot de passe** (champ "Nouveau mot de passe" — laissé vide, le mot de passe existant n'est pas modifié). Le mot de passe n'est **jamais stocké en clair** : l'application calcule un hachage SHA-256 (`identifiant:motDePasse`, via l'API native `crypto.subtle` du navigateur, sans bibliothèque tierce) et c'est ce hachage qui part dans le classeur.
+- Une fois connecté, chacun peut **changer son propre mot de passe** (carte "Changer mon mot de passe" en haut de l'écran Administration) — indisponible pour l'identifiant de secours, qui n'a pas de ligne à modifier (voir `js/google-config.js`, `ADMIN_AUTH`).
+- **"Mot de passe oublié ?"** : structure prévue (lien sur l'écran de connexion) mais sans envoi d'e-mail, impossible sans serveur. Le texte affiché explique la marche à suivre réelle : un administrateur réinitialise un mot de passe temporaire depuis l'écran Administration (champ "Nouveau mot de passe" sur la ligne de la personne).
+- Un bouton **"🔒 Verrouiller"** referme l'écran Administration (déconnexion du second facteur), indépendamment de la session Google.
+
+⚠️ Comme pour l'ancien verrou partagé, ceci reste une protection de confort côté navigateur (voir §0) : le hachage empêche la lecture directe d'un mot de passe dans le classeur, mais n'importe qui avec un accès Éditeur au classeur pourrait remplacer le hachage par un hachage qu'il connaît. La vraie barrière reste le partage du classeur Google Sheets.
+
 ## 4. Ce qui reste (prochaine phase)
 
-- **Connexion par identifiant/mot de passe individuel avec hash** — en plus de la connexion Google. Réalisable côté statique (hash SHA-256 stocké dans la feuille au lieu d'un mot de passe en clair), mais reste une protection de confort, pas une sécurité serveur.
 - **Tableau de bord enrichi avec graphiques.**
 - **Galerie photos automatique** (dossier `assets/photos/` scanné via une petite GitHub Action générant un manifeste, pour ne jamais toucher au code) + diaporama.
 - **Responsive avancé et PWA installable** (manifeste + service worker ; les notifications *push* nécessitent un serveur et ne sont pas réalisables ici).

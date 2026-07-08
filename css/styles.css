@@ -493,9 +493,11 @@ html, body {
   box-shadow: var(--shadow); padding: 20px;
 }
 .admin-carte h2 { margin: 0 0 14px; font-size: 15px; }
+.admin-carte--entete { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; }
 .admin-login-texte { margin: 0 0 14px; font-size: 13px; color: var(--text-muted); }
 .admin-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
-.admin-table { width: 100%; border-collapse: collapse; }
+#administrationTableau, #journalTableau { overflow-x: auto; }
+.admin-table { width: 100%; border-collapse: collapse; min-width: 640px; }
 .admin-table th {
   text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .02em;
   color: var(--text-muted); padding: 8px 10px; border-bottom: 2px solid var(--border);
