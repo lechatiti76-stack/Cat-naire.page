@@ -64,6 +64,50 @@
 
   const CLE_DEJA_CONNECTE = "gsheets_deja_connecte";
   const CLE_DERNIERE_SAUVEGARDE = "derniere_sauvegarde_locale";
+  const CLE_HISTORIQUE_SAUVEGARDES = "historique_sauvegardes_locales";
+
+  // -- Durcissement sécurité (docs/10 §8) : anti-brute-force + expiration de session --
+  const CLE_ECHECS_LOGIN_ADMIN = "admin_login_echecs";
+  const MAX_TENTATIVES_LOGIN_ADMIN = 5;
+  const DUREE_BLOCAGE_LOGIN_ADMIN_MS = 60 * 1000;
+  const DUREE_INACTIVITE_ADMIN_MS = 10 * 60 * 1000;
+  let minuteurInactiviteAdmin = null;
+
+  function etatEchecsLoginAdmin() {
+    try { return JSON.parse(localStorage.getItem(CLE_ECHECS_LOGIN_ADMIN)) || { compte: 0, dernierEchec: 0 }; }
+    catch (e) { return { compte: 0, dernierEchec: 0 }; }
+  }
+  function enregistrerEchecLoginAdmin() {
+    const etat = etatEchecsLoginAdmin();
+    etat.compte += 1;
+    etat.dernierEchec = Date.now();
+    localStorage.setItem(CLE_ECHECS_LOGIN_ADMIN, JSON.stringify(etat));
+  }
+  function reinitialiserEchecsLoginAdmin() {
+    localStorage.removeItem(CLE_ECHECS_LOGIN_ADMIN);
+  }
+  /** Renvoie le nombre de secondes de blocage restantes (0 = pas de blocage). Anti-brute-force léger — voir docs/10 §8. */
+  function secondesBlocageLoginAdmin() {
+    const etat = etatEchecsLoginAdmin();
+    if (etat.compte < MAX_TENTATIVES_LOGIN_ADMIN) return 0;
+    const restant = DUREE_BLOCAGE_LOGIN_ADMIN_MS - (Date.now() - etat.dernierEchec);
+    if (restant <= 0) { reinitialiserEchecsLoginAdmin(); return 0; }
+    return Math.ceil(restant / 1000);
+  }
+
+  /** Reprogramme le verrouillage automatique de l'écran Administration après inactivité (voir docs/10 §8). */
+  function reinitialiserInactiviteAdmin() {
+    clearTimeout(minuteurInactiviteAdmin);
+    if (!state.adminDeverrouille) return;
+    minuteurInactiviteAdmin = setTimeout(() => {
+      if (!state.adminDeverrouille) return;
+      journaliser(`Verrouillage automatique de l'écran Administration (inactivité) — ${(state.adminUtilisateurCourant || {}).nom || ""}`);
+      state.adminDeverrouille = false;
+      state.adminUtilisateurCourant = null;
+      if (state.vue === "administration") afficherVue("accueil");
+      afficherBanniere("🔒 Écran Administration verrouillé après 10 minutes d'inactivité.", "info");
+    }, DUREE_INACTIVITE_ADMIN_MS);
+  }
   const els = {};
 
   document.addEventListener("DOMContentLoaded", demarrer);
@@ -75,6 +119,10 @@
       });
     });
   }
+
+  ["mousemove", "keydown", "click", "touchstart", "scroll"].forEach((evt) =>
+    document.addEventListener(evt, reinitialiserInactiviteAdmin, { passive: true })
+  );
 
   async function demarrer() {
     cacherElements();
@@ -123,6 +171,10 @@
       changerNouveauMdp: document.getElementById("changerNouveauMdp"),
       changerNouveauMdpConfirm: document.getElementById("changerNouveauMdpConfirm"),
       administrationTableau: document.getElementById("administrationTableau"),
+      btnExporterSauvegarde: document.getElementById("btnExporterSauvegarde"),
+      fichierSauvegarde: document.getElementById("fichierSauvegarde"),
+      sauvegardeApercu: document.getElementById("sauvegardeApercu"),
+      sauvegardeHistorique: document.getElementById("sauvegardeHistorique"),
       formUtilisateur: document.getElementById("formUtilisateur"),
       nouvelEmail: document.getElementById("nouvelEmail"),
       nouveauNom: document.getElementById("nouveauNom"),
@@ -401,6 +453,13 @@
 
     els.formAdminLogin.addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      const blocage = secondesBlocageLoginAdmin();
+      if (blocage > 0) {
+        afficherBanniere(`⛔ Trop de tentatives incorrectes. Réessayez dans ${blocage} seconde${blocage > 1 ? "s" : ""}.`, "warn");
+        return;
+      }
+
       const identifiant = els.adminIdentifiant.value.trim();
       const motDePasse = els.adminMotDePasse.value;
       let utilisateurConnecte = null;
@@ -416,14 +475,20 @@
       const secours = identifiant === ADMIN_AUTH.identifiant && motDePasse === ADMIN_AUTH.motDePasse;
 
       if (utilisateurConnecte || secours) {
+        reinitialiserEchecsLoginAdmin();
         state.adminDeverrouille = true;
         state.adminUtilisateurCourant = utilisateurConnecte || { nom: "Administrateur (identifiant de secours)", identifiant: ADMIN_AUTH.identifiant, ligne: null };
         els.formAdminLogin.reset();
         els.motDePasseOublieTexte.hidden = true;
         renderAdministration();
+        reinitialiserInactiviteAdmin();
         journaliser(`Connexion à l'écran Administration — ${state.adminUtilisateurCourant.nom}`);
       } else {
-        afficherBanniere("⛔ Identifiant ou mot de passe incorrect.", "warn");
+        enregistrerEchecLoginAdmin();
+        const restant = secondesBlocageLoginAdmin();
+        afficherBanniere(restant > 0
+          ? `⛔ Trop de tentatives incorrectes. Réessayez dans ${restant} secondes.`
+          : "⛔ Identifiant ou mot de passe incorrect.", "warn");
       }
     });
 
@@ -433,6 +498,7 @@
 
     els.btnVerrouillerAdmin.addEventListener("click", () => {
       journaliser(`Verrouillage de l'écran Administration — ${(state.adminUtilisateurCourant || {}).nom || ""}`);
+      clearTimeout(minuteurInactiviteAdmin);
       state.adminDeverrouille = false;
       state.adminUtilisateurCourant = null;
       afficherVue("accueil");
@@ -444,6 +510,12 @@
       const confirmation = els.changerNouveauMdpConfirm.value;
       if (nouveau !== confirmation) { afficherBanniere("⚠️ Les deux mots de passe ne correspondent pas.", "warn"); return; }
       await changerMotDePasseAction(nouveau);
+    });
+
+    els.btnExporterSauvegarde.addEventListener("click", exporterSauvegarde);
+    els.fichierSauvegarde.addEventListener("change", () => {
+      const fichier = els.fichierSauvegarde.files[0];
+      if (fichier) importerApercuSauvegarde(fichier);
     });
 
     applyTheme(localStorage.getItem("theme") || "light");
@@ -1134,7 +1206,7 @@
       <div class="ressources-groupe">
         <h3>${escapeHtml(cat)}</h3>
         <ul class="ressources-liste">
-          ${items.map((r) => `<li><a href="${escapeHtml(r.lien)}" target="_blank" rel="noopener">📄 ${escapeHtml(r.titre)}</a></li>`).join("")}
+          ${items.map((r) => `<li><a href="${escapeHtml(urlSure(r.lien))}" target="_blank" rel="noopener">📄 ${escapeHtml(r.titre)}</a></li>`).join("")}
         </ul>
       </div>
     `).join("");
@@ -1324,6 +1396,7 @@
     }
 
     renderJournal();
+    renderSauvegardeHistorique();
   }
 
   async function changerMotDePasseAction(nouveauMotDePasse) {
@@ -1348,6 +1421,70 @@
       console.error(e);
       afficherBanniere("⚠️ Erreur lors du changement de mot de passe : " + e.message, "warn");
     }
+  }
+
+  // -- Sauvegarde (export/import JSON manuel, voir docs/10 §9) -----------------
+  function exporterSauvegarde() {
+    const sauvegarde = {
+      genereLe: new Date().toISOString(),
+      materiels: state.materiels,
+      typesPointControle: state.typesPointControle,
+      controles: state.controles,
+      utilisateurs: state.utilisateurs,
+      ressources: state.ressources,
+      photos: state.photos,
+      journal: state.journal,
+    };
+    const blob = new Blob([JSON.stringify(sauvegarde, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const horodatage = sauvegarde.genereLe.replace(/[:.]/g, "-");
+    a.href = url; a.download = `sauvegarde-verif-materiel_${horodatage}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    localStorage.setItem(CLE_DERNIERE_SAUVEGARDE, sauvegarde.genereLe);
+    const historique = JSON.parse(localStorage.getItem(CLE_HISTORIQUE_SAUVEGARDES) || "[]");
+    historique.unshift(sauvegarde.genereLe);
+    localStorage.setItem(CLE_HISTORIQUE_SAUVEGARDES, JSON.stringify(historique.slice(0, 10)));
+
+    journaliser("Export d'une sauvegarde complète (JSON)");
+    afficherBanniere("✅ Sauvegarde téléchargée.", "info");
+    if (state.vue === "administration") renderAdministration();
+  }
+
+  async function importerApercuSauvegarde(fichier) {
+    try {
+      const texte = await fichier.text();
+      const donnees = JSON.parse(texte);
+      const resume = [
+        `${(donnees.materiels || []).length} matériels`,
+        `${(donnees.controles || []).length} contrôles`,
+        `${(donnees.utilisateurs || []).length} utilisateurs`,
+        `${(donnees.ressources || []).length} ressources`,
+      ].join(" · ");
+      els.sauvegardeApercu.textContent = `Fichier du ${donnees.genereLe ? formatDate(donnees.genereLe) : "date inconnue"} — ${resume}. Ce fichier n'est pas réinjecté automatiquement dans Google Sheets : utilisez-le comme archive ou référence, ou restaurez le classeur entier via son historique de versions natif (voir ci-dessus).`;
+      els.sauvegardeApercu.hidden = false;
+    } catch (e) {
+      afficherBanniere("⚠️ Fichier de sauvegarde invalide ou illisible.", "warn");
+    } finally {
+      els.fichierSauvegarde.value = "";
+    }
+  }
+
+  function renderSauvegardeHistorique() {
+    if (!els.sauvegardeHistorique) return;
+    const historique = JSON.parse(localStorage.getItem(CLE_HISTORIQUE_SAUVEGARDES) || "[]");
+    if (historique.length === 0) {
+      els.sauvegardeHistorique.innerHTML = `<p class="admin-login-texte">Aucune sauvegarde exportée pour l'instant depuis ce navigateur.</p>`;
+      return;
+    }
+    els.sauvegardeHistorique.innerHTML = `
+      <p class="admin-login-texte" style="margin-bottom:6px;">Sauvegardes exportées depuis ce navigateur :</p>
+      <ul class="ressources-liste">
+        ${historique.map((iso) => `<li>${escapeHtml(formatDate(iso))} à ${escapeHtml(new Date(iso).toLocaleTimeString("fr-FR"))}</li>`).join("")}
+      </ul>
+    `;
   }
 
   // -- Journal des actions (audit) ---------------------------------------------
@@ -1472,5 +1609,21 @@
   function escapeHtml(str) {
     if (str === undefined || str === null) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  /**
+   * Neutralise un lien saisi dans l'onglet Ressources (Google Sheets) avant de
+   * l'utiliser comme `href` : seuls http/https sont acceptés, ce qui bloque
+   * un lien `javascript:` malveillant qui échapperait à escapeHtml (les
+   * caractères spéciaux HTML n'y suffisent pas, un tel lien reste une URL
+   * valide). Voir docs/10 §8.
+   */
+  function urlSure(url) {
+    try {
+      const u = new URL(String(url || ""), window.location.href);
+      return ["http:", "https:"].includes(u.protocol) ? u.href : "#";
+    } catch (e) {
+      return "#";
+    }
   }
 })();

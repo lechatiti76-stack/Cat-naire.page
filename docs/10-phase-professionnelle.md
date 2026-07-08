@@ -1,6 +1,6 @@
 # 10. Phase "application professionnelle" — permissions, journal, alertes, connexion individuelle, tableau de bord, galerie
 
-Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Les points listés en §1 à §6 sont livrés ; les autres (§7 "Ce qui reste") suivront dans une prochaine phase.
+Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §9 pour le solde nul "Ce qui reste").
 
 ## 0. Un principe qui traverse tout le document
 
@@ -68,7 +68,7 @@ Il disparaît automatiquement s'il n'y a aucune échéance dans la fenêtre. Un 
 
 La vue "Tableau général" affiche désormais, au-dessus de la recherche/filtres, des indicateurs complémentaires (contrôles réalisés, contrôles en retard, matériel en alerte, échéances du mois, utilisateurs déclarés par rôle, dernière sauvegarde) et deux graphiques en barres (répartition du matériel par catégorie, contrôles par statut). Les graphiques sont des barres CSS simples (largeur proportionnelle à la valeur max), pas une bibliothèque de graphiques tierce — suffisant pour ce volume de données et cohérent avec le thème clair/sombre.
 
-**Interprétation de "Utilisateurs connectés"** : sur une application 100% statique sans serveur, il n'existe pas de notion de session concurrente à observer (chaque navigateur a sa propre session Google indépendante). Le tableau de bord affiche donc plutôt le nombre de personnes **déclarées** dans l'onglet `Utilisateurs`, réparties par rôle. **"Dernière sauvegarde"** affichera la date du dernier export une fois la fonctionnalité de sauvegarde manuelle livrée (voir §7 ci-dessous) ; "Jamais" en attendant.
+**Interprétation de "Utilisateurs connectés"** : sur une application 100% statique sans serveur, il n'existe pas de notion de session concurrente à observer (chaque navigateur a sa propre session Google indépendante). Le tableau de bord affiche donc plutôt le nombre de personnes **déclarées** dans l'onglet `Utilisateurs`, réparties par rôle. **"Dernière sauvegarde"** affichera la date du dernier export une fois la fonctionnalité de sauvegarde manuelle livrée (voir §8 ci-dessous) ; "Jamais" en attendant.
 
 ## 5. Galerie photos automatique
 
@@ -87,7 +87,19 @@ Si l'action GitHub ne peut pas s'exécuter (dépôt sans Actions activées, perm
 - **PWA installable** : `manifest.webmanifest` + `sw.js` (service worker) permettent l'installation sur l'écran d'accueil (Android/iPhone/PC) et le fonctionnement plein écran. Le service worker met en cache uniquement la coquille statique (HTML/CSS/JS/icônes) — jamais les appels à Google Sheets ou à l'authentification, qui doivent toujours être à jour. Sans connexion, l'application s'ouvre donc en mode démonstration plutôt que de planter.
 - **Notifications push** : non réalisables sans serveur (elles nécessitent un service capable de réveiller l'application même fermée) — hors de portée d'une architecture 100% statique.
 
-## 7. Ce qui reste (prochaine phase)
+## 7. Durcissement sécurité
 
-- **Durcissement sécurité** : expiration de session par inactivité, anti-brute-force léger sur le verrou Administration.
-- **Sauvegarde** : export/import JSON manuel depuis l'application, en complément de l'historique de versions natif de Google Sheets (Fichier → Historique des versions), qui sert déjà de sauvegarde automatique de fait.
+- **Expiration de session** : l'écran Administration se reverrouille automatiquement après 10 minutes sans activité (souris, clavier, tactile, défilement) — un message en informe l'utilisateur et l'action est journalisée.
+- **Anti-brute-force léger** : après 5 tentatives de connexion Administration incorrectes, un blocage de 60 secondes s'applique (compteur en `localStorage`, réinitialisé à la première connexion réussie). C'est une protection de confort, pas un dispositif de sécurité serveur : elle ralentit un essai manuel ou un script simple, mais reste contournable en vidant le stockage local du navigateur.
+- **Liens Ressources** : les liens de l'onglet `Ressources` sont maintenant validés (seuls `http://`/`https://` sont acceptés) avant d'être utilisés comme `href`, ce qui bloque une URL `javascript:` malveillante qu'un simple échappement HTML ne suffit pas à neutraliser.
+- **Revue XSS** : toutes les valeurs affichées provenant du classeur Google Sheets (noms, observations, e-mails, libellés, noms de fichiers de la galerie, entrées du journal...) passent par la fonction `escapeHtml()` avant insertion dans la page.
+
+## 8. Sauvegarde
+
+- **Exporter une sauvegarde complète (JSON)** (écran Administration) : télécharge un fichier horodaté contenant matériels, contrôles, utilisateurs, ressources, photos et journal. Chaque export est aussi noté dans un petit historique local (jusqu'à 10 dates, visible dans le même écran) et met à jour "Dernière sauvegarde" du tableau de bord.
+- **Charger un fichier de sauvegarde (aperçu)** : relit un fichier exporté et affiche un résumé (nombre de matériels/contrôles/utilisateurs/ressources). Ce fichier n'est **volontairement pas réinjecté automatiquement** dans Google Sheets : un import automatique mal aligné (colonnes, doublons) pourrait corrompre des données réelles de sécurité. Il sert d'archive/de référence.
+- **Restauration réelle recommandée** : l'historique de versions natif de Google Sheets (menu **Fichier → Historique des versions** dans le classeur) reste le moyen sûr de tout restaurer en un clic — c'est la "sauvegarde automatique" de fait de cette architecture, sans risque de désynchronisation de colonnes.
+
+## 9. Ce qui reste
+
+Rien d'identifié pour l'instant : tous les points du cahier des charges compatibles avec une architecture 100% statique (sans serveur) sont livrés. Les points explicitement hors de portée sans serveur (notifications push, sauvegarde automatique programmée côté serveur, sécurité serveur réelle pour les mots de passe/CSRF/injection SQL) sont documentés comme tels à chaque section concernée plutôt que simulés.

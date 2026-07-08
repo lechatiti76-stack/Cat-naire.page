@@ -340,6 +340,19 @@
         <p class="admin-login-texte">Historique des actions importantes (connexion, gestion des utilisateurs, contrôles validés). L'adresse IP est une information déclarative fournie par un service tiers (ipify), pas une preuve légale — voir docs/10.</p>
         <div id="journalTableau"></div>
       </div>
+      <div class="admin-carte" style="margin-top:16px;">
+        <h2>Sauvegarde</h2>
+        <p class="admin-login-texte">La sauvegarde de référence reste l'historique de versions natif de Google Sheets (menu <strong>Fichier → Historique des versions</strong> dans votre classeur) : il restaure tout le classeur en un clic, sans risque d'erreur. L'export ci-dessous est une archive JSON complémentaire, personnelle, téléchargée sur cet appareil.</p>
+        <div class="admin-form">
+          <button type="button" class="btn btn--primary" id="btnExporterSauvegarde">💾 Exporter une sauvegarde complète (JSON)</button>
+          <div class="field">
+            <label for="fichierSauvegarde">Charger un fichier de sauvegarde (aperçu)</label>
+            <input type="file" id="fichierSauvegarde" accept="application/json">
+          </div>
+        </div>
+        <p class="admin-login-texte" id="sauvegardeApercu" hidden style="margin-top:10px;"></p>
+        <div id="sauvegardeHistorique" style="margin-top:12px;"></div>
+      </div>
     </div>
   </section>
 </main>
