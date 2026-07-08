@@ -8,7 +8,7 @@
  * connexion, l'application s'ouvre donc en mode démonstration.
  */
 
-const CACHE_NAME = "verif-materiel-v1";
+const CACHE_NAME = "verif-materiel-v2";
 const FICHIERS_A_METTRE_EN_CACHE = [
   "./",
   "./index.html",
@@ -47,18 +47,21 @@ self.addEventListener("fetch", (event) => {
   // Google Sheets, l'authentification Google et ipify vont toujours au réseau.
   if (url.origin !== self.location.origin || event.request.method !== "GET") return;
 
+  // Réseau EN PREMIER, cache seulement en secours (hors-ligne) : pendant le
+  // développement actif de l'application, servir une version du cache par
+  // défaut ("cache-first") a pu faire fonctionner un HTML mis en cache avec
+  // un app.js plus récent (ou l'inverse), désynchronisant les deux et cassant
+  // silencieusement des boutons. Avec une connexion, l'utilisateur voit
+  // toujours la dernière version déployée.
   event.respondWith(
-    caches.match(event.request).then((reponseEnCache) => {
-      const depuisReseau = fetch(event.request)
-        .then((reponseReseau) => {
-          if (reponseReseau.ok) {
-            const copie = reponseReseau.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copie));
-          }
-          return reponseReseau;
-        })
-        .catch(() => reponseEnCache);
-      return reponseEnCache || depuisReseau;
-    })
+    fetch(event.request)
+      .then((reponseReseau) => {
+        if (reponseReseau.ok) {
+          const copie = reponseReseau.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copie));
+        }
+        return reponseReseau;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

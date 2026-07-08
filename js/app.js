@@ -444,11 +444,18 @@
     els.nouveauRole.addEventListener("change", () => renderPermissionsFormulaireAjout());
     els.formUtilisateur.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const permissions = permissionsCocheesDans(els.nouvellesPermissions);
-      const identifiant = els.nouvelIdentifiant.value.trim();
-      const motDePasse = els.nouveauMotDePasse.value;
-      const motDePasseHash = identifiant && motDePasse ? await GoogleSheetsAPI.hacherMotDePasse(identifiant, motDePasse) : "";
-      creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value, permissions, identifiant, motDePasseHash);
+      try {
+        const permissions = permissionsCocheesDans(els.nouvellesPermissions);
+        const identifiant = els.nouvelIdentifiant.value.trim();
+        const motDePasse = els.nouveauMotDePasse.value;
+        const motDePasseHash = identifiant && motDePasse ? await GoogleSheetsAPI.hacherMotDePasse(identifiant, motDePasse) : "";
+        await creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value, permissions, identifiant, motDePasseHash);
+      } catch (e) {
+        // Filet de sécurité : une page mise en cache par le service worker et pas encore
+        // rafraîchie peut désynchroniser index.html/js/app.js (élément manquant, etc.).
+        console.error(e);
+        afficherBanniere("⚠️ Erreur inattendue lors de l'ajout : " + e.message + " — essayez de recharger la page (Ctrl+Maj+R / Cmd+Maj+R) puis réessayez.", "warn");
+      }
     });
 
     els.formAdminLogin.addEventListener("submit", async (e) => {
