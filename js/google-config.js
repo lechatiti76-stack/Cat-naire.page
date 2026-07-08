@@ -52,6 +52,22 @@ const ROLES_CONFIG = {
 };
 const ROLE_PAR_DEFAUT = "Contrôleur";
 
+/**
+ * Second verrou (identifiant + mot de passe) pour l'écran Administration,
+ * indépendant du rôle détecté via l'onglet Utilisateurs — évite de dépendre
+ * uniquement de la bonne lecture de cet onglet pour accéder à
+ * l'administration. Changez ces valeurs !
+ *
+ * ⚠️ Ce n'est pas un vrai secret cryptographique : visible dans le code
+ * source de la page par quiconque saurait chercher (Affichage → Code
+ * source). C'est un verrou pratique, pas une protection contre une personne
+ * malveillante avertie. Voir docs/09 pour l'alternative sécurisée (serveur).
+ */
+const ADMIN_AUTH = {
+  identifiant: "admin",
+  motDePasse: "LHTE2026",
+};
+
 // Catégories connues, avec un accent visuel (indépendant du code couleur de conformité)
 const CATEGORIES_CONFIG = [
   { nom: "Perche isolante",        accent: "#0078D4" },

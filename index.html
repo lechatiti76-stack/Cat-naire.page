@@ -226,27 +226,46 @@
 
   <!-- ============ VUE ADMINISTRATION : GESTION DES UTILISATEURS ============ -->
   <section id="viewAdministration" class="administration-view" hidden>
-    <div class="admin-carte">
-      <h2>Ajouter un utilisateur</h2>
-      <form id="formUtilisateur" class="admin-form">
+    <!-- Second verrou : identifiant/mot de passe, indépendant du rôle Google Sheets -->
+    <div class="admin-carte" id="adminLoginCarte">
+      <h2>🔒 Accès protégé</h2>
+      <p class="admin-login-texte">Cet écran nécessite un identifiant et un mot de passe distincts de votre connexion Google.</p>
+      <form id="formAdminLogin" class="admin-form">
         <div class="field">
-          <label for="nouvelEmail">E-mail Google</label>
-          <input type="email" id="nouvelEmail" required placeholder="prenom.nom@gmail.com">
+          <label for="adminIdentifiant">Identifiant</label>
+          <input type="text" id="adminIdentifiant" required autocomplete="username">
         </div>
         <div class="field">
-          <label for="nouveauNom">Nom affiché</label>
-          <input type="text" id="nouveauNom" required placeholder="PATON ROMUALD">
+          <label for="adminMotDePasse">Mot de passe</label>
+          <input type="password" id="adminMotDePasse" required autocomplete="current-password">
         </div>
-        <div class="field">
-          <label for="nouveauRole">Rôle</label>
-          <select id="nouveauRole"></select>
-        </div>
-        <button type="submit" class="btn btn--primary">➕ Ajouter</button>
+        <button type="submit" class="btn btn--primary">🔓 Déverrouiller</button>
       </form>
     </div>
-    <div class="admin-carte" style="margin-top:16px;">
-      <h2>Utilisateurs déclarés</h2>
-      <div id="administrationTableau"></div>
+
+    <div id="adminContenu" hidden>
+      <div class="admin-carte">
+        <h2>Ajouter un utilisateur</h2>
+        <form id="formUtilisateur" class="admin-form">
+          <div class="field">
+            <label for="nouvelEmail">E-mail Google</label>
+            <input type="email" id="nouvelEmail" required placeholder="prenom.nom@gmail.com">
+          </div>
+          <div class="field">
+            <label for="nouveauNom">Nom affiché</label>
+            <input type="text" id="nouveauNom" required placeholder="PATON ROMUALD">
+          </div>
+          <div class="field">
+            <label for="nouveauRole">Rôle</label>
+            <select id="nouveauRole"></select>
+          </div>
+          <button type="submit" class="btn btn--primary">➕ Ajouter</button>
+        </form>
+      </div>
+      <div class="admin-carte" style="margin-top:16px;">
+        <h2>Utilisateurs déclarés</h2>
+        <div id="administrationTableau"></div>
+      </div>
     </div>
   </section>
 </main>

@@ -26,7 +26,11 @@ amandine.roy@example.com       | Amandine Roy     | Administrateur
 
 ## 9.1bis Écran Administration (gestion des utilisateurs)
 
-Visible uniquement pour le rôle **Administrateur** (vignette "Administration" sur l'accueil), cet écran permet de gérer l'onglet `Utilisateurs` directement depuis l'application, sans toucher au classeur à la main :
+La vignette "Administration" est visible sur l'accueil pour **tout le monde**, mais son contenu est protégé par un **second verrou identifiant/mot de passe** (`ADMIN_AUTH` dans `js/google-config.js`), volontairement indépendant du rôle détecté via l'onglet `Utilisateurs` — cela évite qu'un souci de lecture de cet onglet (en-tête mal orthographié, e-mail non reconnu...) bloque l'accès à l'administration elle-même. Changez `identifiant`/`motDePasse` dans `js/google-config.js` avant mise en production.
+
+⚠️ Ce mot de passe est visible dans le code source de la page (Affichage → Code source du navigateur) : c'est un verrou pratique contre un clic accidentel, pas une protection contre une personne technique malveillante. Le verrou se réinitialise à chaque rechargement de page (non mémorisé).
+
+Une fois déverrouillé, cet écran permet de gérer l'onglet `Utilisateurs` directement depuis l'application, sans toucher au classeur à la main :
 - **Ajouter** une personne (e-mail, nom affiché, rôle).
 - **Modifier** le nom ou le rôle d'une personne existante (bouton "Enregistrer" sur sa ligne).
 - **Supprimer** une personne (bouton "Supprimer").

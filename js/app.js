@@ -35,6 +35,7 @@
     materielControleCourant: null,
     pointsControleCourants: [],
     moisCalendrier: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    adminDeverrouille: false,
   };
 
   let currentSort = { key: "dateControle", dir: "desc" };
@@ -44,9 +45,6 @@
   }
   function peutVoirTout() {
     return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutVoirTout;
-  }
-  function peutGererUtilisateurs() {
-    return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutGererUtilisateurs;
   }
 
   const CLE_DEJA_CONNECTE = "gsheets_deja_connecte";
@@ -87,6 +85,11 @@
       viewCalendrier: document.getElementById("viewCalendrier"),
       viewRessources: document.getElementById("viewRessources"),
       viewAdministration: document.getElementById("viewAdministration"),
+      adminLoginCarte: document.getElementById("adminLoginCarte"),
+      adminContenu: document.getElementById("adminContenu"),
+      formAdminLogin: document.getElementById("formAdminLogin"),
+      adminIdentifiant: document.getElementById("adminIdentifiant"),
+      adminMotDePasse: document.getElementById("adminMotDePasse"),
       administrationTableau: document.getElementById("administrationTableau"),
       formUtilisateur: document.getElementById("formUtilisateur"),
       nouvelEmail: document.getElementById("nouvelEmail"),
@@ -217,10 +220,6 @@
       afficherBanniere("⛔ Votre rôle (" + state.role + ") n'a pas accès à cette section.", "warn");
       vue = "accueil";
     }
-    if (vue === "administration" && !peutGererUtilisateurs()) {
-      afficherBanniere("⛔ Votre rôle (" + state.role + ") n'a pas accès à l'administration des utilisateurs.", "warn");
-      vue = "accueil";
-    }
     state.vue = vue;
     els.viewAccueil.hidden = vue !== "accueil";
     els.viewCategorie.hidden = vue !== "categorie";
@@ -312,6 +311,19 @@
       creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value);
     });
 
+    els.formAdminLogin.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const ok = els.adminIdentifiant.value.trim() === ADMIN_AUTH.identifiant
+        && els.adminMotDePasse.value === ADMIN_AUTH.motDePasse;
+      if (ok) {
+        state.adminDeverrouille = true;
+        els.formAdminLogin.reset();
+        renderAdministration();
+      } else {
+        afficherBanniere("⛔ Identifiant ou mot de passe incorrect.", "warn");
+      }
+    });
+
     applyTheme(localStorage.getItem("theme") || "light");
   }
 
@@ -395,20 +407,21 @@
       els.tilesGrid.appendChild(tuileRessources);
     }
 
-    if (peutGererUtilisateurs()) {
-      const tuileAdmin = document.createElement("button");
-      tuileAdmin.type = "button";
-      tuileAdmin.className = "tile";
-      tuileAdmin.innerHTML = `
-        <span class="tile__icon" style="background:#F3E8FD;color:#8764B8">
-          <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="8" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 14.5c2.4.3 4.2 2.4 4.2 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </span>
-        <span class="tile__titre">Administration</span>
-        <span class="tile__sous-titre">${state.utilisateurs.length} utilisateur${state.utilisateurs.length > 1 ? "s" : ""}</span>
-      `;
-      tuileAdmin.addEventListener("click", () => afficherVue("administration"));
-      els.tilesGrid.appendChild(tuileAdmin);
-    }
+    // Vignette "Administration" — toujours visible ; l'accès est protégé par
+    // un second verrou identifiant/mot de passe indépendant du rôle (voir
+    // ADMIN_AUTH, js/google-config.js), pas par le rôle détecté.
+    const tuileAdmin = document.createElement("button");
+    tuileAdmin.type = "button";
+    tuileAdmin.className = "tile";
+    tuileAdmin.innerHTML = `
+      <span class="tile__icon" style="background:#F3E8FD;color:#8764B8">
+        <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18" cy="8" r="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 14.5c2.4.3 4.2 2.4 4.2 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <span class="tile__titre">Administration</span>
+      <span class="tile__sous-titre">${state.adminDeverrouille ? `${state.utilisateurs.length} utilisateur${state.utilisateurs.length > 1 ? "s" : ""}` : "🔒 Accès protégé"}</span>
+    `;
+    tuileAdmin.addEventListener("click", () => afficherVue("administration"));
+    els.tilesGrid.appendChild(tuileAdmin);
 
     // Une vignette par catégorie présente dans le référentiel
     categories.forEach((cat) => {
@@ -884,6 +897,10 @@
 
   // -- Vue Administration : gestion des utilisateurs (Email | Nom | Rôle) -----
   function renderAdministration() {
+    els.adminLoginCarte.hidden = state.adminDeverrouille;
+    els.adminContenu.hidden = !state.adminDeverrouille;
+    if (!state.adminDeverrouille) return;
+
     if (!state.utilisateurs || state.utilisateurs.length === 0) {
       els.administrationTableau.innerHTML = `<p>Aucun utilisateur déclaré pour l'instant — tout le monde est traité comme "${ROLE_PAR_DEFAUT}" par défaut. Ajoutez des personnes ci-dessous.</p>`;
     } else {

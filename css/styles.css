@@ -493,6 +493,7 @@ html, body {
   box-shadow: var(--shadow); padding: 20px;
 }
 .admin-carte h2 { margin: 0 0 14px; font-size: 15px; }
+.admin-login-texte { margin: 0 0 14px; font-size: 13px; color: var(--text-muted); }
 .admin-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
 .admin-table { width: 100%; border-collapse: collapse; }
 .admin-table th {
