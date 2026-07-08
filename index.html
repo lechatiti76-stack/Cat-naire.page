@@ -227,6 +227,34 @@
     <div id="ressourcesListe"></div>
   </section>
 
+  <!-- ============ VUE GALERIE : PHOTOS + DIAPORAMA ============ -->
+  <section id="viewGalerie" class="galerie-view" hidden>
+    <div id="galerieVide" hidden><p>Aucune photo disponible. Déposez des images dans <code>assets/photos/</code> (voir le fichier <code>README.md</code> de ce dossier).</p></div>
+    <div id="galerieGrille" class="galerie-grille"></div>
+
+    <div id="galerieDiaporama" class="galerie-diaporama" hidden>
+      <div class="galerie-diaporama__scene" id="galerieScene">
+        <img id="galerieImage" alt="">
+      </div>
+      <div class="galerie-diaporama__barre">
+        <button type="button" class="btn btn--secondary btn--small" id="btnGaleriePrecedent">⏮ Précédent</button>
+        <button type="button" class="btn btn--secondary btn--small" id="btnGalerieLecture">⏸ Pause</button>
+        <button type="button" class="btn btn--secondary btn--small" id="btnGalerieSuivant">Suivant ⏭</button>
+        <label class="galerie-diaporama__vitesse">Vitesse
+          <select id="galerieVitesse">
+            <option value="2000">Rapide (2 s)</option>
+            <option value="4000" selected>Normale (4 s)</option>
+            <option value="8000">Lente (8 s)</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn--secondary btn--small" id="btnGalerieZoom">🔍 Zoom</button>
+        <button type="button" class="btn btn--secondary btn--small" id="btnGaleriePleinEcran">⛶ Plein écran</button>
+        <button type="button" class="btn btn--secondary btn--small" id="btnGalerieFermer">✕ Fermer</button>
+      </div>
+      <p class="galerie-diaporama__compteur" id="galerieCompteur"></p>
+    </div>
+  </section>
+
   <!-- ============ VUE ADMINISTRATION : GESTION DES UTILISATEURS ============ -->
   <section id="viewAdministration" class="administration-view" hidden>
     <!-- Second verrou : identifiant/mot de passe individuel, indépendant du rôle Google Sheets -->

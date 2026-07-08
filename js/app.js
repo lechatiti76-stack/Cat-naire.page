@@ -26,6 +26,7 @@
     controles: [],
     utilisateurs: [],
     ressources: [],
+    photos: [],
     controleurs: [],
     journal: [],
     role: ROLE_PAR_DEFAUT,
@@ -42,6 +43,7 @@
   };
 
   let currentSort = { key: "dateControle", dir: "desc" };
+  const diaporama = { index: 0, enLecture: true, minuteur: null };
 
   /** Vérifie une permission élémentaire (voir PERMISSIONS_CONFIG, js/google-config.js). */
   function aPermission(cle) {
@@ -72,6 +74,7 @@
     chargerDemo();
     peuplerFiltresTableau();
     afficherVue("accueil");
+    chargerPhotos();
 
     // Reconnexion automatique si l'utilisateur s'était déjà connecté lors
     // d'une session précédente sur ce navigateur (voir docs/09).
@@ -128,6 +131,20 @@
       btnMoisPrecedent: document.getElementById("btnMoisPrecedent"),
       btnMoisSuivant: document.getElementById("btnMoisSuivant"),
       ressourcesListe: document.getElementById("ressourcesListe"),
+      viewGalerie: document.getElementById("viewGalerie"),
+      galerieVide: document.getElementById("galerieVide"),
+      galerieGrille: document.getElementById("galerieGrille"),
+      galerieDiaporama: document.getElementById("galerieDiaporama"),
+      galerieScene: document.getElementById("galerieScene"),
+      galerieImage: document.getElementById("galerieImage"),
+      galerieCompteur: document.getElementById("galerieCompteur"),
+      btnGaleriePrecedent: document.getElementById("btnGaleriePrecedent"),
+      btnGalerieLecture: document.getElementById("btnGalerieLecture"),
+      btnGalerieSuivant: document.getElementById("btnGalerieSuivant"),
+      galerieVitesse: document.getElementById("galerieVitesse"),
+      btnGalerieZoom: document.getElementById("btnGalerieZoom"),
+      btnGaleriePleinEcran: document.getElementById("btnGaleriePleinEcran"),
+      btnGalerieFermer: document.getElementById("btnGalerieFermer"),
       zoneImpression: document.getElementById("zoneImpression"),
       dashboardExtra: document.getElementById("dashboardExtra"),
       tableBody: document.getElementById("tableBody"),
@@ -250,7 +267,7 @@
   }
 
   // -- Navigation entre vues --------------------------------------------------
-  const VUES_RESTREINTES = { tableau: "tableauBord", calendrier: "calendrier", ressources: "ressources" };
+  const VUES_RESTREINTES = { tableau: "tableauBord", calendrier: "calendrier", ressources: "ressources", galerie: "galerie" };
 
   function afficherVue(vue, options = {}) {
     if (VUES_RESTREINTES[vue] && !aPermission(VUES_RESTREINTES[vue])) {
@@ -264,6 +281,7 @@
     els.viewControle.hidden = vue !== "controle";
     els.viewCalendrier.hidden = vue !== "calendrier";
     els.viewRessources.hidden = vue !== "ressources";
+    els.viewGalerie.hidden = vue !== "galerie";
     els.viewAdministration.hidden = vue !== "administration";
 
     if (vue === "accueil") {
@@ -291,6 +309,10 @@
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Ressources";
       renderRessources();
+    } else if (vue === "galerie") {
+      els.crumbSep.hidden = false;
+      els.crumbCourant.textContent = "Galerie photos";
+      renderGalerieGrille();
     } else if (vue === "administration") {
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Administration des utilisateurs";
@@ -326,7 +348,20 @@
 
     els.modalClose.addEventListener("click", fermerModal);
     els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) fermerModal(); });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerModal(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      fermerModal();
+      if (!els.galerieDiaporama.hidden) fermerDiaporama();
+    });
+
+    els.btnGaleriePrecedent.addEventListener("click", diaporamaPrecedent);
+    els.btnGalerieSuivant.addEventListener("click", diaporamaSuivant);
+    els.btnGalerieLecture.addEventListener("click", toggleLectureDiaporama);
+    els.galerieVitesse.addEventListener("change", demarrerMinuteurDiaporama);
+    els.btnGalerieZoom.addEventListener("click", toggleZoomDiaporama);
+    els.galerieImage.addEventListener("click", toggleZoomDiaporama);
+    els.btnGaleriePleinEcran.addEventListener("click", toggleFullscreenDiaporama);
+    els.btnGalerieFermer.addEventListener("click", fermerDiaporama);
 
     els.btnAnnulerControle.addEventListener("click", () => afficherVue("categorie", { categorie: state.categorieCourante || (state.materielControleCourant || {}).categorie }));
     els.btnValiderControle.addEventListener("click", validerControle);
@@ -589,6 +624,22 @@
       `;
       tuileRessources.addEventListener("click", () => afficherVue("ressources"));
       els.tilesGrid.appendChild(tuileRessources);
+    }
+
+    if (aPermission("galerie")) {
+      // Vignette "Galerie photos"
+      const tuileGalerie = document.createElement("button");
+      tuileGalerie.type = "button";
+      tuileGalerie.className = "tile";
+      tuileGalerie.innerHTML = `
+        <span class="tile__icon" style="background:#E8F5E9;color:#2E7D32">
+          <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="11" r="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 17l5-4 4 3 3-2 4 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="tile__titre">Galerie photos</span>
+        <span class="tile__sous-titre">${state.photos.length} photo${state.photos.length > 1 ? "s" : ""}</span>
+      `;
+      tuileGalerie.addEventListener("click", () => afficherVue("galerie"));
+      els.tilesGrid.appendChild(tuileGalerie);
     }
 
     // Vignette "Administration" — toujours visible ; l'accès est protégé par
@@ -1079,6 +1130,95 @@
         </ul>
       </div>
     `).join("");
+  }
+
+  // -- Vue Galerie photos : chargement automatique + diaporama ----------------
+  const DOSSIER_PHOTOS = "assets/photos/";
+
+  async function chargerPhotos() {
+    try {
+      const res = await fetch(DOSSIER_PHOTOS + "manifest.json", { cache: "no-store" });
+      state.photos = res.ok ? await res.json() : [];
+    } catch (e) {
+      state.photos = [];
+    }
+    if (state.vue === "accueil") renderTuiles();
+    if (state.vue === "galerie") renderGalerieGrille();
+  }
+
+  function renderGalerieGrille() {
+    if (!els.galerieGrille) return;
+    els.galerieVide.hidden = state.photos.length > 0;
+    els.galerieGrille.hidden = state.photos.length === 0;
+    els.galerieGrille.innerHTML = state.photos.map((fichier, i) => `
+      <button type="button" class="galerie-grille__vignette" data-index="${i}">
+        <img src="${DOSSIER_PHOTOS}${encodeURIComponent(fichier)}" alt="${escapeHtml(fichier)}" loading="lazy">
+      </button>
+    `).join("");
+    els.galerieGrille.querySelectorAll(".galerie-grille__vignette").forEach((btn) => {
+      btn.addEventListener("click", () => ouvrirDiaporama(Number(btn.dataset.index)));
+    });
+  }
+
+  function ouvrirDiaporama(index) {
+    if (state.photos.length === 0) return;
+    diaporama.index = index;
+    diaporama.enLecture = true;
+    els.galerieDiaporama.hidden = false;
+    els.btnGalerieLecture.textContent = "⏸ Pause";
+    els.galerieScene.classList.remove("galerie-diaporama__scene--zoom");
+    afficherImageDiaporama();
+    demarrerMinuteurDiaporama();
+  }
+
+  function fermerDiaporama() {
+    els.galerieDiaporama.hidden = true;
+    clearInterval(diaporama.minuteur);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+
+  function afficherImageDiaporama() {
+    const fichier = state.photos[diaporama.index];
+    if (!fichier) return;
+    els.galerieImage.src = DOSSIER_PHOTOS + encodeURIComponent(fichier);
+    els.galerieImage.alt = fichier;
+    els.galerieCompteur.textContent = `${diaporama.index + 1} / ${state.photos.length}`;
+  }
+
+  function diaporamaSuivant() {
+    diaporama.index = (diaporama.index + 1) % state.photos.length;
+    afficherImageDiaporama();
+  }
+  function diaporamaPrecedent() {
+    diaporama.index = (diaporama.index - 1 + state.photos.length) % state.photos.length;
+    afficherImageDiaporama();
+  }
+
+  function demarrerMinuteurDiaporama() {
+    clearInterval(diaporama.minuteur);
+    if (!diaporama.enLecture) return;
+    const vitesse = Number(els.galerieVitesse.value) || 4000;
+    diaporama.minuteur = setInterval(diaporamaSuivant, vitesse);
+  }
+
+  function toggleLectureDiaporama() {
+    diaporama.enLecture = !diaporama.enLecture;
+    els.btnGalerieLecture.textContent = diaporama.enLecture ? "⏸ Pause" : "▶️ Lecture";
+    demarrerMinuteurDiaporama();
+  }
+
+  function toggleZoomDiaporama() {
+    els.galerieScene.classList.toggle("galerie-diaporama__scene--zoom");
+  }
+
+  function toggleFullscreenDiaporama() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      els.galerieDiaporama.requestFullscreen().catch(() => {
+        afficherBanniere("⚠️ Le mode plein écran n'est pas disponible sur ce navigateur.", "warn");
+      });
+    }
   }
 
   // -- Vue Administration : gestion des utilisateurs (Email | Nom | Rôle | Permissions) -----

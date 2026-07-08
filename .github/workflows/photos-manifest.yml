@@ -1,0 +1,44 @@
+name: Manifeste galerie photos
+
+on:
+  push:
+    paths:
+      - "assets/photos/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  manifeste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Génère assets/photos/manifest.json
+        run: |
+          cd assets/photos
+          python3 - <<'PYEOF'
+          import json, os
+
+          extensions = (".jpg", ".jpeg", ".png", ".webp")
+          fichiers = sorted(
+              f for f in os.listdir(".")
+              if f.lower().endswith(extensions)
+          )
+          with open("manifest.json", "w") as sortie:
+              json.dump(fichiers, sortie, ensure_ascii=False, indent=2)
+              sortie.write("\n")
+          PYEOF
+
+      - name: Publie le manifeste s'il a changé
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/photos/manifest.json
+          if git diff --cached --quiet; then
+            echo "Manifeste déjà à jour, rien à publier."
+          else
+            git commit -m "Met à jour le manifeste de la galerie photos"
+            git push
+          fi

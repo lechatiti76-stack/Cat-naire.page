@@ -57,6 +57,7 @@ const PERMISSIONS_CONFIG = [
   { cle: "tableauBord",     label: "Tableau général (recherche, filtres, tri)" },
   { cle: "calendrier",      label: "Calendrier des contrôles à venir" },
   { cle: "ressources",      label: "Ressources documentaires" },
+  { cle: "galerie",         label: "Galerie photos" },
   { cle: "historique",      label: "Consulter la fiche et l'historique d'un matériel" },
   { cle: "nouveauControle", label: "Créer un nouveau contrôle" },
   { cle: "exporterPdf",     label: "Exporter un matériel en PDF" },
@@ -72,7 +73,7 @@ const PERMISSIONS_CONFIG = [
 const ROLES_CONFIG = {
   Administrateur: { permissions: PERMISSIONS_CONFIG.map((p) => p.cle) },
   "Contrôleur":   { permissions: ["nouveauControle"] },
-  Utilisateur:    { permissions: ["tableauBord", "calendrier", "ressources", "historique", "exporterPdf", "exporterCsv"] },
+  Utilisateur:    { permissions: ["tableauBord", "calendrier", "ressources", "galerie", "historique", "exporterPdf", "exporterCsv"] },
 };
 const ROLE_PAR_DEFAUT = "Contrôleur";
 
