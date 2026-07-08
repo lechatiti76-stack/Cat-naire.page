@@ -1,6 +1,6 @@
 # 10. Phase "application professionnelle" — permissions, journal, alertes, connexion individuelle, tableau de bord, galerie
 
-Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §9 pour le solde nul "Ce qui reste").
+Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §10 pour le solde nul "Ce qui reste").
 
 ## 0. Un principe qui traverse tout le document
 
@@ -105,6 +105,12 @@ Si l'action GitHub ne peut pas s'exécuter (dépôt sans Actions activées, perm
 - **Charger un fichier de sauvegarde (aperçu)** : relit un fichier exporté et affiche un résumé (nombre de matériels/contrôles/utilisateurs/ressources). Ce fichier n'est **volontairement pas réinjecté automatiquement** dans Google Sheets : un import automatique mal aligné (colonnes, doublons) pourrait corrompre des données réelles de sécurité. Il sert d'archive/de référence.
 - **Restauration réelle recommandée** : l'historique de versions natif de Google Sheets (menu **Fichier → Historique des versions** dans le classeur) reste le moyen sûr de tout restaurer en un clic — c'est la "sauvegarde automatique" de fait de cette architecture, sans risque de désynchronisation de colonnes.
 
-## 9. Ce qui reste
+## 9. Actualisation des données sans reconnexion
+
+Le bouton **"🔄 Actualiser"** (en-tête, à côté de "Se connecter avec Google") recharge Materiels/Controles/Utilisateurs/Ressources depuis le classeur **sans repasser par la connexion Google** — le jeton d'accès obtenu au moment de la connexion reste valide en mémoire le temps de la session du navigateur, inutile de tout recommencer pour voir une modification faite directement dans Google Sheets (ex. un contrôle ajouté par quelqu'un d'autre, un matériel désactivé).
+
+Une actualisation automatique et silencieuse a également lieu toutes les 60 secondes en arrière-plan, sauf pendant une saisie de contrôle ou dans l'écran Administration (pour ne jamais faire perdre une saisie non enregistrée). Un clic manuel sur "Actualiser" pendant une saisie de contrôle demande confirmation avant de continuer, pour la même raison.
+
+## 10. Ce qui reste
 
 Rien d'identifié pour l'instant : tous les points du cahier des charges compatibles avec une architecture 100% statique (sans serveur) sont livrés. Les points explicitement hors de portée sans serveur (notifications push, sauvegarde automatique programmée côté serveur, sécurité serveur réelle pour les mots de passe/CSRF/injection SQL) sont documentés comme tels à chaque section concernée plutôt que simulés.

@@ -221,6 +221,7 @@
       btnExport: document.getElementById("btnExport"),
       btnTheme: document.getElementById("btnTheme"),
       btnGoogleConnect: document.getElementById("btnGoogleConnect"),
+      btnActualiser: document.getElementById("btnActualiser"),
       table: document.getElementById("dataTable"),
       modalOverlay: document.getElementById("modalOverlay"),
       modalTitle: document.getElementById("modalTitle"),
@@ -286,16 +287,9 @@
         GoogleSheetsAPI.chargerDonnees(),
         GoogleSheetsAPI.utilisateurCourant(),
       ]);
-      Object.assign(state, donnees);
       state.modeDemo = false;
       state.utilisateur = utilisateur;
-      state.role = GoogleSheetsAPI.determinerRole(utilisateur.email, donnees.utilisateurs);
-      state.controleurs = donnees.utilisateurs.filter((u) => (u.permissions || []).includes("nouveauControle"));
-      // Utilise le nom déclaré dans l'onglet Utilisateurs (ex. "PATON ROMUALD") plutôt
-      // que le nom du compte Google, s'il est renseigné.
-      const ligneUtilisateur = GoogleSheetsAPI.trouverUtilisateur(utilisateur.email, donnees.utilisateurs);
-      if (ligneUtilisateur && ligneUtilisateur.nom) state.utilisateur.nom = ligneUtilisateur.nom;
-      state.permissions = ligneUtilisateur ? ligneUtilisateur.permissions : (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).permissions;
+      appliquerDonnees(donnees);
       localStorage.setItem(CLE_DEJA_CONNECTE, "1");
       els.headerSubtitle.textContent = `Connecté à Google Sheets — ${state.utilisateur.nom}`;
       els.btnGoogleConnect.textContent = "✅ Connecté";
@@ -315,6 +309,72 @@
       throw e;
     }
   }
+
+  /** Applique un jeu de données fraîchement chargé (utilisé par la connexion et par l'actualisation manuelle/automatique). */
+  function appliquerDonnees(donnees) {
+    Object.assign(state, donnees);
+    state.controleurs = donnees.utilisateurs.filter((u) => (u.permissions || []).includes("nouveauControle"));
+    if (state.utilisateur && state.utilisateur.email) {
+      // Utilise le nom déclaré dans l'onglet Utilisateurs (ex. "PATON ROMUALD") plutôt
+      // que le nom du compte Google, s'il est renseigné.
+      const ligneUtilisateur = GoogleSheetsAPI.trouverUtilisateur(state.utilisateur.email, donnees.utilisateurs);
+      if (ligneUtilisateur && ligneUtilisateur.nom) state.utilisateur.nom = ligneUtilisateur.nom;
+      state.role = GoogleSheetsAPI.determinerRole(state.utilisateur.email, donnees.utilisateurs);
+      state.permissions = ligneUtilisateur ? ligneUtilisateur.permissions : (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).permissions;
+    }
+  }
+
+  /**
+   * Recharge les données depuis Google Sheets sans repasser par la connexion
+   * OAuth (le jeton d'accès obtenu au clic sur "Se connecter" reste valide en
+   * mémoire) — bouton "🔄 Actualiser" et actualisation automatique en
+   * arrière-plan (voir DUREE_ACTUALISATION_AUTO_MS).
+   */
+  async function actualiserDonnees(options = {}) {
+    const silencieux = !!options.silencieux;
+    if (state.modeDemo) {
+      if (!silencieux) afficherBanniere("ℹ️ Mode démonstration : aucune donnée réelle à actualiser. Connectez-vous avec Google.", "info");
+      return;
+    }
+    if (state.vue === "controle" && !silencieux) {
+      if (!confirm("Une saisie de contrôle est en cours. Actualiser les données depuis Google Sheets maintenant ? La saisie non enregistrée sera perdue.")) return;
+    }
+    if (!silencieux) {
+      els.btnActualiser.disabled = true;
+      els.btnActualiser.textContent = "🔄 Actualisation…";
+    }
+    try {
+      const donnees = await GoogleSheetsAPI.chargerDonnees();
+      appliquerDonnees(donnees);
+      peuplerFiltresTableau();
+      afficherRoleBadge();
+      if (state.adminDeverrouille) GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; }).catch(() => {});
+      if (!["controle"].includes(state.vue)) {
+        afficherVue(state.vue, { categorie: state.categorieCourante });
+      } else {
+        renderStatsGlobales();
+        renderBandeauFlash();
+      }
+      if (!silencieux) afficherBanniere("✅ Données actualisées depuis Google Sheets.", "info");
+    } catch (e) {
+      console.error(e);
+      if (!silencieux) afficherBanniere("⚠️ Erreur lors de l'actualisation : " + e.message, "warn");
+    } finally {
+      if (!silencieux) {
+        els.btnActualiser.disabled = false;
+        els.btnActualiser.textContent = "🔄 Actualiser";
+      }
+    }
+  }
+
+  // Actualisation automatique en arrière-plan (voir docs/10 §10) : pas d'interruption
+  // pendant une saisie de contrôle ou une édition en cours dans Administration.
+  const DUREE_ACTUALISATION_AUTO_MS = 60 * 1000;
+  setInterval(() => {
+    if (!state.modeDemo && !["controle", "administration"].includes(state.vue)) {
+      actualiserDonnees({ silencieux: true });
+    }
+  }, DUREE_ACTUALISATION_AUTO_MS);
 
   function afficherBanniere(texte, type) {
     els.bannerEtat.textContent = texte;
@@ -397,6 +457,7 @@
     els.btnExport.addEventListener("click", exporterCsv);
     els.btnTheme.addEventListener("click", toggleTheme);
     els.btnGoogleConnect.addEventListener("click", connecterGoogle);
+    els.btnActualiser.addEventListener("click", () => actualiserDonnees());
     els.table.querySelectorAll("thead th[data-sort]").forEach((th) => {
       th.addEventListener("click", () => {
         const key = th.dataset.sort;
