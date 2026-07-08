@@ -68,6 +68,14 @@
 
   document.addEventListener("DOMContentLoaded", demarrer);
 
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {
+        // Best effort : l'application reste utilisable sans installation PWA ni mode hors-ligne.
+      });
+    });
+  }
+
   async function demarrer() {
     cacherElements();
     lierEvenements();
@@ -1015,18 +1023,18 @@
       tr.tabIndex = 0;
       tr.addEventListener("click", () => ouvrirFicheMateriel(item.materielId));
       tr.innerHTML = `
-        <td class="cell-name">${escapeHtml(item.materiel)}</td>
-        <td>${escapeHtml(item.numSerie)}</td>
-        <td class="cell-muted">${escapeHtml(item.reference)}</td>
-        <td>${escapeHtml(item.categorie)}</td>
-        <td>${formatDate(item.dateControle)}</td>
-        <td>${formatDate(item.dateProchainControle)}</td>
-        <td>${escapeHtml(item.controleur)}</td>
-        <td>${escapeHtml(item.etat)}</td>
-        <td>${item.conforme ? '<span class="badge badge--ok">Oui</span>' : '<span class="badge badge--danger">Non</span>'}</td>
-        <td><span class="cell-truncate" title="${escapeHtml(item.observations)}">${escapeHtml(item.observations) || "—"}</span></td>
-        <td><span class="cell-truncate" title="${escapeHtml(item.actionsCorrectives)}">${escapeHtml(item.actionsCorrectives) || "—"}</span></td>
-        <td><span class="cell-truncate" title="${escapeHtml(item.commentaires)}">${escapeHtml(item.commentaires) || "—"}</span></td>
+        <td class="cell-name" data-label="Matériel">${escapeHtml(item.materiel)}</td>
+        <td data-label="N° série">${escapeHtml(item.numSerie)}</td>
+        <td class="cell-muted" data-label="Référence">${escapeHtml(item.reference)}</td>
+        <td data-label="Catégorie">${escapeHtml(item.categorie)}</td>
+        <td data-label="Date contrôle">${formatDate(item.dateControle)}</td>
+        <td data-label="Prochain contrôle">${formatDate(item.dateProchainControle)}</td>
+        <td data-label="Contrôleur">${escapeHtml(item.controleur)}</td>
+        <td data-label="État">${escapeHtml(item.etat)}</td>
+        <td data-label="Conforme">${item.conforme ? '<span class="badge badge--ok">Oui</span>' : '<span class="badge badge--danger">Non</span>'}</td>
+        <td data-label="Observations"><span class="cell-truncate" title="${escapeHtml(item.observations)}">${escapeHtml(item.observations) || "—"}</span></td>
+        <td data-label="Actions correctives"><span class="cell-truncate" title="${escapeHtml(item.actionsCorrectives)}">${escapeHtml(item.actionsCorrectives) || "—"}</span></td>
+        <td data-label="Commentaires"><span class="cell-truncate" title="${escapeHtml(item.commentaires)}">${escapeHtml(item.commentaires) || "—"}</span></td>
       `;
       els.tableBody.appendChild(tr);
     });

@@ -648,9 +648,39 @@ body.a-bandeau-flash .app-footer { margin-bottom: 42px; }
   .toolbar__filters { gap: 10px; }
   .field { min-width: 130px; }
   .modal__grid { grid-template-columns: 1fr; }
+  .dashboard__stats { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
 }
 
 @media (max-width: 560px) {
   .app-header { flex-direction: column; align-items: flex-start; }
+  .app-header__actions { width: 100%; }
   .stats { grid-template-columns: repeat(2, 1fr); }
+  .tiles-grid, .cards-grid { grid-template-columns: 1fr; }
+  .admin-form { flex-direction: column; align-items: stretch; }
+  .admin-permissions { grid-template-columns: 1fr; }
+  .controle-champs { flex-direction: column; }
+
+  /* Boutons et cases à cocher plus grands au doigt */
+  .btn { min-height: 44px; padding: 10px 16px; }
+  .btn--small { min-height: 38px; padding: 8px 14px; }
+  .admin-permission input[type="checkbox"],
+  .toggle-btn { min-height: 22px; min-width: 22px; }
+
+  /* Tableau général : chaque ligne devient une carte plutôt qu'une ligne de tableau */
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table tr {
+    margin-bottom: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 4px 12px; background: var(--surface); box-shadow: var(--shadow);
+  }
+  .data-table td {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 8px 0; border-bottom: 1px solid var(--border); text-align: right;
+  }
+  .data-table td:last-child { border-bottom: none; }
+  .data-table td::before {
+    content: attr(data-label); font-weight: 600; color: var(--text-muted); text-align: left; flex: 0 0 auto;
+  }
+  .data-table td.cell-name { font-weight: 700; }
+  .data-table .cell-truncate { max-width: 60%; text-align: right; white-space: normal; }
 }

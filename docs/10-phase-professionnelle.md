@@ -1,6 +1,6 @@
 # 10. Phase "application professionnelle" — permissions, journal, alertes, connexion individuelle, tableau de bord, galerie
 
-Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Les points listés en §1 à §5 sont livrés ; les autres (§6 "Ce qui reste") suivront dans une prochaine phase.
+Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Les points listés en §1 à §6 sont livrés ; les autres (§7 "Ce qui reste") suivront dans une prochaine phase.
 
 ## 0. Un principe qui traverse tout le document
 
@@ -68,7 +68,7 @@ Il disparaît automatiquement s'il n'y a aucune échéance dans la fenêtre. Un 
 
 La vue "Tableau général" affiche désormais, au-dessus de la recherche/filtres, des indicateurs complémentaires (contrôles réalisés, contrôles en retard, matériel en alerte, échéances du mois, utilisateurs déclarés par rôle, dernière sauvegarde) et deux graphiques en barres (répartition du matériel par catégorie, contrôles par statut). Les graphiques sont des barres CSS simples (largeur proportionnelle à la valeur max), pas une bibliothèque de graphiques tierce — suffisant pour ce volume de données et cohérent avec le thème clair/sombre.
 
-**Interprétation de "Utilisateurs connectés"** : sur une application 100% statique sans serveur, il n'existe pas de notion de session concurrente à observer (chaque navigateur a sa propre session Google indépendante). Le tableau de bord affiche donc plutôt le nombre de personnes **déclarées** dans l'onglet `Utilisateurs`, réparties par rôle. **"Dernière sauvegarde"** affichera la date du dernier export une fois la fonctionnalité de sauvegarde manuelle livrée (voir §6 ci-dessous) ; "Jamais" en attendant.
+**Interprétation de "Utilisateurs connectés"** : sur une application 100% statique sans serveur, il n'existe pas de notion de session concurrente à observer (chaque navigateur a sa propre session Google indépendante). Le tableau de bord affiche donc plutôt le nombre de personnes **déclarées** dans l'onglet `Utilisateurs`, réparties par rôle. **"Dernière sauvegarde"** affichera la date du dernier export une fois la fonctionnalité de sauvegarde manuelle livrée (voir §7 ci-dessous) ; "Jamais" en attendant.
 
 ## 5. Galerie photos automatique
 
@@ -78,8 +78,16 @@ Diaporama (clic sur une vignette) : lecture automatique, pause, précédent/suiv
 
 Si l'action GitHub ne peut pas s'exécuter (dépôt sans Actions activées, permissions insuffisantes), le manifeste peut aussi être modifié à la main — un simple tableau JSON de noms de fichiers.
 
-## 6. Ce qui reste (prochaine phase)
+## 6. Responsive et PWA installable
 
-- **Responsive avancé et PWA installable** (manifeste + service worker ; les notifications *push* nécessitent un serveur et ne sont pas réalisables ici).
+- **Tableau général** : sur petit écran (≤560px), le tableau devient une liste de cartes (une carte par ligne, libellé + valeur), au lieu de forcer un défilement horizontal illisible.
+- **Grilles** (vignettes d'accueil, cartes de matériel) : une seule colonne sur mobile.
+- **Formulaires et cases à cocher** (Administration) : empilés verticalement, boutons et cases à cocher agrandis pour une utilisation tactile confortable (cibles ≥ 44 px).
+- **Menu** : l'application n'a pas de menu de navigation complexe à transformer en tiroir latéral (la navigation se fait par vignettes + fil d'Ariane, identique bureau/mobile) ; les actions d'en-tête (connexion, export, thème) s'empilent proprement sur petit écran.
+- **PWA installable** : `manifest.webmanifest` + `sw.js` (service worker) permettent l'installation sur l'écran d'accueil (Android/iPhone/PC) et le fonctionnement plein écran. Le service worker met en cache uniquement la coquille statique (HTML/CSS/JS/icônes) — jamais les appels à Google Sheets ou à l'authentification, qui doivent toujours être à jour. Sans connexion, l'application s'ouvre donc en mode démonstration plutôt que de planter.
+- **Notifications push** : non réalisables sans serveur (elles nécessitent un service capable de réveiller l'application même fermée) — hors de portée d'une architecture 100% statique.
+
+## 7. Ce qui reste (prochaine phase)
+
 - **Durcissement sécurité** : expiration de session par inactivité, anti-brute-force léger sur le verrou Administration.
 - **Sauvegarde** : export/import JSON manuel depuis l'application, en complément de l'historique de versions natif de Google Sheets (Fichier → Historique des versions), qui sert déjà de sauvegarde automatique de fait.
