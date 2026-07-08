@@ -7,18 +7,12 @@ Ce document couvre les fonctionnalités ajoutées après la mise en service init
 Un nouvel onglet optionnel **`Utilisateurs`** peut être ajouté au classeur Google Sheets :
 
 ```
-Email                          | Nom              | Role
-julien.marchand@example.com    | Julien Marchand  | Contrôleur
-amandine.roy@example.com       | Amandine Roy     | Administrateur
+Email                          | Nom              | Role           | Permissions
+julien.marchand@example.com    | Julien Marchand  | Contrôleur     |
+amandine.roy@example.com       | Amandine Roy     | Administrateur |
 ```
 
-- **Rôles reconnus** : `Administrateur`, `Contrôleur`, `Utilisateur`. Chaque rôle combine deux droits (`js/google-config.js`, `ROLES_CONFIG`) :
-
-  | Rôle | Peut créer/valider un contrôle | Accès Tableau général / Calendrier / Ressources / Historique / Export PDF |
-  |---|---|---|
-  | **Administrateur** | Oui | Oui — accès à tout |
-  | **Contrôleur** | Oui | **Non** — voit uniquement les vignettes de catégorie et le bouton "Nouveau contrôle" |
-  | **Utilisateur** | Non (boutons masqués) | Oui — consultation complète, sans pouvoir créer de contrôle |
+- **Rôles reconnus** : `Administrateur`, `Contrôleur`, `Utilisateur`. Depuis la phase professionnelle (docs/10), le rôle ne sert plus qu'à préremplir des **permissions par défaut** ; les permissions réelles sont gérées personne par personne via des cases à cocher dans l'écran Administration — voir docs/10 §1. La colonne `Permissions` (4ᵉ colonne, facultative) est écrite automatiquement par l'application ; laissez-la vide pour vous en tenir aux permissions par défaut du rôle.
 
 - Le nom affiché dans l'application (contrôleur présélectionné, en-tête) est celui de la colonne **`Nom`** de l'onglet `Utilisateurs` (ex. "PATON ROMUALD"), pas le nom du compte Google — pratique si le nom du compte Google diffère du nom d'usage.
 - Si l'onglet `Utilisateurs` est **absent ou vide**, ou si l'adresse e-mail de la personne connectée n'y figure pas, elle est traitée comme **Contrôleur** par défaut (pour ne pas bloquer l'usage tant que la liste n'est pas complétée). Ajustable dans `js/google-config.js` (`ROLE_PAR_DEFAUT`).

@@ -506,6 +506,13 @@ html, body {
   background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit;
 }
 .admin-table__actions { display: flex; gap: 6px; white-space: nowrap; }
+.admin-permissions {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px 16px;
+  border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px 10px; margin: 0; width: 100%;
+}
+.admin-permissions legend { font-size: 11.5px; text-transform: uppercase; letter-spacing: .02em; color: var(--text-muted); padding: 0 4px; }
+.admin-permission { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+tr[data-index-permissions] td { padding-top: 0; padding-bottom: 14px; border-bottom: 2px solid var(--border); }
 
 /* ============ RESSOURCES ============ */
 .ressources-groupe { margin-bottom: 20px; }
@@ -553,6 +560,39 @@ html, body {
   padding: 1px 6px;
   border-radius: 4px;
 }
+
+/* ============ BANDEAU FLASH INFO ============ */
+.bandeau-flash {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 400;
+  display: flex; align-items: stretch; height: 42px;
+  background: #111318; color: #fff; overflow: hidden;
+  box-shadow: 0 -3px 10px rgba(0,0,0,.35);
+}
+.bandeau-flash__label {
+  flex: 0 0 auto; display: flex; align-items: center; padding: 0 16px;
+  background: var(--color-danger); font-weight: 700; font-size: 12.5px; letter-spacing: .04em;
+}
+.bandeau-flash__piste {
+  display: inline-flex; align-items: center; gap: 40px; white-space: nowrap;
+  animation-name: bandeau-defilement; animation-timing-function: linear; animation-iteration-count: infinite;
+  padding: 0 20px;
+}
+@keyframes bandeau-defilement {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.bandeau-flash__item {
+  border: none; background: none; color: #fff; font-size: 13px; font-family: inherit;
+  cursor: pointer; padding: 0; white-space: nowrap;
+}
+.bandeau-flash__item--non-cliquable { cursor: default; }
+.bandeau-flash__item--vert   { color: #6bdc8e; }
+.bandeau-flash__item--orange { color: #ffb15c; }
+.bandeau-flash__item--rouge  { color: #ff7a7a; font-weight: 600; }
+.bandeau-flash__item--clignote { animation: bandeau-clignote 1s steps(1, start) infinite; }
+@keyframes bandeau-clignote { 50% { opacity: .3; } }
+body.a-bandeau-flash { padding-bottom: 42px; }
+body.a-bandeau-flash .app-footer { margin-bottom: 42px; }
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 900px) {

@@ -92,10 +92,10 @@ function construireJeuDeDemonstration() {
   });
 
   const utilisateurs = [
-    { email: "julien.marchand@example.com", nom: "Julien Marchand", role: "Contrôleur" },
-    { email: "sophie.nguyen@example.com", nom: "Sophie Nguyen", role: "Contrôleur" },
-    { email: "karim.belaid@example.com", nom: "Karim Belaid", role: "Contrôleur" },
-    { email: "amandine.roy@example.com", nom: "Amandine Roy", role: "Administrateur" },
+    { email: "julien.marchand@example.com", nom: "Julien Marchand", role: "Contrôleur", permissions: ROLES_CONFIG["Contrôleur"].permissions.slice() },
+    { email: "sophie.nguyen@example.com", nom: "Sophie Nguyen", role: "Contrôleur", permissions: ROLES_CONFIG["Contrôleur"].permissions.slice() },
+    { email: "karim.belaid@example.com", nom: "Karim Belaid", role: "Contrôleur", permissions: ROLES_CONFIG["Contrôleur"].permissions.slice() },
+    { email: "amandine.roy@example.com", nom: "Amandine Roy", role: "Administrateur", permissions: ROLES_CONFIG["Administrateur"].permissions.slice() },
   ];
 
   const ressources = [

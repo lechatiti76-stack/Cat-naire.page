@@ -27,7 +27,9 @@
     utilisateurs: [],
     ressources: [],
     controleurs: [],
+    journal: [],
     role: ROLE_PAR_DEFAUT,
+    permissions: [],
     modeDemo: true,
     utilisateur: null,
     vue: "accueil",
@@ -40,11 +42,21 @@
 
   let currentSort = { key: "dateControle", dir: "desc" };
 
-  function peutControler() {
-    return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutControler;
+  /** Vérifie une permission élémentaire (voir PERMISSIONS_CONFIG, js/google-config.js). */
+  function aPermission(cle) {
+    return state.permissions.includes(cle);
   }
-  function peutVoirTout() {
-    return (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).peutVoirTout;
+  // Alias conservés pour lisibilité aux points d'appel les plus fréquents.
+  function peutControler() { return aPermission("nouveauControle"); }
+
+  /** Journalise une action (voir docs/10 §4) — silencieux en mode démonstration. */
+  function journaliser(action) {
+    const nomUtilisateur = (state.utilisateur && (state.utilisateur.nom || state.utilisateur.email)) || "Anonyme";
+    if (state.modeDemo) {
+      state.journal.unshift({ date: new Date().toISOString().slice(0, 10), heure: new Date().toTimeString().slice(0, 8), utilisateur: nomUtilisateur, action, ip: "(mode démonstration)" });
+      return;
+    }
+    GoogleSheetsAPI.enregistrerJournal({ utilisateur: nomUtilisateur, action });
   }
 
   const CLE_DEJA_CONNECTE = "gsheets_deja_connecte";
@@ -95,6 +107,8 @@
       nouvelEmail: document.getElementById("nouvelEmail"),
       nouveauNom: document.getElementById("nouveauNom"),
       nouveauRole: document.getElementById("nouveauRole"),
+      nouvellesPermissions: document.getElementById("nouvellesPermissions"),
+      journalTableau: document.getElementById("journalTableau"),
       tilesGrid: document.getElementById("tilesGrid"),
       cardsGrid: document.getElementById("cardsGrid"),
       roleBadge: document.getElementById("roleBadge"),
@@ -135,6 +149,8 @@
       controleResultat: document.getElementById("controleResultat"),
       btnAnnulerControle: document.getElementById("btnAnnulerControle"),
       btnValiderControle: document.getElementById("btnValiderControle"),
+      bandeauFlash: document.getElementById("bandeauFlash"),
+      bandeauFlashPiste: document.getElementById("bandeauFlashPiste"),
     });
   }
 
@@ -144,8 +160,13 @@
     Object.assign(state, demo);
     state.modeDemo = true;
     state.role = "Administrateur"; // toutes les fonctionnalités visibles en démonstration
+    state.permissions = ROLES_CONFIG["Administrateur"].permissions.slice();
     state.controleurs = state.utilisateurs;
     state.utilisateur = { id: null, nom: "Utilisateur de démonstration", email: "" };
+    state.journal = [
+      { date: new Date().toISOString().slice(0, 10), heure: "08:12:00", utilisateur: "Amandine Roy", action: "Connexion", ip: "(exemple)" },
+      { date: new Date().toISOString().slice(0, 10), heure: "08:15:42", utilisateur: "Julien Marchand", action: "Contrôle validé — LED bleu n°55", ip: "(exemple)" },
+    ];
     els.headerSubtitle.textContent = "Mode démonstration — cliquez sur \"Se connecter avec Google\" pour vos données réelles";
     afficherBanniere("ℹ️ Mode démonstration — données d'exemple, aucune écriture réelle. Connectez-vous à Google pour vos vraies données.", "info");
     afficherRoleBadge();
@@ -155,6 +176,7 @@
     if (!els.roleBadge) return;
     els.roleBadge.textContent = state.role;
     els.roleBadge.hidden = false;
+    els.btnExport.hidden = !aPermission("exporterCsv");
   }
 
   async function connecterGoogle(options = {}) {
@@ -179,17 +201,20 @@
       state.modeDemo = false;
       state.utilisateur = utilisateur;
       state.role = GoogleSheetsAPI.determinerRole(utilisateur.email, donnees.utilisateurs);
-      state.controleurs = donnees.utilisateurs.filter((u) => (ROLES_CONFIG[u.role] || {}).peutControler);
+      state.controleurs = donnees.utilisateurs.filter((u) => (u.permissions || []).includes("nouveauControle"));
       // Utilise le nom déclaré dans l'onglet Utilisateurs (ex. "PATON ROMUALD") plutôt
       // que le nom du compte Google, s'il est renseigné.
       const ligneUtilisateur = GoogleSheetsAPI.trouverUtilisateur(utilisateur.email, donnees.utilisateurs);
       if (ligneUtilisateur && ligneUtilisateur.nom) state.utilisateur.nom = ligneUtilisateur.nom;
+      state.permissions = ligneUtilisateur ? ligneUtilisateur.permissions : (ROLES_CONFIG[state.role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).permissions;
       localStorage.setItem(CLE_DEJA_CONNECTE, "1");
       els.headerSubtitle.textContent = `Connecté à Google Sheets — ${state.utilisateur.nom}`;
       els.btnGoogleConnect.textContent = "✅ Connecté";
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
       afficherRoleBadge();
       peuplerFiltresTableau();
+      journaliser("Connexion");
+      GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; if (state.vue === "administration") renderAdministration(); }).catch(() => {});
       afficherVue("accueil");
     } catch (e) {
       console.error(e);
@@ -213,11 +238,11 @@
   }
 
   // -- Navigation entre vues --------------------------------------------------
-  const VUES_RESTREINTES = ["tableau", "calendrier", "ressources"];
+  const VUES_RESTREINTES = { tableau: "tableauBord", calendrier: "calendrier", ressources: "ressources" };
 
   function afficherVue(vue, options = {}) {
-    if (VUES_RESTREINTES.includes(vue) && !peutVoirTout()) {
-      afficherBanniere("⛔ Votre rôle (" + state.role + ") n'a pas accès à cette section.", "warn");
+    if (VUES_RESTREINTES[vue] && !aPermission(VUES_RESTREINTES[vue])) {
+      afficherBanniere("⛔ Vous n'avez pas la permission d'accéder à cette section.", "warn");
       vue = "accueil";
     }
     state.vue = vue;
@@ -259,6 +284,7 @@
       renderAdministration();
     }
     renderStatsGlobales();
+    renderBandeauFlash();
   }
 
   function lierEvenements() {
@@ -306,9 +332,12 @@
       opt.value = r; opt.textContent = r;
       els.nouveauRole.appendChild(opt);
     });
+    renderPermissionsFormulaireAjout();
+    els.nouveauRole.addEventListener("change", () => renderPermissionsFormulaireAjout());
     els.formUtilisateur.addEventListener("submit", (e) => {
       e.preventDefault();
-      creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value);
+      const permissions = permissionsCocheesDans(els.nouvellesPermissions);
+      creerUtilisateurAction(els.nouvelEmail.value.trim().toLowerCase(), els.nouveauNom.value.trim(), els.nouveauRole.value, permissions);
     });
 
     els.formAdminLogin.addEventListener("submit", (e) => {
@@ -355,12 +384,54 @@
     document.getElementById("statTaux").textContent = `${taux}%`;
   }
 
+  // -- Bandeau flash info : échéances proches, défilant façon chaîne d'info ---
+  function renderBandeauFlash() {
+    if (!els.bandeauFlash) return;
+    const maintenant = new Date();
+    const clicable = aPermission("historique");
+    const items = state.materiels.map((m) => {
+      const c = dernierControle(m.id);
+      if (!c || !c.dateProchainControle) return null;
+      const echeance = new Date(c.dateProchainControle);
+      const joursRestants = Math.ceil((echeance - maintenant) / 86400000);
+      if (joursRestants > GOOGLE_CONFIG.seuilBandeauJours) return null;
+      let classeCouleur = "bandeau-flash__item--vert";
+      let clignote = false;
+      if (joursRestants <= 2) { classeCouleur = "bandeau-flash__item--rouge"; clignote = true; }
+      else if (joursRestants <= 7) classeCouleur = "bandeau-flash__item--rouge";
+      else if (joursRestants <= 30) classeCouleur = "bandeau-flash__item--orange";
+      const texte = joursRestants < 0
+        ? `⚠ ${m.title} — en retard de ${Math.abs(joursRestants)} jour${Math.abs(joursRestants) > 1 ? "s" : ""}`
+        : `⚠ ${m.title} — expire dans ${joursRestants} jour${joursRestants > 1 ? "s" : ""}`;
+      return { materielId: m.id, texte, classeCouleur, clignote };
+    }).filter(Boolean);
+
+    if (items.length === 0) {
+      els.bandeauFlash.hidden = true;
+      document.body.classList.remove("a-bandeau-flash");
+      return;
+    }
+    els.bandeauFlash.hidden = false;
+    document.body.classList.add("a-bandeau-flash");
+    els.bandeauFlashPiste.style.animationDuration = Math.max(18, items.length * 6) + "s";
+    const html = items.map((it) =>
+      `<button type="button" class="bandeau-flash__item ${it.classeCouleur} ${it.clignote ? "bandeau-flash__item--clignote" : ""} ${clicable ? "" : "bandeau-flash__item--non-cliquable"}" data-materiel="${it.materielId}">${escapeHtml(it.texte)}</button>`
+    ).join("");
+    // Contenu dupliqué : le défilement (translateX -50%) boucle sans coupure visible.
+    els.bandeauFlashPiste.innerHTML = html + html;
+    if (clicable) {
+      els.bandeauFlashPiste.querySelectorAll(".bandeau-flash__item").forEach((btn) => {
+        btn.addEventListener("click", () => ouvrirFicheMateriel(Number(btn.dataset.materiel)));
+      });
+    }
+  }
+
   // -- Vue Accueil : vignettes par catégorie + tableau général ---------------
   function renderTuiles() {
     const categories = CATEGORIES_CONFIG.filter((c) => state.materiels.some((m) => m.categorie === c.nom));
     els.tilesGrid.innerHTML = "";
 
-    if (peutVoirTout()) {
+    if (aPermission("tableauBord")) {
       // Vignette "Tableau général"
       const tuileTableau = document.createElement("button");
       tuileTableau.type = "button";
@@ -374,7 +445,9 @@
       `;
       tuileTableau.addEventListener("click", () => afficherVue("tableau"));
       els.tilesGrid.appendChild(tuileTableau);
+    }
 
+    if (aPermission("calendrier")) {
       // Vignette "Calendrier"
       const echeancesProches = state.materiels
         .map((m) => dernierControle(m.id))
@@ -391,7 +464,9 @@
       `;
       tuileCalendrier.addEventListener("click", () => afficherVue("calendrier"));
       els.tilesGrid.appendChild(tuileCalendrier);
+    }
 
+    if (aPermission("ressources")) {
       // Vignette "Ressources"
       const tuileRessources = document.createElement("button");
       tuileRessources.type = "button";
@@ -457,7 +532,7 @@
   // -- Vue Catégorie : galerie de matériels ----------------------------------
   function renderCartesCategorie(categorie) {
     const materiels = state.materiels.filter((m) => m.categorie === categorie);
-    const voirTout = peutVoirTout();
+    const voirTout = aPermission("historique");
     els.cardsGrid.innerHTML = "";
 
     materiels.forEach((m) => {
@@ -491,8 +566,8 @@
 
   // -- Fiche matériel (historique des contrôles) -----------------------------
   function ouvrirFicheMateriel(materielId) {
-    if (!peutVoirTout()) {
-      afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de consulter l'historique.", "warn");
+    if (!aPermission("historique")) {
+      afficherBanniere("⛔ Vous n'avez pas la permission de consulter l'historique.", "warn");
       return;
     }
     const materiel = state.materiels.find((m) => m.id === materielId);
@@ -514,7 +589,7 @@
       </dl>
       <div style="display:flex; gap:8px; margin-bottom:16px;">
         ${peutControler() ? '<button class="btn btn--primary btn--small" id="btnNouveauControleModal" type="button">🆕 Nouveau contrôle</button>' : ""}
-        <button class="btn btn--secondary btn--small" id="btnExporterPdf" type="button">🖨️ Exporter en PDF</button>
+        ${aPermission("exporterPdf") ? '<button class="btn btn--secondary btn--small" id="btnExporterPdf" type="button">🖨️ Exporter en PDF</button>' : ""}
       </div>
       <div class="modal__section">
         <h3>Historique des contrôles (${historique.length})</h3>
@@ -528,7 +603,8 @@
         ouvrirEcranControle(materielId);
       });
     }
-    els.modalBody.querySelector("#btnExporterPdf").addEventListener("click", () => exporterPdfMateriel(materiel, historique));
+    const btnExporterPdf = els.modalBody.querySelector("#btnExporterPdf");
+    if (btnExporterPdf) btnExporterPdf.addEventListener("click", () => exporterPdfMateriel(materiel, historique));
     els.modalBody.querySelectorAll(".historique-ligne__entete").forEach((el) => {
       el.addEventListener("click", () => {
         const detail = el.nextElementSibling;
@@ -702,6 +778,7 @@
       els.controleResultat.className = "controle-resultat controle-resultat--" + cle;
       els.controleResultat.innerHTML = `<span class="badge ${info.badge}">${info.label}</span> Contrôle enregistré${state.modeDemo ? " (simulation locale)" : " dans Google Sheets"}.`;
       els.btnValiderControle.textContent = "✅ Contrôle enregistré";
+      journaliser(`Contrôle validé — ${materiel.title} (${materiel.numSerie}) — ${resultat.statut}`);
 
       setTimeout(() => afficherVue("categorie", { categorie: materiel.categorie }), 1400);
     } catch (e) {
@@ -895,7 +972,27 @@
     `).join("");
   }
 
-  // -- Vue Administration : gestion des utilisateurs (Email | Nom | Rôle) -----
+  // -- Vue Administration : gestion des utilisateurs (Email | Nom | Rôle | Permissions) -----
+  function permissionsCheckboxesHtml(nomChamp, permissionsActuelles) {
+    return PERMISSIONS_CONFIG.map((p) => `
+      <label class="admin-permission">
+        <input type="checkbox" name="${nomChamp}" value="${p.cle}" ${permissionsActuelles.includes(p.cle) ? "checked" : ""}>
+        ${escapeHtml(p.label)}
+      </label>
+    `).join("");
+  }
+
+  function permissionsCocheesDans(conteneur) {
+    return [...conteneur.querySelectorAll("input[type=checkbox]:checked")].map((c) => c.value);
+  }
+
+  /** Recoche les permissions par défaut du rôle sélectionné dans le formulaire "Ajouter un utilisateur". */
+  function renderPermissionsFormulaireAjout() {
+    if (!els.nouvellesPermissions) return;
+    const defauts = (ROLES_CONFIG[els.nouveauRole.value] || {}).permissions || [];
+    els.nouvellesPermissions.innerHTML = permissionsCheckboxesHtml("nouvelles-permissions", defauts);
+  }
+
   function renderAdministration() {
     els.adminLoginCarte.hidden = state.adminDeverrouille;
     els.adminContenu.hidden = !state.adminDeverrouille;
@@ -922,34 +1019,79 @@
                   <button type="button" class="btn btn--secondary btn--small btn--supprimer-utilisateur">Supprimer</button>
                 </td>
               </tr>
+              <tr data-index-permissions="${i}">
+                <td colspan="4">
+                  <fieldset class="admin-permissions">
+                    <legend>Permissions</legend>
+                    ${permissionsCheckboxesHtml(`permissions-${i}`, u.permissions || [])}
+                  </fieldset>
+                </td>
+              </tr>
             `).join("")}
           </tbody>
         </table>
       `;
       els.administrationTableau.querySelectorAll("tr[data-index]").forEach((ligne) => {
         const index = Number(ligne.dataset.index);
+        const lignePermissions = els.administrationTableau.querySelector(`tr[data-index-permissions="${index}"]`);
+        ligne.querySelector(".admin-input--role").addEventListener("change", (e) => {
+          // Confort : recoche les permissions par défaut du rôle choisi (modifiable avant "Enregistrer").
+          const defauts = (ROLES_CONFIG[e.target.value] || {}).permissions || [];
+          lignePermissions.querySelectorAll("input[type=checkbox]").forEach((c) => { c.checked = defauts.includes(c.value); });
+        });
         ligne.querySelector(".btn--modifier-utilisateur").addEventListener("click", () => {
           const nom = ligne.querySelector(".admin-input--nom").value.trim();
           const role = ligne.querySelector(".admin-input--role").value;
-          modifierUtilisateurAction(index, nom, role);
+          const permissions = permissionsCocheesDans(lignePermissions);
+          modifierUtilisateurAction(index, nom, role, permissions);
         });
         ligne.querySelector(".btn--supprimer-utilisateur").addEventListener("click", () => {
           if (confirm("Supprimer cet utilisateur ?")) supprimerUtilisateurAction(index);
         });
       });
     }
+
+    renderJournal();
   }
 
-  async function creerUtilisateurAction(email, nom, role) {
+  // -- Journal des actions (audit) ---------------------------------------------
+  function renderJournal() {
+    if (!els.journalTableau) return;
+    if (!state.journal || state.journal.length === 0) {
+      els.journalTableau.innerHTML = `<p>Aucune action journalisée pour l'instant.</p>`;
+      return;
+    }
+    const entrees = state.journal.slice(0, 100);
+    els.journalTableau.innerHTML = `
+      <table class="admin-table">
+        <thead><tr><th>Date</th><th>Heure</th><th>Utilisateur</th><th>Action</th><th>Adresse IP</th></tr></thead>
+        <tbody>
+          ${entrees.map((j) => `
+            <tr>
+              <td>${formatDate(j.date)}</td>
+              <td>${escapeHtml(j.heure)}</td>
+              <td>${escapeHtml(j.utilisateur)}</td>
+              <td>${escapeHtml(j.action)}</td>
+              <td>${escapeHtml(j.ip) || "—"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  async function creerUtilisateurAction(email, nom, role, permissions) {
     if (!email) { afficherBanniere("⚠️ L'adresse e-mail est obligatoire.", "warn"); return; }
     try {
       if (!state.modeDemo) {
-        await GoogleSheetsAPI.creerUtilisateur({ email, nom, role });
+        await GoogleSheetsAPI.creerUtilisateur({ email, nom, role, permissions });
       }
-      state.utilisateurs.push({ email: email.toLowerCase(), nom, role, ligne: state.utilisateurs.length + 2 });
-      state.controleurs = state.utilisateurs.filter((u) => (ROLES_CONFIG[u.role] || {}).peutControler);
+      state.utilisateurs.push({ email: email.toLowerCase(), nom, role, permissions, ligne: state.utilisateurs.length + 2 });
+      state.controleurs = state.utilisateurs.filter((u) => (u.permissions || []).includes("nouveauControle"));
       els.formUtilisateur.reset();
+      renderPermissionsFormulaireAjout();
       renderAdministration();
+      journaliser(`Ajout de l'utilisateur ${nom || email} (${role})`);
       afficherBanniere("✅ Utilisateur ajouté" + (state.modeDemo ? " (simulation locale)." : "."), "info");
     } catch (e) {
       console.error(e);
@@ -957,14 +1099,15 @@
     }
   }
 
-  async function modifierUtilisateurAction(index, nom, role) {
+  async function modifierUtilisateurAction(index, nom, role, permissions) {
     const u = state.utilisateurs[index];
     try {
       if (!state.modeDemo) {
-        await GoogleSheetsAPI.modifierUtilisateur(u.ligne, { email: u.email, nom, role });
+        await GoogleSheetsAPI.modifierUtilisateur(u.ligne, { email: u.email, nom, role, permissions });
       }
-      u.nom = nom; u.role = role;
-      state.controleurs = state.utilisateurs.filter((x) => (ROLES_CONFIG[x.role] || {}).peutControler);
+      u.nom = nom; u.role = role; u.permissions = permissions;
+      state.controleurs = state.utilisateurs.filter((x) => (x.permissions || []).includes("nouveauControle"));
+      journaliser(`Modification de l'utilisateur ${nom || u.email}`);
       afficherBanniere("✅ Utilisateur modifié" + (state.modeDemo ? " (simulation locale)." : "."), "info");
     } catch (e) {
       console.error(e);
@@ -979,8 +1122,9 @@
         await GoogleSheetsAPI.supprimerUtilisateur(u.ligne);
       }
       state.utilisateurs.splice(index, 1);
-      state.controleurs = state.utilisateurs.filter((x) => (ROLES_CONFIG[x.role] || {}).peutControler);
+      state.controleurs = state.utilisateurs.filter((x) => (x.permissions || []).includes("nouveauControle"));
       renderAdministration();
+      journaliser(`Suppression de l'utilisateur ${u.nom || u.email}`);
       afficherBanniere("✅ Utilisateur supprimé" + (state.modeDemo ? " (simulation locale)." : "."), "info");
     } catch (e) {
       console.error(e);

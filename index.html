@@ -259,6 +259,9 @@
             <label for="nouveauRole">Rôle</label>
             <select id="nouveauRole"></select>
           </div>
+          <fieldset class="admin-permissions" id="nouvellesPermissions">
+            <legend>Permissions</legend>
+          </fieldset>
           <button type="submit" class="btn btn--primary">➕ Ajouter</button>
         </form>
       </div>
@@ -266,9 +269,20 @@
         <h2>Utilisateurs déclarés</h2>
         <div id="administrationTableau"></div>
       </div>
+      <div class="admin-carte" style="margin-top:16px;">
+        <h2>Journal des actions</h2>
+        <p class="admin-login-texte">Historique des actions importantes (connexion, gestion des utilisateurs, contrôles validés). L'adresse IP est une information déclarative fournie par un service tiers (ipify), pas une preuve légale — voir docs/10.</p>
+        <div id="journalTableau"></div>
+      </div>
     </div>
   </section>
 </main>
+
+<!-- ============ BANDEAU FLASH INFO (échéances proches, façon bandeau d'actualités) ============ -->
+<div id="bandeauFlash" class="bandeau-flash" hidden aria-label="Alertes d'échéances">
+  <span class="bandeau-flash__label">⚠ ALERTES</span>
+  <div class="bandeau-flash__piste" id="bandeauFlashPiste"></div>
+</div>
 
 <!-- ============ ZONE D'IMPRESSION (export PDF, visible uniquement à l'impression) ============ -->
 <div id="zoneImpression" class="zone-impression"></div>

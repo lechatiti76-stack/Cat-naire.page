@@ -186,6 +186,19 @@ const GoogleSheetsAPI = (() => {
   }
 
   /**
+   * Calcule les permissions effectives d'une personne : si la colonne
+   * "Permissions" de l'onglet Utilisateurs contient une liste (séparée par
+   * des virgules) de clés reconnues (voir PERMISSIONS_CONFIG), on l'utilise
+   * telle quelle ; sinon on retombe sur les permissions par défaut du rôle.
+   */
+  function analyserPermissions(texte, role) {
+    const clesConnues = new Set(PERMISSIONS_CONFIG.map((p) => p.cle));
+    const brut = String(texte || "").trim();
+    if (!brut) return (ROLES_CONFIG[role] || ROLES_CONFIG[ROLE_PAR_DEFAUT]).permissions.slice();
+    return brut.split(",").map((c) => c.trim()).filter((c) => clesConnues.has(c));
+  }
+
+  /**
    * Normalise une date lue depuis Google Sheets en "AAAA-MM-JJ" quel que soit
    * son format d'origine : texte ISO déjà correct, date localisée
    * ("07/12/2026"), ou nombre de série Google Sheets (jours depuis le
@@ -270,12 +283,17 @@ const GoogleSheetsAPI = (() => {
     });
 
     const utilisateurs = lignesEnObjets(utilisateursRows)
-      .map((u) => ({
-        ligne: u._ligne,
-        email: (valeurParPrefixe(u, "email") || "").trim().toLowerCase(),
-        nom: valeurParPrefixe(u, "nom") || valeurParPrefixe(u, "name") || valeurParPrefixe(u, "email") || "",
-        role: normaliserRole(valeurParPrefixe(u, "role")),
-      }))
+      .map((u) => {
+        const role = normaliserRole(valeurParPrefixe(u, "role"));
+        const permissionsTexte = valeurParPrefixe(u, "permission") || "";
+        return {
+          ligne: u._ligne,
+          email: (valeurParPrefixe(u, "email") || "").trim().toLowerCase(),
+          nom: valeurParPrefixe(u, "nom") || valeurParPrefixe(u, "name") || valeurParPrefixe(u, "email") || "",
+          role,
+          permissions: analyserPermissions(permissionsTexte, role),
+        };
+      })
       .filter((u) => u.email);
 
     const ressources = lignesEnObjets(ressourcesRows)
@@ -283,6 +301,54 @@ const GoogleSheetsAPI = (() => {
       .filter((r) => r.titre && r.lien);
 
     return { materiels, typesPointControle, controles, utilisateurs, ressources };
+  }
+
+  /** Charge le journal des actions (onglet optionnel, voir docs/10 §4), le plus récent en premier. */
+  async function chargerJournal() {
+    const lignes = await obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.journal);
+    return lignesEnObjets(lignes)
+      .map((j) => ({
+        date: j.Date || "", heure: j.Heure || "", utilisateur: j.Utilisateur || "",
+        action: j.Action || "", ip: j["Adresse IP"] || j.IP || "",
+      }))
+      .reverse();
+  }
+
+  let adresseIpCache = null;
+  /**
+   * Best-effort : le navigateur ne connaît pas sa propre adresse IP publique
+   * sans interroger un service tiers. On utilise l'API gratuite ipify (pas de
+   * clé requise) avec un délai court ; en cas d'échec (réseau, service
+   * indisponible), on journalise quand même l'action sans IP plutôt que de la
+   * bloquer. Cette IP reste déclarative : un utilisateur technique pourrait
+   * la falsifier, ce n'est pas une preuve légale.
+   */
+  async function obtenirAdresseIp() {
+    if (adresseIpCache !== null) return adresseIpCache;
+    try {
+      const controleur = new AbortController();
+      const timeout = setTimeout(() => controleur.abort(), 2500);
+      const res = await fetch("https://api.ipify.org?format=json", { signal: controleur.signal });
+      clearTimeout(timeout);
+      const json = await res.json();
+      adresseIpCache = json.ip || "";
+    } catch (e) {
+      adresseIpCache = "";
+    }
+    return adresseIpCache;
+  }
+
+  /** Ajoute une entrée au journal des actions (voir docs/10 §4). N'échoue jamais bruyamment : un souci de journalisation ne doit pas bloquer l'action elle-même. */
+  async function enregistrerJournal({ utilisateur, action }) {
+    try {
+      const maintenant = new Date();
+      const date = maintenant.toISOString().slice(0, 10);
+      const heure = maintenant.toTimeString().slice(0, 8);
+      const ip = await obtenirAdresseIp();
+      await ajouterLigne(GOOGLE_CONFIG.feuilles.journal, [date, heure, utilisateur || "", action || "", ip]);
+    } catch (e) {
+      console.warn("Journal des actions : échec de l'enregistrement (non bloquant)", e);
+    }
   }
 
   /** Détermine le rôle d'un utilisateur à partir de l'onglet Utilisateurs (absent/vide => rôle par défaut, voir docs/09). */
@@ -299,20 +365,20 @@ const GoogleSheetsAPI = (() => {
   }
 
   /** Ajoute un utilisateur dans l'onglet Utilisateurs (écran Administration). */
-  async function creerUtilisateur({ email, nom, role }) {
-    await ajouterLigne(GOOGLE_CONFIG.feuilles.utilisateurs, [email, nom, role]);
+  async function creerUtilisateur({ email, nom, role, permissions }) {
+    await ajouterLigne(GOOGLE_CONFIG.feuilles.utilisateurs, [email, nom, role, (permissions || []).join(",")]);
   }
 
   /** Modifie un utilisateur existant (identifié par son numéro de ligne réel dans le classeur). */
-  async function modifierUtilisateur(ligne, { email, nom, role }) {
-    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:C${ligne}`;
+  async function modifierUtilisateur(ligne, { email, nom, role, permissions }) {
+    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:D${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
-    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [[email, nom, role]] }) });
+    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [[email, nom, role, (permissions || []).join(",")]] }) });
   }
 
   /** Supprime un utilisateur (vide sa ligne — les lignes vides sont ignorées à la lecture). */
   async function supprimerUtilisateur(ligne) {
-    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:C${ligne}`;
+    const plage = `${GOOGLE_CONFIG.feuilles.utilisateurs}!A${ligne}:D${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}:clear`;
     await appelJson(url, { method: "POST" });
   }
@@ -369,5 +435,6 @@ const GoogleSheetsAPI = (() => {
     connecter, connecterSilencieux, estConnecte, deconnecter, utilisateurCourant, chargerDonnees,
     enregistrerControle, determinerRole, trouverUtilisateur,
     creerUtilisateur, modifierUtilisateur, supprimerUtilisateur,
+    chargerJournal, enregistrerJournal,
   };
 })();

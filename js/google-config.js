@@ -19,15 +19,22 @@ const GOOGLE_CONFIG = {
     typesPointControle: "TypesPointControle",
     controles: "Controles",
     resultatsPointsControle: "ResultatsPointsControle",
-    // Onglet Email | Nom | Role (Administrateur / Contrôleur / Utilisateur).
+    // Onglet Email | Nom | Role | Permissions (Administrateur / Contrôleur / Utilisateur).
     // Optionnel : s'il est absent ou vide, tout le monde est traité comme Contrôleur.
     utilisateurs: "Utilisateurs",
     // Onglet Titre | Lien | Categorie (documents/ressources, optionnel)
     ressources: "Ressources",
+    // Onglet Date | Heure | Utilisateur | Action | Adresse IP (journal des actions, optionnel,
+    // créé automatiquement au premier événement si absent — voir docs/10).
+    journal: "Journal",
   },
 
   // Nombre de jours avant échéance déclenchant le statut "À vérifier prochainement"
   seuilJours: 30,
+
+  // Fenêtre (en jours) avant échéance à partir de laquelle un matériel apparaît
+  // dans le bandeau d'alertes défilant en bas de l'écran (docs/10 §1).
+  seuilBandeauJours: 60,
 
   // Organisation affichée dans le pied de page
   organisation: {
@@ -37,18 +44,35 @@ const GOOGLE_CONFIG = {
   },
 };
 
-// Rôles disponibles et permissions associées (gestion d'affichage côté client
-// uniquement — la vraie sécurité reste le partage du classeur Google Sheets,
-// voir docs/09-roles-et-fonctionnalites.md).
+/**
+ * Permissions élémentaires reconnues par l'application (case à cocher dans
+ * l'écran Administration). Chacune correspond à une action réellement
+ * présente dans l'interface — volontairement plus court que la liste-type
+ * d'un cahier des charges générique (pas de "Modifier/Supprimer un contrôle"
+ * par exemple : les contrôles sont en ajout seul, par design, pour garder un
+ * historique de vérification fiable ; le matériel lui-même se gère dans le
+ * classeur Google Sheets, pas dans l'application). Voir docs/10.
+ */
+const PERMISSIONS_CONFIG = [
+  { cle: "tableauBord",     label: "Tableau général (recherche, filtres, tri)" },
+  { cle: "calendrier",      label: "Calendrier des contrôles à venir" },
+  { cle: "ressources",      label: "Ressources documentaires" },
+  { cle: "historique",      label: "Consulter la fiche et l'historique d'un matériel" },
+  { cle: "nouveauControle", label: "Créer un nouveau contrôle" },
+  { cle: "exporterPdf",     label: "Exporter un matériel en PDF" },
+  { cle: "exporterCsv",     label: "Exporter le tableau général en CSV" },
+];
+
+// Rôles disponibles : chacun ne fait que fixer les permissions PAR DÉFAUT
+// données à une personne nouvellement créée. Une fois créée, ses permissions
+// réelles sont celles cochées dans l'écran Administration (colonne
+// "Permissions" de l'onglet Utilisateurs) — gestion d'affichage côté client
+// uniquement, la vraie sécurité reste le partage du classeur Google Sheets,
+// voir docs/09-roles-et-fonctionnalites.md et docs/10.
 const ROLES_CONFIG = {
-  // peutControler : peut créer/valider un contrôle.
-  // peutVoirTout  : accès au Tableau général, Calendrier, Ressources, historique/fiche
-  //                 matériel et export PDF. Sans ce droit, seuls l'accueil (vignettes de
-  //                 catégorie) et l'écran "Nouveau contrôle" restent accessibles.
-  // peutGererUtilisateurs : accès à l'écran Administration (gestion de l'onglet Utilisateurs).
-  Administrateur: { peutControler: true,  peutVoirTout: true,  peutGererUtilisateurs: true },
-  "Contrôleur":   { peutControler: true,  peutVoirTout: false, peutGererUtilisateurs: false },
-  Utilisateur:    { peutControler: false, peutVoirTout: true,  peutGererUtilisateurs: false },
+  Administrateur: { permissions: PERMISSIONS_CONFIG.map((p) => p.cle) },
+  "Contrôleur":   { permissions: ["nouveauControle"] },
+  Utilisateur:    { permissions: ["tableauBord", "calendrier", "ressources", "historique", "exporterPdf", "exporterCsv"] },
 };
 const ROLE_PAR_DEFAUT = "Contrôleur";
 
