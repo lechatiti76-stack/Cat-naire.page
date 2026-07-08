@@ -248,13 +248,13 @@ const GoogleSheetsAPI = (() => {
       .filter((m) => !("Actif" in m) || estVrai(m.Actif) || m.Actif === "")
       .map((m, i) => ({
         id: i + 1,
-        numSerie: m.NumSerie || m["N° Series"] || m["N° Série"],
-        title: m.Title,
-        reference: m.Reference || m.Description,
-        categorie: m.Categorie,
-        etat: m.Etat || m.Valeurs,
-        periodiciteMois: Number(m.PeriodiciteMois) || 6,
-        responsable: m.Responsable || m["Assignée à"] || "",
+        numSerie: m.NumSerie || m["N° Series"] || m["N° Série"] || valeurParPrefixe(m, "n° series") || valeurParPrefixe(m, "n° série") || valeurParPrefixe(m, "numserie"),
+        title: m.Title || valeurParPrefixe(m, "title"),
+        reference: m.Reference || m.Description || valeurParPrefixe(m, "reference") || valeurParPrefixe(m, "description"),
+        categorie: m.Categorie || valeurParPrefixe(m, "categorie"),
+        etat: m.Etat || m.Valeurs || valeurParPrefixe(m, "etat") || valeurParPrefixe(m, "valeurs"),
+        periodiciteMois: Number(m.PeriodiciteMois || valeurParPrefixe(m, "periodicitemois")) || 6,
+        responsable: m.Responsable || m["Assignée à"] || valeurParPrefixe(m, "responsable") || valeurParPrefixe(m, "assignée") || "",
       }));
 
     const typesPointControle = {};
