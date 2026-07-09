@@ -97,10 +97,27 @@ const ADMIN_AUTH = {
 };
 
 // Catégories connues, avec un accent visuel (indépendant du code couleur de conformité)
+// et une icône SVG (contenu interne d'un <svg viewBox="0 0 24 24">, voir js/app.js
+// renderTuiles) représentant le type d'équipement plutôt qu'un simple rond générique.
 const CATEGORIES_CONFIG = [
-  { nom: "Perche isolante",        accent: "#0078D4" },
-  { nom: "LED signalisation",      accent: "#8764B8" },
-  { nom: "VAT",                    accent: "#00B7C3" },
-  { nom: "Drapeau",                accent: "#E3008C" },
-  { nom: "Signal d'arrêt à main",  accent: "#CA5010" },
+  {
+    nom: "Perche isolante", accent: "#0078D4",
+    icone: '<path d="M5 19L17 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="18.5" cy="5.5" r="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 19l-1.8 4 4-1.8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  },
+  {
+    nom: "LED signalisation", accent: "#8764B8",
+    icone: '<path d="M12 3a5 5 0 00-3 9c.6.5 1 1.2 1 2v1h4v-1c0-.8.4-1.5 1-2a5 5 0 00-3-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 19h4M10.5 21h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  },
+  {
+    nom: "VAT", accent: "#00B7C3",
+    icone: '<path d="M6 21l6-8h-3l6-8-2 7h3l-6 9z" fill="currentColor"/>',
+  },
+  {
+    nom: "Drapeau", accent: "#E3008C",
+    icone: '<path d="M6 3v18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 4h11l-2.5 4L17 12H6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>',
+  },
+  {
+    nom: "Signal d'arrêt à main", accent: "#CA5010",
+    icone: '<path d="M12 12v9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2"/>',
+  },
 ];

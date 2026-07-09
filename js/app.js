@@ -820,7 +820,7 @@
       tuile.className = "tile";
       tuile.innerHTML = `
         <span class="tile__icon" style="background:${cat.accent}22;color:${cat.accent}">
-          <svg viewBox="0 0 24 24" width="26" height="26"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <svg viewBox="0 0 24 24" width="26" height="26">${cat.icone || '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>'}</svg>
         </span>
         <span class="tile__titre">${escapeHtml(cat.nom)}</span>
         <span class="tile__sous-titre">${materielsCat.length} matériel${materielsCat.length > 1 ? "s" : ""}</span>

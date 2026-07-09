@@ -97,7 +97,7 @@ html, body {
 
 .app-header h1 { margin: 0; font-size: 20px; font-weight: 600; }
 .app-header__subtitle { margin: 2px 0 0; font-size: 13px; opacity: .85; }
-.app-header__actions { display: flex; gap: 10px; }
+.app-header__actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* ============ BOUTONS ============ */
 .btn {
@@ -618,9 +618,17 @@ tr[data-index-permissions] td { padding-top: 0; padding-bottom: 14px; border-bot
 .bandeau-flash__label {
   flex: 0 0 auto; display: flex; align-items: center; padding: 0 16px;
   background: var(--color-danger); font-weight: 700; font-size: 12.5px; letter-spacing: .04em;
+  white-space: nowrap; position: relative; z-index: 1;
+}
+.bandeau-flash__fenetre {
+  /* Fenêtre de défilement : sa propre boîte de découpe (overflow:hidden) empêche
+     la piste animée de jamais peindre par-dessus le libellé "ALERTES", quelle
+     que soit la distance de son défilement (translateX) — voir docs/10 §11. */
+  flex: 1 1 auto; min-width: 0; overflow: hidden; position: relative;
 }
 .bandeau-flash__piste {
   display: inline-flex; align-items: center; gap: 40px; white-space: nowrap;
+  position: absolute; top: 0; left: 0; height: 100%;
   animation-name: bandeau-defilement; animation-timing-function: linear; animation-iteration-count: infinite;
   padding: 0 20px;
 }
