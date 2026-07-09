@@ -241,6 +241,7 @@
       btnValiderControle: document.getElementById("btnValiderControle"),
       bandeauFlash: document.getElementById("bandeauFlash"),
       bandeauFlashPiste: document.getElementById("bandeauFlashPiste"),
+      btnBandeauEcheances: document.getElementById("btnBandeauEcheances"),
     });
   }
 
@@ -469,6 +470,7 @@
 
     els.modalClose.addEventListener("click", fermerModal);
     els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) fermerModal(); });
+    els.btnBandeauEcheances.addEventListener("click", ouvrirFenetreEcheances);
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       fermerModal();
@@ -657,6 +659,55 @@
         btn.addEventListener("click", () => ouvrirFicheMateriel(Number(btn.dataset.materiel)));
       });
     }
+  }
+
+  /** Fenêtre "Échéances" : liste complète des matériels avec jours restants, triée par urgence et mise en forme couleur (voir docs/10 §12). */
+  function ouvrirFenetreEcheances() {
+    const maintenant = new Date();
+    const clicable = aPermission("historique");
+
+    const lignes = state.materiels.map((m) => {
+      const c = dernierControle(m.id);
+      if (!c || !c.dateProchainControle) return { materiel: m, joursRestants: null };
+      const echeance = new Date(c.dateProchainControle);
+      const joursRestants = Math.ceil((echeance - maintenant) / 86400000);
+      return { materiel: m, joursRestants, dateProchainControle: c.dateProchainControle };
+    }).sort((a, b) => {
+      if (a.joursRestants === null) return 1;
+      if (b.joursRestants === null) return -1;
+      return a.joursRestants - b.joursRestants;
+    });
+
+    const classeEtLabelPourJours = (j) => {
+      if (j <= 2) return { classe: "echeances-liste__pastille--rouge", label: j < 0 ? `En retard de ${Math.abs(j)} j` : `${j} j (urgent)` };
+      if (j <= 7) return { classe: "echeances-liste__pastille--rouge", label: `${j} j` };
+      if (j <= 30) return { classe: "echeances-liste__pastille--orange", label: `${j} j` };
+      return { classe: "echeances-liste__pastille--vert", label: `${j} j` };
+    };
+
+    els.modalTitle.textContent = "📋 Échéances des contrôles";
+    els.modalBody.innerHTML = `
+      <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille.</p>
+      <div class="echeances-liste">
+        ${lignes.map((l) => {
+          const info = l.joursRestants === null ? { classe: "echeances-liste__pastille--neutre", label: "Jamais contrôlé" } : classeEtLabelPourJours(l.joursRestants);
+          return `
+            <button type="button" class="echeances-liste__ligne ${clicable ? "" : "echeances-liste__ligne--non-cliquable"}" data-materiel="${l.materiel.id}" ${clicable ? "" : "disabled"}>
+              <span class="echeances-liste__pastille ${info.classe}"></span>
+              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}</span>
+              <span class="echeances-liste__categorie">${escapeHtml(l.materiel.categorie)}</span>
+              <span class="echeances-liste__jours ${info.classe}">${escapeHtml(info.label)}</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+    if (clicable) {
+      els.modalBody.querySelectorAll(".echeances-liste__ligne").forEach((ligne) => {
+        ligne.addEventListener("click", () => { fermerModal(); ouvrirFicheMateriel(Number(ligne.dataset.materiel)); });
+      });
+    }
+    els.modalOverlay.hidden = false;
   }
 
   // -- Tableau de bord : indicateurs complémentaires + graphiques -------------

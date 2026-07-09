@@ -1,6 +1,6 @@
 # 10. Phase "application professionnelle" — permissions, journal, alertes, connexion individuelle, tableau de bord, galerie
 
-Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §10 pour le solde nul "Ce qui reste").
+Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §11 pour le solde nul "Ce qui reste").
 
 ## 0. Un principe qui traverse tout le document
 
@@ -111,6 +111,11 @@ Le bouton **"🔄 Actualiser"** (en-tête, à côté de "Se connecter avec Googl
 
 Une actualisation automatique et silencieuse a également lieu toutes les 60 secondes en arrière-plan, sauf pendant une saisie de contrôle ou dans l'écran Administration (pour ne jamais faire perdre une saisie non enregistrée). Un clic manuel sur "Actualiser" pendant une saisie de contrôle demande confirmation avant de continuer, pour la même raison.
 
-## 10. Ce qui reste
+## 10. Fenêtre "Échéances" (liste complète, triée, colorée)
+
+Un clic sur le libellé **"⚠ ALERTES"** du bandeau défilant ouvre une fenêtre listant **tous** les matériels (pas seulement ceux en alerte), du plus urgent au plus tranquille : pastille et texte colorés (vert au-delà de 30 jours, orange entre 7 et 30, rouge en dessous de 7 ou en retard), et "Jamais contrôlé" pour un matériel sans historique. Un clic sur une ligne ouvre sa fiche (si la personne a la permission "Historique"). Complète le calendrier mensuel (§3) par une vue liste, plus rapide à parcourir pour un rappel global.
+
+## 11. Ce qui reste
 
 Rien d'identifié pour l'instant : tous les points du cahier des charges compatibles avec une architecture 100% statique (sans serveur) sont livrés. Les points explicitement hors de portée sans serveur (notifications push, sauvegarde automatique programmée côté serveur, sécurité serveur réelle pour les mots de passe/CSRF/injection SQL) sont documentés comme tels à chaque section concernée plutôt que simulés.
+
