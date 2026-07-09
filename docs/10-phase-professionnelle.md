@@ -1,6 +1,6 @@
 # 10. Phase "application professionnelle" — permissions, journal, alertes, connexion individuelle, tableau de bord, galerie
 
-Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §11 pour le solde nul "Ce qui reste").
+Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §12 pour le solde nul "Ce qui reste").
 
 ## 0. Un principe qui traverse tout le document
 
@@ -115,7 +115,21 @@ Une actualisation automatique et silencieuse a également lieu toutes les 60 sec
 
 Un clic sur le libellé **"⚠ ALERTES"** du bandeau défilant ouvre une fenêtre listant **tous** les matériels (pas seulement ceux en alerte), du plus urgent au plus tranquille : pastille et texte colorés (vert au-delà de 30 jours, orange entre 7 et 30, rouge en dessous de 7 ou en retard), et "Jamais contrôlé" pour un matériel sans historique. Un clic sur une ligne ouvre sa fiche (si la personne a la permission "Historique"). Complète le calendrier mensuel (§3) par une vue liste, plus rapide à parcourir pour un rappel global.
 
-## 11. Ce qui reste
+## 11. Photo de l'équipement le jour du contrôle (Google Drive)
+
+Sur l'écran "Nouveau contrôle", un champ **"📷 Photo(s) de l'équipement"** permet de prendre une ou plusieurs photos avec l'appareil du téléphone (`capture="environment"` ouvre l'appareil photo arrière sur mobile) ou d'en choisir depuis la galerie — avec aperçu miniature et possibilité de retirer une photo avant de valider.
+
+**Stockage** : Google Sheets ne sait pas stocker d'images. À la validation, chaque photo est envoyée dans un dossier Google Drive dédié (`GOOGLE_CONFIG.dossierPhotosControles`, **créé automatiquement** au premier envoi s'il n'existe pas encore, comme les onglets Utilisateurs/Journal). Les liens obtenus sont enregistrés dans la nouvelle colonne `Photos` de l'onglet `Controles` (plusieurs liens séparés par des virgules) et affichés dans l'historique du matériel et l'export PDF sous forme de liens "📷 Photo 1", "📷 Photo 2"...
+
+**Prérequis technique (une fois)** :
+1. Activer l'**API Google Drive** dans le même projet Google Cloud que l'API Sheets (Bibliothèque d'API → rechercher "Google Drive API" → Activer).
+2. Se reconnecter une fois via "Se connecter avec Google" : l'application demande un nouveau droit (`drive.file`), limité aux seuls fichiers qu'elle crée elle-même — elle n'a **aucun accès** au reste du Drive de la personne connectée.
+
+⚠️ **Partage du dossier** : le dossier Drive est créé dans le Drive de la première personne qui prend une photo. Pour que d'autres administrateurs/contrôleurs voient ces photos, partagez ce dossier depuis Google Drive (clic droit → Partager) comme vous l'avez fait pour le classeur Google Sheets — l'application ne peut pas le faire à votre place (le scope `drive.file` ne permet pas de gérer les partages d'un fichier créé par quelqu'un d'autre).
+
+En mode démonstration, les photos restent visibles en aperçu local (non envoyées, aucun compte Google Drive n'étant connecté).
+
+## 12. Ce qui reste
 
 Rien d'identifié pour l'instant : tous les points du cahier des charges compatibles avec une architecture 100% statique (sans serveur) sont livrés. Les points explicitement hors de portée sans serveur (notifications push, sauvegarde automatique programmée côté serveur, sécurité serveur réelle pour les mots de passe/CSRF/injection SQL) sont documentés comme tels à chaque section concernée plutôt que simulés.
 

@@ -11,7 +11,7 @@
  * Schéma attendu (voir docs/08-migration-google-sheets.md) :
  *   Materiels                : NumSerie | Title | Reference | Categorie | Etat | PeriodiciteMois | Responsable | Actif
  *   TypesPointControle       : Categorie | Title (libellé du point) | Ordre
- *   Controles                : ControleId | NumSerie | DateControle | DateProchainControle | Controleur | Conforme | Statut | Observations | ActionsCorrectives | Commentaires
+ *   Controles                : ControleId | NumSerie | DateControle | DateProchainControle | Controleur | Conforme | Statut | Observations | ActionsCorrectives | Commentaires | Photos (liens Google Drive, séparés par des virgules, facultatif — docs/10 §11)
  *   ResultatsPointsControle  : Title | Controle (= ControleId) | Effectue | Observation | PointControle (libellé) | Rapport | Statut
  *
  * Des colonnes supplémentaires (ex. "Item Type", "Path" laissées par un export
@@ -51,6 +51,9 @@ const GoogleSheetsAPI = (() => {
           "https://www.googleapis.com/auth/spreadsheets",
           "https://www.googleapis.com/auth/userinfo.profile",
           "https://www.googleapis.com/auth/userinfo.email",
+          // Accès restreint aux seuls fichiers créés par l'application (photos de
+          // contrôle) — pas un accès à l'ensemble du Drive de la personne connectée.
+          "https://www.googleapis.com/auth/drive.file",
         ].join(" "),
         callback: () => {}, // remplacé à chaque appel de connecter()
       });
@@ -293,6 +296,7 @@ const GoogleSheetsAPI = (() => {
         observations: c.Observations || "",
         actionsCorrectives: c.ActionsCorrectives || "",
         commentaires: c.Commentaires || "",
+        photos: String(c.Photos || "").split(",").map((s) => s.trim()).filter(Boolean),
         pointsControle: points,
       };
     });
@@ -320,7 +324,7 @@ const GoogleSheetsAPI = (() => {
     return { materiels, typesPointControle, controles, utilisateurs, ressources };
   }
 
-  /** Charge le journal des actions (onglet optionnel, voir docs/10 §4), le plus récent en premier. */
+  /** Charge le journal des actions (onglet optionnel, voir docs/10 §2), le plus récent en premier. */
   async function chargerJournal() {
     const lignes = await obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.journal);
     return lignesEnObjets(lignes)
@@ -355,7 +359,7 @@ const GoogleSheetsAPI = (() => {
     return adresseIpCache;
   }
 
-  /** Ajoute une entrée au journal des actions (voir docs/10 §4). N'échoue jamais bruyamment : un souci de journalisation ne doit pas bloquer l'action elle-même. */
+  /** Ajoute une entrée au journal des actions (voir docs/10 §2). N'échoue jamais bruyamment : un souci de journalisation ne doit pas bloquer l'action elle-même. */
   async function enregistrerJournal({ utilisateur, action }) {
     try {
       await assurerFeuille(GOOGLE_CONFIG.feuilles.journal, ["Date", "Heure", "Utilisateur", "Action", "Adresse IP"]);
@@ -467,11 +471,70 @@ const GoogleSheetsAPI = (() => {
     return d.toISOString().slice(0, 10);
   }
 
+  let dossierPhotosIdCache = null;
+
+  /** Recherche (puis crée si besoin) le dossier Google Drive dédié aux photos de contrôle. Mémorisé pour la session. Voir docs/10 §11. */
+  async function assurerDossierPhotos() {
+    if (dossierPhotosIdCache) return dossierPhotosIdCache;
+    const nom = GOOGLE_CONFIG.dossierPhotosControles;
+    const requete = `mimeType='application/vnd.google-apps.folder' and name='${nom.replace(/'/g, "\\'")}' and trashed=false`;
+    const urlRecherche = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(requete)}&fields=files(id,name)`;
+    const resultat = await appelJson(urlRecherche);
+    if (resultat.files && resultat.files.length > 0) {
+      dossierPhotosIdCache = resultat.files[0].id;
+      return dossierPhotosIdCache;
+    }
+    const cree = await appelJson("https://www.googleapis.com/drive/v3/files?fields=id", {
+      method: "POST",
+      body: JSON.stringify({ name: nom, mimeType: "application/vnd.google-apps.folder" }),
+    });
+    dossierPhotosIdCache = cree.id;
+    return dossierPhotosIdCache;
+  }
+
+  function fichierEnBase64(fichier) {
+    return new Promise((resolve, reject) => {
+      const lecteur = new FileReader();
+      lecteur.onload = () => resolve(String(lecteur.result).split(",")[1] || "");
+      lecteur.onerror = () => reject(new Error("Lecture du fichier impossible."));
+      lecteur.readAsDataURL(fichier);
+    });
+  }
+
+  /** Envoie une photo dans le dossier Drive dédié (scope drive.file : accès limité aux fichiers créés par l'application). */
+  async function televerserPhoto(fichier, dossierId) {
+    const base64 = await fichierEnBase64(fichier);
+    const frontiere = "verifmateriel" + Date.now() + Math.random().toString(36).slice(2);
+    const metadata = { name: fichier.name || `photo-${Date.now()}.jpg`, parents: [dossierId] };
+    const corps =
+      `--${frontiere}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+      `--${frontiere}\r\nContent-Type: ${fichier.type || "image/jpeg"}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64}\r\n` +
+      `--${frontiere}--`;
+    const json = await appelJson("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink", {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${frontiere}` },
+      body: corps,
+    });
+    return json.webViewLink || `https://drive.google.com/file/d/${json.id}/view`;
+  }
+
+  /** Envoie plusieurs photos l'une après l'autre (simple et lisible côté API) ; renvoie leurs liens Drive. */
+  async function televerserPhotos(fichiers, onProgression) {
+    if (!fichiers || fichiers.length === 0) return [];
+    const dossierId = await assurerDossierPhotos();
+    const liens = [];
+    for (let i = 0; i < fichiers.length; i++) {
+      if (onProgression) onProgression({ index: i, total: fichiers.length });
+      liens.push(await televerserPhoto(fichiers[i], dossierId));
+    }
+    return liens;
+  }
+
   /**
    * Ajoute une ligne dans Controles, puis une ligne par point de contrôle
    * dans ResultatsPointsControle (docs/02 §2.6-2.7, docs/03 §3.7-3.8).
    */
-  async function enregistrerControle({ materiel, dateControle, controleurNom, observations, actionsCorrectives, commentaires, points }) {
+  async function enregistrerControle({ materiel, dateControle, controleurNom, observations, actionsCorrectives, commentaires, points, photos, onProgressionPhotos }) {
     const conformeGlobal = points.every((p) => p.statut === "Conforme");
     const dateProchain = ajouterMois(dateControle, materiel.periodiciteMois || 6);
     const joursRestants = Math.ceil((new Date(dateProchain) - new Date(dateControle)) / 86400000);
@@ -481,10 +544,12 @@ const GoogleSheetsAPI = (() => {
     else if (joursRestants <= GOOGLE_CONFIG.seuilJours) statutGlobal = "À vérifier prochainement";
 
     const controleId = "C" + Date.now();
+    const liensPhotos = await televerserPhotos(photos, onProgressionPhotos);
 
     await ajouterLigne(GOOGLE_CONFIG.feuilles.controles, [
       controleId, materiel.numSerie, dateControle, dateProchain, controleurNom,
       conformeGlobal ? "Oui" : "Non", statutGlobal, observations || "", actionsCorrectives || "", commentaires || "",
+      liensPhotos.join(", "),
     ]);
 
     // Une ligne par point, en un seul appel réseau : Title | Controle | Effectue | Observation | PointControle | Rapport | Statut
@@ -496,7 +561,7 @@ const GoogleSheetsAPI = (() => {
       ])
     );
 
-    return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain };
+    return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain, photos: liensPhotos };
   }
 
   return {

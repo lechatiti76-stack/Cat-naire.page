@@ -218,6 +218,17 @@ html, body {
 .controle-resultat[hidden] { display: none; }
 .controle-resultat--erreur { background: var(--color-danger-bg); color: var(--color-danger); }
 
+.controle-photos-apercu { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.controle-photos-apercu:empty { margin-top: 0; }
+.controle-photos-apercu__vignette { position: relative; width: 84px; height: 84px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+.controle-photos-apercu__vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.controle-photos-apercu__retirer {
+  position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0,0,0,.6); color: #fff; border: none; font-size: 13px; line-height: 1; cursor: pointer;
+}
+.controle-photo-lien { display: inline-flex; align-items: center; gap: 4px; color: var(--color-primary); font-size: 12.5px; text-decoration: none; margin-right: 10px; }
+.controle-photo-lien:hover { text-decoration: underline; }
+
 .controle-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
 /* ============ HISTORIQUE (dans la fiche matériel) ============ */

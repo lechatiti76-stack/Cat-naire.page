@@ -37,6 +37,7 @@
     categorieCourante: null,
     materielControleCourant: null,
     pointsControleCourants: [],
+    photosControleCourant: [],
     moisCalendrier: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     adminDeverrouille: false,
     adminUtilisateurCourant: null,
@@ -52,7 +53,7 @@
   // Alias conservés pour lisibilité aux points d'appel les plus fréquents.
   function peutControler() { return aPermission("nouveauControle"); }
 
-  /** Journalise une action (voir docs/10 §4) — silencieux en mode démonstration. */
+  /** Journalise une action (voir docs/10 §2) — silencieux en mode démonstration. */
   function journaliser(action) {
     const nomUtilisateur = (state.utilisateur && (state.utilisateur.nom || state.utilisateur.email)) || "Anonyme";
     if (state.modeDemo) {
@@ -66,7 +67,7 @@
   const CLE_DERNIERE_SAUVEGARDE = "derniere_sauvegarde_locale";
   const CLE_HISTORIQUE_SAUVEGARDES = "historique_sauvegardes_locales";
 
-  // -- Durcissement sécurité (docs/10 §8) : anti-brute-force + expiration de session --
+  // -- Durcissement sécurité (docs/10 §7) : anti-brute-force + expiration de session --
   const CLE_ECHECS_LOGIN_ADMIN = "admin_login_echecs";
   const MAX_TENTATIVES_LOGIN_ADMIN = 5;
   const DUREE_BLOCAGE_LOGIN_ADMIN_MS = 60 * 1000;
@@ -86,7 +87,7 @@
   function reinitialiserEchecsLoginAdmin() {
     localStorage.removeItem(CLE_ECHECS_LOGIN_ADMIN);
   }
-  /** Renvoie le nombre de secondes de blocage restantes (0 = pas de blocage). Anti-brute-force léger — voir docs/10 §8. */
+  /** Renvoie le nombre de secondes de blocage restantes (0 = pas de blocage). Anti-brute-force léger — voir docs/10 §7. */
   function secondesBlocageLoginAdmin() {
     const etat = etatEchecsLoginAdmin();
     if (etat.compte < MAX_TENTATIVES_LOGIN_ADMIN) return 0;
@@ -95,7 +96,7 @@
     return Math.ceil(restant / 1000);
   }
 
-  /** Reprogramme le verrouillage automatique de l'écran Administration après inactivité (voir docs/10 §8). */
+  /** Reprogramme le verrouillage automatique de l'écran Administration après inactivité (voir docs/10 §7). */
   function reinitialiserInactiviteAdmin() {
     clearTimeout(minuteurInactiviteAdmin);
     if (!state.adminDeverrouille) return;
@@ -236,6 +237,8 @@
       controleObservations: document.getElementById("controleObservations"),
       controleActions: document.getElementById("controleActions"),
       controleCommentaires: document.getElementById("controleCommentaires"),
+      controlePhotos: document.getElementById("controlePhotos"),
+      controlePhotosApercu: document.getElementById("controlePhotosApercu"),
       controleResultat: document.getElementById("controleResultat"),
       btnAnnulerControle: document.getElementById("btnAnnulerControle"),
       btnValiderControle: document.getElementById("btnValiderControle"),
@@ -368,7 +371,7 @@
     }
   }
 
-  // Actualisation automatique en arrière-plan (voir docs/10 §10) : pas d'interruption
+  // Actualisation automatique en arrière-plan (voir docs/10 §9) : pas d'interruption
   // pendant une saisie de contrôle ou une édition en cours dans Administration.
   const DUREE_ACTUALISATION_AUTO_MS = 60 * 1000;
   setInterval(() => {
@@ -488,6 +491,11 @@
 
     els.btnAnnulerControle.addEventListener("click", () => afficherVue("categorie", { categorie: state.categorieCourante || (state.materielControleCourant || {}).categorie }));
     els.btnValiderControle.addEventListener("click", validerControle);
+    els.controlePhotos.addEventListener("change", () => {
+      state.photosControleCourant.push(...els.controlePhotos.files);
+      els.controlePhotos.value = "";
+      renderPhotosApercu();
+    });
 
     els.btnMoisPrecedent.addEventListener("click", () => {
       state.moisCalendrier.setMonth(state.moisCalendrier.getMonth() - 1);
@@ -661,7 +669,7 @@
     }
   }
 
-  /** Fenêtre "Échéances" : liste complète des matériels avec jours restants, triée par urgence et mise en forme couleur (voir docs/10 §12). */
+  /** Fenêtre "Échéances" : liste complète des matériels avec jours restants, triée par urgence et mise en forme couleur (voir docs/10 §10). */
   function ouvrirFenetreEcheances() {
     const maintenant = new Date();
     const clicable = aPermission("historique");
@@ -985,9 +993,18 @@
           <p><strong>Observations :</strong> ${escapeHtml(c.observations) || "—"}</p>
           <p><strong>Actions correctives :</strong> ${escapeHtml(c.actionsCorrectives) || "—"}</p>
           <p><strong>Commentaires :</strong> ${escapeHtml(c.commentaires) || "—"}</p>
+          ${renderPhotosControle(c.photos)}
           ${renderPointsControle(c.pointsControle)}
         </div>
       </div>`;
+  }
+
+  /** Liens vers les photos de l'équipement prises le jour du contrôle (Google Drive, voir docs/10 §11). */
+  function renderPhotosControle(photos) {
+    if (!photos || photos.length === 0) return "";
+    return `<p><strong>Photos :</strong> ${photos.map((lien, i) =>
+      `<a class="controle-photo-lien" href="${escapeHtml(urlSure(lien))}" target="_blank" rel="noopener">📷 Photo ${i + 1}</a>`
+    ).join("")}</p>`;
   }
 
   function renderPointsControle(points) {
@@ -1022,12 +1039,31 @@
     els.controleObservations.value = "";
     els.controleActions.value = "";
     els.controleCommentaires.value = "";
+    els.controlePhotos.value = "";
+    state.photosControleCourant = [];
+    renderPhotosApercu();
     els.controleResultat.hidden = true;
     els.btnValiderControle.disabled = false;
     els.btnValiderControle.textContent = "✅ Valider le contrôle";
 
     renderPointsControleFormulaire();
     afficherVue("controle");
+  }
+
+  /** Aperçu des photos sélectionnées pour le contrôle en cours, avec bouton de retrait par photo. */
+  function renderPhotosApercu() {
+    els.controlePhotosApercu.innerHTML = state.photosControleCourant.map((fichier, i) => `
+      <div class="controle-photos-apercu__vignette">
+        <img src="${URL.createObjectURL(fichier)}" alt="${escapeHtml(fichier.name)}">
+        <button type="button" class="controle-photos-apercu__retirer" data-index="${i}" title="Retirer cette photo">✕</button>
+      </div>
+    `).join("");
+    els.controlePhotosApercu.querySelectorAll(".controle-photos-apercu__retirer").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.photosControleCourant.splice(Number(btn.dataset.index), 1);
+        renderPhotosApercu();
+      });
+    });
   }
 
   /** Liste déroulante des contrôleurs (onglet Utilisateurs), présélectionne l'utilisateur connecté s'il y figure. */
@@ -1110,34 +1146,43 @@
     els.btnValiderControle.disabled = true;
     els.btnValiderControle.textContent = "Enregistrement…";
 
+    const photos = state.photosControleCourant;
+
     try {
       let resultat;
       if (!state.modeDemo) {
         resultat = await GoogleSheetsAPI.enregistrerControle({
           materiel, dateControle, controleurNom,
-          observations, actionsCorrectives, commentaires, points,
+          observations, actionsCorrectives, commentaires, points, photos,
+          onProgressionPhotos: ({ index, total }) => {
+            els.btnValiderControle.textContent = `Envoi photo ${index + 1}/${total}…`;
+          },
         });
       } else {
-        // Simulation locale : aucune écriture réelle en mode démonstration.
+        // Simulation locale : aucune écriture réelle en mode démonstration (les photos ne sont pas envoyées).
         resultat = calculerResultatControle(materiel, dateControle, points);
         resultat.id = Math.max(0, ...state.controles.map((c) => c.id)) + 1;
+        resultat.photos = photos.map((f) => URL.createObjectURL(f));
         state.controles.unshift({
           id: resultat.id, materielId: materiel.id, materiel: materiel.title,
           numSerie: materiel.numSerie, reference: materiel.reference, categorie: materiel.categorie,
           etat: materiel.etat, dateControle, dateProchainControle: resultat.dateProchainControle,
           controleur: controleurNom, conforme: resultat.conforme, statut: resultat.statut,
-          observations, actionsCorrectives, commentaires,
+          observations, actionsCorrectives, commentaires, photos: resultat.photos,
           pointsControle: points.map((p) => ({ libelle: p.libelle, effectue: true, rapport: p.statut === "Conforme" ? "Validé" : "Non validé", statut: p.statut })),
         });
       }
 
       const cle = STATUT_CLE_PAR_LABEL[resultat.statut] || (resultat.conforme ? "conforme" : "nonconforme");
       const info = STATUT_LABELS[cle];
+      const noteSauvegarde = state.modeDemo ? " (simulation locale)" : " dans Google Sheets";
+      const notePhotos = photos.length ? (state.modeDemo ? ` — ${photos.length} photo${photos.length > 1 ? "s" : ""} non envoyée${photos.length > 1 ? "s" : ""} en mode démonstration` : ` — ${photos.length} photo${photos.length > 1 ? "s" : ""} envoyée${photos.length > 1 ? "s" : ""} sur Drive`) : "";
       els.controleResultat.hidden = false;
       els.controleResultat.className = "controle-resultat controle-resultat--" + cle;
-      els.controleResultat.innerHTML = `<span class="badge ${info.badge}">${info.label}</span> Contrôle enregistré${state.modeDemo ? " (simulation locale)" : " dans Google Sheets"}.`;
+      els.controleResultat.innerHTML = `<span class="badge ${info.badge}">${info.label}</span> Contrôle enregistré${noteSauvegarde}${notePhotos}.`;
       els.btnValiderControle.textContent = "✅ Contrôle enregistré";
-      journaliser(`Contrôle validé — ${materiel.title} (${materiel.numSerie}) — ${resultat.statut}`);
+      journaliser(`Contrôle validé — ${materiel.title} (${materiel.numSerie}) — ${resultat.statut}${photos.length ? ` — ${photos.length} photo(s)` : ""}`);
+      state.photosControleCourant = [];
 
       setTimeout(() => afficherVue("categorie", { categorie: materiel.categorie }), 1400);
     } catch (e) {
@@ -1542,7 +1587,7 @@
     }
   }
 
-  // -- Sauvegarde (export/import JSON manuel, voir docs/10 §9) -----------------
+  // -- Sauvegarde (export/import JSON manuel, voir docs/10 §8) -----------------
   function exporterSauvegarde() {
     const sauvegarde = {
       genereLe: new Date().toISOString(),
@@ -1702,6 +1747,7 @@
           <p><strong>Observations :</strong> ${escapeHtml(c.observations) || "—"}</p>
           <p><strong>Actions correctives :</strong> ${escapeHtml(c.actionsCorrectives) || "—"}</p>
           <p><strong>Commentaires :</strong> ${escapeHtml(c.commentaires) || "—"}</p>
+          ${renderPhotosControle(c.photos)}
           ${renderPointsControle(c.pointsControle)}
         </div>
       `).join("")}
@@ -1731,16 +1777,17 @@
   }
 
   /**
-   * Neutralise un lien saisi dans l'onglet Ressources (Google Sheets) avant de
-   * l'utiliser comme `href` : seuls http/https sont acceptés, ce qui bloque
-   * un lien `javascript:` malveillant qui échapperait à escapeHtml (les
-   * caractères spéciaux HTML n'y suffisent pas, un tel lien reste une URL
-   * valide). Voir docs/10 §8.
+   * Neutralise un lien saisi dans l'onglet Ressources/Controles (Google Sheets)
+   * avant de l'utiliser comme `href` : seuls http/https (et blob:, généré
+   * uniquement par notre propre code pour l'aperçu local des photos en mode
+   * démonstration) sont acceptés, ce qui bloque un lien `javascript:`
+   * malveillant qui échapperait à escapeHtml (les caractères spéciaux HTML
+   * n'y suffisent pas, un tel lien reste une URL valide). Voir docs/10 §7.
    */
   function urlSure(url) {
     try {
       const u = new URL(String(url || ""), window.location.href);
-      return ["http:", "https:"].includes(u.protocol) ? u.href : "#";
+      return ["http:", "https:", "blob:"].includes(u.protocol) ? u.href : "#";
     } catch (e) {
       return "#";
     }

@@ -29,11 +29,17 @@ const GOOGLE_CONFIG = {
     journal: "Journal",
   },
 
+  // Nom du dossier Google Drive où sont envoyées les photos prises depuis l'écran
+  // "Nouveau contrôle" (créé automatiquement au premier envoi si absent — voir docs/10).
+  // Nécessite l'activation de l'API Google Drive dans le projet Google Cloud (en plus
+  // de l'API Sheets) et le nouveau scope "drive.file" (reconnexion demandée une fois).
+  dossierPhotosControles: "Photos contrôles - Registre matériel",
+
   // Nombre de jours avant échéance déclenchant le statut "À vérifier prochainement"
   seuilJours: 30,
 
   // Fenêtre (en jours) avant échéance à partir de laquelle un matériel apparaît
-  // dans le bandeau d'alertes défilant en bas de l'écran (docs/10 §1).
+  // dans le bandeau d'alertes défilant en bas de l'écran (docs/10 §3).
   seuilBandeauJours: 60,
 
   // Organisation affichée dans le pied de page
