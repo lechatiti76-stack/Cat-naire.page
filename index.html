@@ -96,6 +96,16 @@
 
   <!-- ============ VUE ACCUEIL : VIGNETTES ============ -->
   <section id="viewAccueil" class="tiles-view">
+    <!-- Bannière échéances : format volontairement différent des vignettes (pleine largeur, pas une grille) -->
+    <button type="button" class="echeances-banniere" id="echeancesBanniere" hidden>
+      <span class="echeances-banniere__icone">📋</span>
+      <span class="echeances-banniere__texte">
+        <strong>Échéances des contrôles</strong>
+        <span id="echeancesBanniereResume"></span>
+      </span>
+      <span class="echeances-banniere__fleche">→</span>
+    </button>
+
     <div class="tiles-grid" id="tilesGrid">
       <!-- vignette "Tableau général" + une vignette par catégorie, générées par js/app.js -->
     </div>
@@ -367,7 +377,7 @@
 
 <!-- ============ BANDEAU FLASH INFO (échéances proches, façon bandeau d'actualités) ============ -->
 <div id="bandeauFlash" class="bandeau-flash" hidden aria-label="Alertes d'échéances">
-  <button type="button" class="bandeau-flash__label" id="btnBandeauEcheances" title="Voir la liste complète des échéances">⚠ ALERTES</button>
+  <span class="bandeau-flash__label">⚠ ALERTES</span>
   <div class="bandeau-flash__fenetre">
     <div class="bandeau-flash__piste" id="bandeauFlashPiste"></div>
   </div>

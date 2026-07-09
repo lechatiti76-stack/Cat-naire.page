@@ -147,6 +147,22 @@ html, body {
 .breadcrumb__sep { color: var(--text-muted); }
 .breadcrumb__current { color: var(--text-muted); font-weight: 600; }
 
+/* ============ BANNIÈRE ÉCHÉANCES (ACCUEIL) — format volontairement différent des vignettes ============ */
+.echeances-banniere {
+  display: flex; align-items: center; gap: 16px; width: 100%;
+  background: linear-gradient(90deg, var(--color-warn-bg), var(--surface));
+  border: 1px solid var(--color-warn); border-left-width: 5px; border-radius: var(--radius);
+  padding: 14px 20px; margin-bottom: 16px; cursor: pointer; text-align: left; font-family: inherit;
+  box-shadow: var(--shadow); transition: transform .12s ease, box-shadow .12s ease;
+}
+.echeances-banniere[hidden] { display: none; }
+.echeances-banniere:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+.echeances-banniere__icone { font-size: 24px; flex: 0 0 auto; }
+.echeances-banniere__texte { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; color: var(--text); }
+.echeances-banniere__texte strong { font-size: 14.5px; }
+.echeances-banniere__texte span { font-size: 12.5px; color: var(--text-muted); }
+.echeances-banniere__fleche { flex: 0 0 auto; font-size: 18px; color: var(--color-warn); }
+
 /* ============ VIGNETTES (ACCUEIL) ============ */
 .tiles-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;
@@ -652,9 +668,8 @@ tr[data-index-permissions] td { padding-top: 0; padding-bottom: 14px; border-bot
 .bandeau-flash__label {
   flex: 0 0 auto; display: flex; align-items: center; padding: 0 16px;
   background: var(--color-danger); color: #fff; font-weight: 700; font-size: 12.5px; letter-spacing: .04em;
-  white-space: nowrap; position: relative; z-index: 1; border: none; cursor: pointer; font-family: inherit;
+  white-space: nowrap; position: relative; z-index: 1;
 }
-.bandeau-flash__label:hover { background: #b52d31; }
 .bandeau-flash__fenetre {
   /* Fenêtre de défilement : sa propre boîte de découpe (overflow:hidden) empêche
      la piste animée de jamais peindre par-dessus le libellé "ALERTES", quelle

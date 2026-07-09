@@ -113,7 +113,7 @@ Une actualisation automatique et silencieuse a également lieu toutes les 60 sec
 
 ## 10. Fenêtre "Échéances" (liste complète, triée, colorée)
 
-Un clic sur le libellé **"⚠ ALERTES"** du bandeau défilant ouvre une fenêtre listant **tous** les matériels (pas seulement ceux en alerte), du plus urgent au plus tranquille : pastille et texte colorés (vert au-delà de 30 jours, orange entre 7 et 30, rouge en dessous de 7 ou en retard), et "Jamais contrôlé" pour un matériel sans historique. Un clic sur une ligne ouvre sa fiche (si la personne a la permission "Historique"). Complète le calendrier mensuel (§3) par une vue liste, plus rapide à parcourir pour un rappel global.
+Une **bannière pleine largeur** sur l'accueil (au-dessus des vignettes, format volontairement différent — pas une vignette carrée) résume les échéances ("6 en retard · 2 urgents (≤ 7 j) · 1 à surveiller (≤ 30 j)") et ouvre, au clic, une fenêtre listant **tous** les matériels (pas seulement ceux en alerte), du plus urgent au plus tranquille : pastille et texte colorés (vert au-delà de 30 jours, orange entre 7 et 30, rouge en dessous de 7 ou en retard), et "Jamais contrôlé" pour un matériel sans historique. Un clic sur une ligne ouvre sa fiche (si la personne a la permission "Historique"). Complète le calendrier mensuel (§3) par une vue liste, plus rapide à parcourir pour un rappel global. Visible uniquement s'il y a du matériel et si la personne a la permission "Historique" ; le libellé "ALERTES" du bandeau défilant n'est plus cliquable (un seul point d'entrée, plus clair).
 
 ## 11. Photo de l'équipement le jour du contrôle (Google Drive)
 

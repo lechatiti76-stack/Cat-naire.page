@@ -244,7 +244,8 @@
       btnValiderControle: document.getElementById("btnValiderControle"),
       bandeauFlash: document.getElementById("bandeauFlash"),
       bandeauFlashPiste: document.getElementById("bandeauFlashPiste"),
-      btnBandeauEcheances: document.getElementById("btnBandeauEcheances"),
+      echeancesBanniere: document.getElementById("echeancesBanniere"),
+      echeancesBanniereResume: document.getElementById("echeancesBanniereResume"),
     });
   }
 
@@ -473,7 +474,7 @@
 
     els.modalClose.addEventListener("click", fermerModal);
     els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) fermerModal(); });
-    els.btnBandeauEcheances.addEventListener("click", ouvrirFenetreEcheances);
+    els.echeancesBanniere.addEventListener("click", ouvrirFenetreEcheances);
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       fermerModal();
@@ -670,6 +671,30 @@
   }
 
   /** Fenêtre "Échéances" : liste complète des matériels avec jours restants, triée par urgence et mise en forme couleur (voir docs/10 §10). */
+  /** Bannière d'accueil (format pleine largeur, distinct des vignettes) ouvrant la fenêtre Échéances. */
+  function renderEcheancesBanniere() {
+    if (!els.echeancesBanniere) return;
+    if (!aPermission("historique") || state.materiels.length === 0) { els.echeancesBanniere.hidden = true; return; }
+
+    const maintenant = new Date();
+    let enRetard = 0, urgent = 0, aSurveiller = 0;
+    state.materiels.forEach((m) => {
+      const c = dernierControle(m.id);
+      if (!c || !c.dateProchainControle) return;
+      const j = Math.ceil((new Date(c.dateProchainControle) - maintenant) / 86400000);
+      if (j < 0) enRetard++;
+      else if (j <= 7) urgent++;
+      else if (j <= 30) aSurveiller++;
+    });
+
+    const parties = [];
+    if (enRetard) parties.push(`${enRetard} en retard`);
+    if (urgent) parties.push(`${urgent} urgent${urgent > 1 ? "s" : ""} (≤ 7 j)`);
+    if (aSurveiller) parties.push(`${aSurveiller} à surveiller (≤ 30 j)`);
+    els.echeancesBanniereResume.textContent = parties.length ? parties.join(" · ") : "Aucune échéance proche — tout est à jour.";
+    els.echeancesBanniere.hidden = false;
+  }
+
   function ouvrirFenetreEcheances() {
     const maintenant = new Date();
     const clicable = aPermission("historique");
@@ -779,6 +804,7 @@
 
   // -- Vue Accueil : vignettes par catégorie + tableau général ---------------
   function renderTuiles() {
+    renderEcheancesBanniere();
     const categories = CATEGORIES_CONFIG.filter((c) => state.materiels.some((m) => m.categorie === c.nom));
     els.tilesGrid.innerHTML = "";
 
