@@ -45,6 +45,12 @@
 
   let currentSort = { key: "dateControle", dir: "desc" };
   const diaporama = { index: 0, enLecture: true, minuteur: null };
+  // Mémorise quel contenu est affiché dans la fenêtre modale (#modalOverlay), pour
+  // pouvoir le rafraîchir si les données changent pendant qu'elle est ouverte
+  // (actualisation automatique en arrière-plan, bouton "Actualiser") — sans quoi la
+  // fenêtre reste figée sur un instantané périmé alors que le reste de la page se
+  // met à jour (voir docs/10 §9).
+  let modalActuel = null;
 
   /** Vérifie une permission élémentaire (voir PERMISSIONS_CONFIG, js/google-config.js). */
   function aPermission(cle) {
@@ -360,6 +366,7 @@
         renderStatsGlobales();
         renderBandeauFlash();
       }
+      rafraichirModalOuvert();
       if (!silencieux) afficherBanniere("✅ Données actualisées depuis Google Sheets.", "info");
     } catch (e) {
       console.error(e);
@@ -696,6 +703,7 @@
   }
 
   function ouvrirFenetreEcheances() {
+    modalActuel = { type: "echeances" };
     const maintenant = new Date();
     const clicable = aPermission("historique");
 
@@ -963,6 +971,7 @@
       afficherBanniere("⛔ Vous n'avez pas la permission de consulter l'historique.", "warn");
       return;
     }
+    modalActuel = { type: "fiche", materielId };
     const materiel = state.materiels.find((m) => m.id === materielId);
     const historique = state.controles
       .filter((c) => c.materielId === materielId)
@@ -1042,7 +1051,19 @@
     return `<table class="points-controle-table"><thead><tr><th></th><th>Point de contrôle</th><th>Rapport</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  function fermerModal() { els.modalOverlay.hidden = true; }
+  function fermerModal() { els.modalOverlay.hidden = true; modalActuel = null; }
+
+  /** Rafraîchit le contenu de la fenêtre modale actuellement ouverte (fiche matériel ou échéances) après un rechargement des données, pour ne jamais laisser un instantané périmé affiché — voir docs/10 §9. */
+  function rafraichirModalOuvert() {
+    if (!modalActuel || els.modalOverlay.hidden) return;
+    if (modalActuel.type === "echeances") {
+      ouvrirFenetreEcheances();
+    } else if (modalActuel.type === "fiche") {
+      const materielId = modalActuel.materielId;
+      if (state.materiels.some((m) => m.id === materielId)) ouvrirFicheMateriel(materielId);
+      else fermerModal();
+    }
+  }
 
   // -- Vue Contrôle : checklist + validation ----------------------------------
   function ouvrirEcranControle(materielId) {
