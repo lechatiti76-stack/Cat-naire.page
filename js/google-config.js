@@ -41,8 +41,8 @@ const GOOGLE_CONFIG = {
   // CSV) sur les onglets Materiels et Controles de votre classeur (voir docs/10 §13).
   // Laisser vide désactive la fiche publique (le bouton "QR code" affichera une erreur).
   fichePublique: {
-    urlCsvMateriels: "",
-    urlCsvControles: "",
+    urlCsvMateriels: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRLk7rGL68oSPmo-7eOI1sKwr3HxcaSXoQ_BjL_J-88OuVrOf_pFGFeLiuTxUiCuUieVuSzTo6VgEPP/pub?gid=0&single=true&output=csv",
+    urlCsvControles: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRLk7rGL68oSPmo-7eOI1sKwr3HxcaSXoQ_BjL_J-88OuVrOf_pFGFeLiuTxUiCuUieVuSzTo6VgEPP/pub?gid=1744123585&single=true&output=csv",
   },
 
   // Nombre de jours avant échéance déclenchant le statut "À vérifier prochainement"
