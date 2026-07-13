@@ -341,15 +341,27 @@
    * mémoire) — bouton "🔄 Actualiser" et actualisation automatique en
    * arrière-plan (voir DUREE_ACTUALISATION_AUTO_MS).
    */
+  // Empêche deux actualisations de tourner en même temps (ex. l'auto-actualisation
+  // toutes les 60 s qui chevauche un clic manuel sur "Actualiser") : sans ce verrou,
+  // la requête qui termine en DERNIER écrase l'affichage avec ses données, même si
+  // elle a été lancée AVANT l'autre — source d'incohérences entre le bandeau et une
+  // fenêtre modale ouverte au même moment (voir docs/10 §9).
+  let actualisationEnCours = false;
+
   async function actualiserDonnees(options = {}) {
     const silencieux = !!options.silencieux;
     if (state.modeDemo) {
       if (!silencieux) afficherBanniere("ℹ️ Mode démonstration : aucune donnée réelle à actualiser. Connectez-vous avec Google.", "info");
       return;
     }
+    if (actualisationEnCours) {
+      if (!silencieux) afficherBanniere("ℹ️ Actualisation déjà en cours, patientez un instant.", "info");
+      return;
+    }
     if (state.vue === "controle" && !silencieux) {
       if (!confirm("Une saisie de contrôle est en cours. Actualiser les données depuis Google Sheets maintenant ? La saisie non enregistrée sera perdue.")) return;
     }
+    actualisationEnCours = true;
     if (!silencieux) {
       els.btnActualiser.disabled = true;
       els.btnActualiser.textContent = "🔄 Actualisation…";
@@ -372,6 +384,7 @@
       console.error(e);
       if (!silencieux) afficherBanniere("⚠️ Erreur lors de l'actualisation : " + e.message, "warn");
     } finally {
+      actualisationEnCours = false;
       if (!silencieux) {
         els.btnActualiser.disabled = false;
         els.btnActualiser.textContent = "🔄 Actualiser";
@@ -1228,6 +1241,18 @@
           onProgressionPhotos: ({ index, total }) => {
             els.btnValiderControle.textContent = `Envoi photo ${index + 1}/${total}…`;
           },
+        });
+        // Reflète immédiatement le contrôle dans l'état local (bandeau, fenêtre
+        // Échéances, tableau de bord) sans attendre la prochaine actualisation —
+        // sans quoi le contrôle qu'on vient de valider resterait invisible jusqu'à
+        // 60 secondes, source de confusion si on enchaîne plusieurs contrôles.
+        state.controles.unshift({
+          id: resultat.id, materielId: materiel.id, materiel: materiel.title,
+          numSerie: materiel.numSerie, reference: materiel.reference, categorie: materiel.categorie,
+          etat: materiel.etat, dateControle, dateProchainControle: resultat.dateProchainControle,
+          controleur: controleurNom, conforme: resultat.conforme, statut: resultat.statut,
+          observations, actionsCorrectives, commentaires, photos: resultat.photos || [],
+          pointsControle: points.map((p) => ({ libelle: p.libelle, effectue: true, rapport: p.statut === "Conforme" ? "Validé" : "Non validé", statut: p.statut })),
         });
       } else {
         // Simulation locale : aucune écriture réelle en mode démonstration (les photos ne sont pas envoyées).
