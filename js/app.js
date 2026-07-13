@@ -664,9 +664,10 @@
       if (joursRestants <= 2) { classeCouleur = "bandeau-flash__item--rouge"; clignote = true; }
       else if (joursRestants <= 7) classeCouleur = "bandeau-flash__item--rouge";
       else if (joursRestants <= 30) classeCouleur = "bandeau-flash__item--orange";
+      const nomAffiche = `${m.title} (N° ${m.numSerie || "?"})`;
       const texte = joursRestants < 0
-        ? `⚠ ${m.title} — en retard de ${Math.abs(joursRestants)} jour${Math.abs(joursRestants) > 1 ? "s" : ""}`
-        : `⚠ ${m.title} — expire dans ${joursRestants} jour${joursRestants > 1 ? "s" : ""}`;
+        ? `⚠ ${nomAffiche} — en retard de ${Math.abs(joursRestants)} jour${Math.abs(joursRestants) > 1 ? "s" : ""}`
+        : `⚠ ${nomAffiche} — expire dans ${joursRestants} jour${joursRestants > 1 ? "s" : ""}`;
       return { materielId: m.id, texte, classeCouleur, clignote };
     }).filter(Boolean);
 
@@ -739,16 +740,29 @@
       return { classe: "echeances-liste__pastille--vert", label: `${j} j` };
     };
 
+    // Détecte les intitulés en double (même "Title" pour plusieurs lignes Materiels,
+    // donc plusieurs N° de série différents) : cause fréquente d'incohérence entre le
+    // bandeau et cette fenêtre, chacune des deux lignes ayant son propre historique de
+    // contrôles et donc sa propre échéance — voir docs/10 §9.
+    const titresComptes = {};
+    state.materiels.forEach((m) => {
+      const cle = String(m.title || "").trim().toLowerCase();
+      if (!cle) return;
+      titresComptes[cle] = (titresComptes[cle] || 0) + 1;
+    });
+    const aDesDoublons = Object.values(titresComptes).some((n) => n > 1);
+
     els.modalTitle.textContent = "📋 Échéances des contrôles";
     els.modalBody.innerHTML = `
       <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille.</p>
+      ${aDesDoublons ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Plusieurs matériels portent le même nom mais des N° de série différents (visibles sous chaque nom ci-dessous) : vérifiez qu'il ne s'agit pas d'une ligne en double dans l'onglet Materiels du classeur Google Sheets, sinon chacune garde son propre historique et son propre délai.</p>` : ""}
       <div class="echeances-liste">
         ${lignes.map((l) => {
           const info = l.joursRestants === null ? { classe: "echeances-liste__pastille--neutre", label: "Jamais contrôlé" } : classeEtLabelPourJours(l.joursRestants);
           return `
             <button type="button" class="echeances-liste__ligne ${clicable ? "" : "echeances-liste__ligne--non-cliquable"}" data-materiel="${l.materiel.id}" ${clicable ? "" : "disabled"}>
               <span class="echeances-liste__pastille ${info.classe}"></span>
-              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}</span>
+              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}<small class="echeances-liste__numserie">N° ${escapeHtml(l.materiel.numSerie || "?")}</small></span>
               <span class="echeances-liste__categorie">${escapeHtml(l.materiel.categorie)}</span>
               <span class="echeances-liste__jours ${info.classe}">${escapeHtml(info.label)}</span>
             </button>

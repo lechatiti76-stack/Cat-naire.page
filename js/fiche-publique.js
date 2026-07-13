@@ -82,6 +82,11 @@
     return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
+  /** Même logique que google-sheets.js normaliserNumSerie() — tolère casse et espaces superflus. */
+  function normaliserNumSerie(valeur) {
+    return String(valeur || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
   function escapeHtml(str) {
     if (str === undefined || str === null) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -116,7 +121,7 @@
 
       const materiel = materiels.find((m) => {
         const val = valeurParPrefixe(m, "numserie") || valeurParPrefixe(m, "n° series") || valeurParPrefixe(m, "n° série");
-        return val && val.trim() === numSerie;
+        return val && normaliserNumSerie(val) === normaliserNumSerie(numSerie);
       });
       if (!materiel) {
         zone.innerHTML = `<p class="fiche-publique__erreur">Aucun matériel trouvé pour le n° de série « ${escapeHtml(numSerie)} ».</p>`;
@@ -124,7 +129,7 @@
       }
 
       const historique = controles
-        .filter((c) => (valeurParPrefixe(c, "numserie") || "").trim() === numSerie)
+        .filter((c) => normaliserNumSerie(valeurParPrefixe(c, "numserie")) === normaliserNumSerie(numSerie))
         .sort((a, b) => normaliserDate(b.DateControle || valeurParPrefixe(b, "datecontrole")).localeCompare(normaliserDate(a.DateControle || valeurParPrefixe(a, "datecontrole"))));
       const dernier = historique[0];
 

@@ -164,6 +164,17 @@ const GoogleSheetsAPI = (() => {
   }
 
   /**
+   * Normalise un N° de série pour la comparaison (espaces superflus, casse) :
+   * un N° de série saisi à la main dans Controles ("ledr67 ") doit continuer à
+   * correspondre à celui de Materiels ("LEDR67"), sans quoi le contrôle le plus
+   * récent d'un matériel devient invisible (silencieusement ignoré) et
+   * l'application retombe sur un contrôle plus ancien — voir docs/10 §9.
+   */
+  function normaliserNumSerie(valeur) {
+    return String(valeur || "").trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
+  /**
    * Retrouve la valeur d'une colonne à partir du DÉBUT de son en-tête plutôt
    * que son nom exact (ex. "Role (Role = Administrateur/Contrôleur/...)."
    * correspond au préfixe "role") — évite de dépendre d'un intitulé de
@@ -281,7 +292,7 @@ const GoogleSheetsAPI = (() => {
 
     const resultatsObjs = lignesEnObjets(resultatsRows);
     const controles = lignesEnObjets(controlesRows).map((c) => {
-      const materiel = materiels.find((m) => m.numSerie === c.NumSerie) || {};
+      const materiel = materiels.find((m) => normaliserNumSerie(m.numSerie) === normaliserNumSerie(c.NumSerie)) || {};
       const points = resultatsObjs
         .filter((r) => (r.Controle || r.ControleId) === c.ControleId)
         .map((r) => ({
