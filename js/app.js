@@ -989,10 +989,12 @@
         <div class="modal__field"><dt>Catégorie</dt><dd>${escapeHtml(materiel.categorie)}</dd></div>
         <div class="modal__field"><dt>État</dt><dd>${escapeHtml(materiel.etat)}</dd></div>
       </dl>
-      <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
         ${peutControler() ? '<button class="btn btn--primary btn--small" id="btnNouveauControleModal" type="button">🆕 Nouveau contrôle</button>' : ""}
         ${aPermission("exporterPdf") ? '<button class="btn btn--secondary btn--small" id="btnExporterPdf" type="button">🖨️ Exporter en PDF</button>' : ""}
+        <button class="btn btn--secondary btn--small" id="btnQrCode" type="button">🔗 QR code</button>
       </div>
+      <div id="qrPanel" class="qr-panel" hidden></div>
       <div class="modal__section">
         <h3>Historique des contrôles (${historique.length})</h3>
         ${historique.length ? historique.map((c, i) => renderLigneHistorique(c, i)).join("") : "<p>Aucun contrôle enregistré pour ce matériel.</p>"}
@@ -1007,6 +1009,28 @@
     }
     const btnExporterPdf = els.modalBody.querySelector("#btnExporterPdf");
     if (btnExporterPdf) btnExporterPdf.addEventListener("click", () => exporterPdfMateriel(materiel, historique));
+
+    const btnQrCode = els.modalBody.querySelector("#btnQrCode");
+    const qrPanel = els.modalBody.querySelector("#qrPanel");
+    btnQrCode.addEventListener("click", () => {
+      if (!qrPanel.hidden) { qrPanel.hidden = true; return; }
+      const urlFiche = new URL("fiche.html?numserie=" + encodeURIComponent(materiel.numSerie), window.location.href).href;
+      const urlQr = "https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=" + encodeURIComponent(urlFiche);
+      qrPanel.innerHTML = `
+        <img src="${escapeHtml(urlQr)}" alt="QR code vers la fiche de ${escapeHtml(materiel.title)}" width="220" height="220">
+        <p class="qr-panel__texte">⚠️ Ce lien est accessible <strong>sans connexion</strong> à quiconque le possède, pas seulement en scannant le QR code physique.</p>
+        <div class="qr-panel__lien">
+          <input type="text" readonly value="${escapeHtml(urlFiche)}" id="qrLienTexte">
+          <button type="button" class="btn btn--secondary btn--small" id="btnCopierLien">📋 Copier</button>
+        </div>
+      `;
+      qrPanel.hidden = false;
+      qrPanel.querySelector("#btnCopierLien").addEventListener("click", () => {
+        navigator.clipboard.writeText(urlFiche)
+          .then(() => afficherBanniere("✅ Lien copié dans le presse-papiers.", "info"))
+          .catch(() => afficherBanniere("⚠️ Impossible de copier automatiquement — sélectionnez le lien manuellement.", "warn"));
+      });
+    });
     els.modalBody.querySelectorAll(".historique-ligne__entete").forEach((el) => {
       el.addEventListener("click", () => {
         const detail = el.nextElementSibling;

@@ -1,6 +1,6 @@
 # 10. Phase "application professionnelle" — permissions, journal, alertes, connexion individuelle, tableau de bord, galerie
 
-Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §12 pour le solde nul "Ce qui reste").
+Ce document couvre la demande de transformation en application de niveau entreprise. Vu l'ampleur du cahier des charges (authentification serveur, permissions détaillées, journal avec IP, galerie photos, bandeau d'alertes, tableau de bord, PWA, sauvegardes automatiques...), le travail est livré **par phases**. Tous les points sont livrés (voir §13 pour le solde nul "Ce qui reste").
 
 ## 0. Un principe qui traverse tout le document
 
@@ -131,7 +131,26 @@ Sur l'écran "Nouveau contrôle", un champ **"📷 Photo(s) de l'équipement"** 
 
 En mode démonstration, les photos restent visibles en aperçu local (non envoyées, aucun compte Google Drive n'étant connecté).
 
-## 12. Ce qui reste
+## 12. Fiche publique par QR code (fiche.html)
+
+Nouvelle page autonome **`fiche.html`**, **sans connexion Google**, pensée pour être collée en QR code sur chaque équipement : un technicien scanne le code avec son téléphone, la page s'ouvre directement et affiche nom, catégorie, n° de série, date du dernier contrôle, date du prochain contrôle et **jours restants recalculés à chaque ouverture** (pas une valeur figée — scannez aujourd'hui "22 jours", demain "21 jours", automatiquement, sans rien recalculer ni vous connecter).
+
+### ⚠️ Compromis de confidentialité (choix assumé)
+
+Cette page fonctionne **sans authentification**, donc **sans les protections du reste de l'application** : quiconque possède le lien peut consulter la fiche, pas seulement en scannant physiquement le QR code (un lien peut être copié, transféré, retrouvé). Techniquement, cela impose de rendre certaines données du classeur **lisibles publiquement** sur le Web, via la fonctionnalité native de Google Sheets "Publier sur le Web" (indépendante du partage habituel du classeur) :
+
+1. Dans Google Sheets, **Fichier → Partager → Publier sur le Web**.
+2. Choisissez l'onglet **`Materiels`**, format **CSV**, cliquez sur "Publier". Copiez l'URL fournie.
+3. Recommencez pour l'onglet **`Controles`**.
+4. Collez les deux URL dans `js/google-config.js`, propriété `GOOGLE_CONFIG.fichePublique` (`urlCsvMateriels`, `urlCsvControles`).
+
+**Ne publiez jamais** les onglets `Utilisateurs` (mots de passe hachés) ou `Journal` (adresses IP) de cette façon — seuls `Materiels` et `Controles` sont nécessaires à cette page, et ce sont les seuls qu'elle lit. Sachez cependant que publier `Controles` rend aussi publiques les observations/actions correctives/commentaires de vos contrôles, pas seulement les dates — si vous voulez restreindre davantage, un onglet dédié "Public" (recopiant juste les colonnes utiles via une formule) et publié à la place de `Controles` est possible sur demande.
+
+### Générer un QR code
+
+Dans la fiche d'un matériel (bouton **"🔗 QR code"**), l'application affiche une image de QR code (générée par le service public gratuit `api.qrserver.com`, à partir de l'URL de la fiche publique — aucune donnée de contrôle n'y est envoyée, seule l'URL) ainsi que le lien en texte, copiable, à coller vous-même dans un générateur d'étiquettes ou un traitement de texte pour l'imprimer et le coller sur l'équipement.
+
+## 13. Ce qui reste
 
 Rien d'identifié pour l'instant : tous les points du cahier des charges compatibles avec une architecture 100% statique (sans serveur) sont livrés. Les points explicitement hors de portée sans serveur (notifications push, sauvegarde automatique programmée côté serveur, sécurité serveur réelle pour les mots de passe/CSRF/injection SQL) sont documentés comme tels à chaque section concernée plutôt que simulés.
 

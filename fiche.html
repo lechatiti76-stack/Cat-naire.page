@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiche matériel — Registre des Vérifications de Matériel</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="icon" href="assets/icon-192.png">
+<meta name="theme-color" content="#0078D4">
+<meta name="robots" content="noindex, nofollow">
+<style>
+  body.fiche-publique { max-width: 480px; margin: 0 auto; padding: 28px 18px 40px; }
+  .fiche-publique__categorie { color: var(--text-muted); margin: 0 0 18px; font-size: 14px; }
+  .fiche-publique__jours { font-size: 21px; font-weight: 800; padding: 14px; border-radius: 10px; text-align: center; margin: 0 0 22px; }
+  .fiche-publique__jours--vert   { background: var(--color-ok-bg); color: var(--color-ok); }
+  .fiche-publique__jours--orange { background: var(--color-warn-bg); color: var(--color-warn); }
+  .fiche-publique__jours--rouge  { background: var(--color-danger-bg); color: var(--color-danger); }
+  .fiche-publique__jours--neutre { background: var(--color-neutral-bg); color: var(--color-neutral); }
+  .fiche-publique__grille { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+  .fiche-publique__grille div { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .fiche-publique__grille dt { font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); margin: 0; }
+  .fiche-publique__grille dd { margin: 2px 0 0; font-weight: 600; font-size: 15px; }
+  .fiche-publique__horodatage { margin-top: 26px; font-size: 11.5px; color: var(--text-muted); text-align: center; }
+  .fiche-publique__erreur { color: var(--color-danger); font-weight: 600; }
+</style>
+</head>
+<body class="fiche-publique">
+  <div id="ficheContenu"><p>Chargement…</p></div>
+  <script src="js/google-config.js"></script>
+  <script src="js/fiche-publique.js"></script>
+</body>
+</html>

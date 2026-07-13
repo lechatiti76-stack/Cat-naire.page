@@ -35,6 +35,16 @@ const GOOGLE_CONFIG = {
   // de l'API Sheets) et le nouveau scope "drive.file" (reconnexion demandée une fois).
   dossierPhotosControles: "Photos contrôles - Registre matériel",
 
+  // Fiche publique par QR code (fiche.html) : ⚠️ ACCÈS LIBRE, SANS CONNEXION —
+  // quiconque a le lien voit ces données, pas seulement en scannant le QR code
+  // physique. À remplir après "Fichier → Partager → Publier sur le Web" (format
+  // CSV) sur les onglets Materiels et Controles de votre classeur (voir docs/10 §13).
+  // Laisser vide désactive la fiche publique (le bouton "QR code" affichera une erreur).
+  fichePublique: {
+    urlCsvMateriels: "",
+    urlCsvControles: "",
+  },
+
   // Nombre de jours avant échéance déclenchant le statut "À vérifier prochainement"
   seuilJours: 30,
 
