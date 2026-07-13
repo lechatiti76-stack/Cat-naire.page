@@ -231,6 +231,16 @@ const GoogleSheetsAPI = (() => {
       const epoqueSheets = Date.UTC(1899, 11, 30);
       return new Date(epoqueSheets + Number(texte) * 86400000).toISOString().slice(0, 10);
     }
+    // Date localisée "JJ/MM/AAAA" (format renvoyé par l'API pour un classeur en
+    // français) : traitée explicitement en JOUR/MOIS/ANNÉE, car le constructeur
+    // natif new Date("JJ/MM/AAAA") l'interprète à tort comme MOIS/JOUR/ANNÉE
+    // (anglo-saxon) — invalide (donc NaN) dès que le jour dépasse 12, et sinon
+    // silencieusement faux (jour et mois inversés) le reste du temps.
+    const jjmmaaaa = texte.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (jjmmaaaa) {
+      const [, jour, mois, annee] = jjmmaaaa;
+      return `${annee}-${mois.padStart(2, "0")}-${jour.padStart(2, "0")}`;
+    }
     const analysee = new Date(texte);
     if (!Number.isNaN(analysee.getTime())) return analysee.toISOString().slice(0, 10);
     return texte;
