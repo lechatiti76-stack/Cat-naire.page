@@ -745,17 +745,19 @@
     // bandeau et cette fenêtre, chacune des deux lignes ayant son propre historique de
     // contrôles et donc sa propre échéance — voir docs/10 §9.
     const titresComptes = {};
+    const titresOriginaux = {};
     state.materiels.forEach((m) => {
-      const cle = String(m.title || "").trim().toLowerCase();
+      const cle = String(m.title || "").trim().toLowerCase().replace(/\s+/g, " ");
       if (!cle) return;
       titresComptes[cle] = (titresComptes[cle] || 0) + 1;
+      if (!titresOriginaux[cle]) titresOriginaux[cle] = m.title;
     });
-    const aDesDoublons = Object.values(titresComptes).some((n) => n > 1);
+    const nomsEnDouble = Object.keys(titresComptes).filter((cle) => titresComptes[cle] > 1).map((cle) => titresOriginaux[cle]);
 
     els.modalTitle.textContent = "📋 Échéances des contrôles";
     els.modalBody.innerHTML = `
       <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille.</p>
-      ${aDesDoublons ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Plusieurs matériels portent le même nom mais des N° de série différents (visibles sous chaque nom ci-dessous) : vérifiez qu'il ne s'agit pas d'une ligne en double dans l'onglet Materiels du classeur Google Sheets, sinon chacune garde son propre historique et son propre délai.</p>` : ""}
+      ${nomsEnDouble.length ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Nom(s) présent(s) sur plusieurs lignes de l'onglet Materiels, avec des N° de série différents (visibles sous chaque nom ci-dessous) : ${nomsEnDouble.map(escapeHtml).join(", ")}. Chaque ligne garde son propre historique et son propre délai — vérifiez s'il ne s'agit pas d'une ligne en double à supprimer/fusionner.</p>` : ""}
       <div class="echeances-liste">
         ${lignes.map((l) => {
           const info = l.joursRestants === null ? { classe: "echeances-liste__pastille--neutre", label: "Jamais contrôlé" } : classeEtLabelPourJours(l.joursRestants);
