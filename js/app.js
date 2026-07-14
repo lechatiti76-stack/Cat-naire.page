@@ -661,7 +661,13 @@
     if (!els.bandeauFlash) return;
     const maintenant = new Date();
     const clicable = aPermission("historique");
+    console.log("[diagnostic] state.controles.length =", state.controles.length, "state.materiels.length =", state.materiels.length);
     const items = state.materiels.map((m) => {
+      const correspondances = state.controles.filter((c) => c.materielId === m.id);
+      if (correspondances.length > 1) {
+        console.log("[diagnostic]", m.title, m.numSerie, "→", correspondances.length, "contrôles :",
+          correspondances.map((c) => `id=${c.id} dateControle=${c.dateControle} dateProchainControle=${c.dateProchainControle}`));
+      }
       const c = dernierControle(m.id);
       if (!c || !c.dateProchainControle) return null;
       const echeance = new Date(c.dateProchainControle);
@@ -729,7 +735,15 @@
     const maintenant = new Date();
     const clicable = aPermission("historique");
 
+    // Diagnostic temporaire : révèle si un matériel a plusieurs lignes Controles
+    // rattachées (voir docs/10 §9) — affiché seulement s'il y en a.
+    const diagnosticsDoublons = [];
     const lignes = state.materiels.map((m) => {
+      const correspondances = state.controles.filter((c) => c.materielId === m.id);
+      if (correspondances.length > 1) {
+        diagnosticsDoublons.push(`${m.title} (${m.numSerie}) : ${correspondances.length} lignes Controles — ` +
+          correspondances.map((c) => `[id=${c.id}, dateControle=${c.dateControle}, échéance=${c.dateProchainControle}]`).join(", "));
+      }
       const c = dernierControle(m.id);
       if (!c || !c.dateProchainControle) return { materiel: m, joursRestants: null };
       const echeance = new Date(c.dateProchainControle);
@@ -764,8 +778,9 @@
 
     els.modalTitle.textContent = "📋 Échéances des contrôles";
     els.modalBody.innerHTML = `
-      <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille.</p>
+      <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille. (Diagnostic temporaire : ${state.controles.length} lignes Controles chargées en tout.)</p>
       ${nomsEnDouble.length ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Nom(s) présent(s) sur plusieurs lignes de l'onglet Materiels, avec des N° de série différents (visibles sous chaque nom ci-dessous) : ${nomsEnDouble.map(escapeHtml).join(", ")}. Chaque ligne garde son propre historique et son propre délai — vérifiez s'il ne s'agit pas d'une ligne en double à supprimer/fusionner.</p>` : ""}
+      ${diagnosticsDoublons.length ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Diagnostic : matériels avec plusieurs lignes Controles rattachées :<br>${diagnosticsDoublons.map(escapeHtml).join("<br>")}</p>` : ""}
       <div class="echeances-liste">
         ${lignes.map((l) => {
           const info = l.joursRestants === null ? { classe: "echeances-liste__pastille--neutre", label: "Jamais contrôlé" } : classeEtLabelPourJours(l.joursRestants);
