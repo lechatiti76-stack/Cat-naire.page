@@ -302,14 +302,19 @@
       state.utilisateur = utilisateur;
       appliquerDonnees(donnees);
       localStorage.setItem(CLE_DEJA_CONNECTE, "1");
+      // Rafraîchit l'affichage (bandeau inclus) tout de suite après avoir appliqué les
+      // données réelles, AVANT toute action annexe ci-dessous : si l'une d'elles échouait,
+      // l'affichage ne devait pas rester bloqué sur son dernier rendu (mode démonstration
+      // au premier chargement de la page) — voir docs/10 §9 (correctif bandeau figé en
+      // mode démonstration après une reconnexion silencieuse).
+      afficherVue("accueil");
       els.headerSubtitle.textContent = `Connecté à Google Sheets — ${state.utilisateur.nom}`;
       els.btnGoogleConnect.textContent = "✅ Connecté";
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
-      afficherRoleBadge();
-      peuplerFiltresTableau();
-      journaliser("Connexion");
+      try { afficherRoleBadge(); } catch (e) { console.error(e); }
+      try { peuplerFiltresTableau(); } catch (e) { console.error(e); }
+      try { journaliser("Connexion"); } catch (e) { console.error(e); }
       GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; if (state.vue === "administration") renderAdministration(); }).catch(() => {});
-      afficherVue("accueil");
     } catch (e) {
       console.error(e);
       if (!silencieux) {
@@ -369,9 +374,9 @@
     try {
       const donnees = await GoogleSheetsAPI.chargerDonnees();
       appliquerDonnees(donnees);
-      peuplerFiltresTableau();
-      afficherRoleBadge();
-      if (state.adminDeverrouille) GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; }).catch(() => {});
+      // Rafraîchit l'affichage tout de suite après avoir appliqué les données, AVANT les
+      // actions annexes ci-dessous : si l'une d'elles échouait, le bandeau/la vue ne
+      // devaient pas rester bloqués sur leur dernier rendu — voir docs/10 §9.
       if (!["controle"].includes(state.vue)) {
         afficherVue(state.vue, { categorie: state.categorieCourante });
       } else {
@@ -379,6 +384,9 @@
         renderBandeauFlash();
       }
       rafraichirModalOuvert();
+      try { peuplerFiltresTableau(); } catch (e) { console.error(e); }
+      try { afficherRoleBadge(); } catch (e) { console.error(e); }
+      if (state.adminDeverrouille) GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; }).catch(() => {});
       if (!silencieux) afficherBanniere("✅ Données actualisées depuis Google Sheets.", "info");
     } catch (e) {
       console.error(e);
