@@ -680,6 +680,12 @@ tr[data-index-permissions] td { padding-top: 0; padding-bottom: 14px; border-bot
   background: #111318; color: #fff; overflow: hidden;
   box-shadow: 0 -3px 10px rgba(0,0,0,.35);
 }
+/* Sans cette règle, l'attribut HTML "hidden" n'a aucun effet visuel ici : sa
+   spécificité (0,0,1,0) est égale à celle de ".bandeau-flash" ci-dessus, et à
+   spécificité égale, la règle définie en dernier (celle-ci) l'emporterait sur
+   la feuille de style par défaut du navigateur — élément qui reste affiché
+   malgré "hidden = true", figé sur son dernier contenu (voir docs/10 §9). */
+.bandeau-flash[hidden] { display: none; }
 .bandeau-flash__label {
   flex: 0 0 auto; display: flex; align-items: center; padding: 0 16px;
   background: var(--color-danger); color: #fff; font-weight: 700; font-size: 12.5px; letter-spacing: .04em;

@@ -681,6 +681,7 @@
 
     if (items.length === 0) {
       els.bandeauFlash.hidden = true;
+      els.bandeauFlashPiste.innerHTML = "";
       document.body.classList.remove("a-bandeau-flash");
       return;
     }
