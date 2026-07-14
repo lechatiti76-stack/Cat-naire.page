@@ -664,7 +664,7 @@
       if (joursRestants <= 2) { classeCouleur = "bandeau-flash__item--rouge"; clignote = true; }
       else if (joursRestants <= 7) classeCouleur = "bandeau-flash__item--rouge";
       else if (joursRestants <= 30) classeCouleur = "bandeau-flash__item--orange";
-      const nomAffiche = `${m.title} (N° ${m.numSerie || "?"})`;
+      const nomAffiche = `${m.title} (N° ${m.numSerie || "?"} · id ${c.id} · éch. ${c.dateProchainControle})`;
       const texte = joursRestants < 0
         ? `⚠ ${nomAffiche} — en retard de ${Math.abs(joursRestants)} jour${Math.abs(joursRestants) > 1 ? "s" : ""}`
         : `⚠ ${nomAffiche} — expire dans ${joursRestants} jour${joursRestants > 1 ? "s" : ""}`;
@@ -726,7 +726,7 @@
       if (!c || !c.dateProchainControle) return { materiel: m, joursRestants: null };
       const echeance = new Date(c.dateProchainControle);
       const joursRestants = Math.ceil((echeance - maintenant) / 86400000);
-      return { materiel: m, joursRestants, dateProchainControle: c.dateProchainControle };
+      return { materiel: m, joursRestants, dateProchainControle: c.dateProchainControle, controleId: c.id };
     }).sort((a, b) => {
       if (a.joursRestants === null) return 1;
       if (b.joursRestants === null) return -1;
@@ -764,7 +764,7 @@
           return `
             <button type="button" class="echeances-liste__ligne ${clicable ? "" : "echeances-liste__ligne--non-cliquable"}" data-materiel="${l.materiel.id}" ${clicable ? "" : "disabled"}>
               <span class="echeances-liste__pastille ${info.classe}"></span>
-              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}<small class="echeances-liste__numserie">N° ${escapeHtml(l.materiel.numSerie || "?")}</small></span>
+              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}<small class="echeances-liste__numserie">N° ${escapeHtml(l.materiel.numSerie || "?")}${l.controleId ? ` · id ${escapeHtml(l.controleId)} · éch. ${escapeHtml(l.dateProchainControle)}` : ""}</small></span>
               <span class="echeances-liste__categorie">${escapeHtml(l.materiel.categorie)}</span>
               <span class="echeances-liste__jours ${info.classe}">${escapeHtml(info.label)}</span>
             </button>
