@@ -661,13 +661,7 @@
     if (!els.bandeauFlash) return;
     const maintenant = new Date();
     const clicable = aPermission("historique");
-    console.log("[diagnostic] state.controles.length =", state.controles.length, "state.materiels.length =", state.materiels.length);
     const items = state.materiels.map((m) => {
-      const correspondances = state.controles.filter((c) => c.materielId === m.id);
-      if (correspondances.length > 1) {
-        console.log("[diagnostic]", m.title, m.numSerie, "→", correspondances.length, "contrôles :",
-          correspondances.map((c) => `id=${c.id} dateControle=${c.dateControle} dateProchainControle=${c.dateProchainControle}`));
-      }
       const c = dernierControle(m.id);
       if (!c || !c.dateProchainControle) return null;
       const echeance = new Date(c.dateProchainControle);
@@ -678,7 +672,7 @@
       if (joursRestants <= 2) { classeCouleur = "bandeau-flash__item--rouge"; clignote = true; }
       else if (joursRestants <= 7) classeCouleur = "bandeau-flash__item--rouge";
       else if (joursRestants <= 30) classeCouleur = "bandeau-flash__item--orange";
-      const nomAffiche = `${m.title} (N° ${m.numSerie || "?"} · id ${c.id} · éch. ${c.dateProchainControle})`;
+      const nomAffiche = `${m.title} (N° ${m.numSerie || "?"})`;
       const texte = joursRestants < 0
         ? `⚠ ${nomAffiche} — en retard de ${Math.abs(joursRestants)} jour${Math.abs(joursRestants) > 1 ? "s" : ""}`
         : `⚠ ${nomAffiche} — expire dans ${joursRestants} jour${joursRestants > 1 ? "s" : ""}`;
@@ -735,20 +729,12 @@
     const maintenant = new Date();
     const clicable = aPermission("historique");
 
-    // Diagnostic temporaire : révèle si un matériel a plusieurs lignes Controles
-    // rattachées (voir docs/10 §9) — affiché seulement s'il y en a.
-    const diagnosticsDoublons = [];
     const lignes = state.materiels.map((m) => {
-      const correspondances = state.controles.filter((c) => c.materielId === m.id);
-      if (correspondances.length > 1) {
-        diagnosticsDoublons.push(`${m.title} (${m.numSerie}) : ${correspondances.length} lignes Controles — ` +
-          correspondances.map((c) => `[id=${c.id}, dateControle=${c.dateControle}, échéance=${c.dateProchainControle}]`).join(", "));
-      }
       const c = dernierControle(m.id);
       if (!c || !c.dateProchainControle) return { materiel: m, joursRestants: null };
       const echeance = new Date(c.dateProchainControle);
       const joursRestants = Math.ceil((echeance - maintenant) / 86400000);
-      return { materiel: m, joursRestants, dateProchainControle: c.dateProchainControle, controleId: c.id };
+      return { materiel: m, joursRestants, dateProchainControle: c.dateProchainControle };
     }).sort((a, b) => {
       if (a.joursRestants === null) return 1;
       if (b.joursRestants === null) return -1;
@@ -778,16 +764,15 @@
 
     els.modalTitle.textContent = "📋 Échéances des contrôles";
     els.modalBody.innerHTML = `
-      <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille. (Diagnostic temporaire : ${state.controles.length} lignes Controles chargées en tout.)</p>
+      <p class="admin-login-texte">${lignes.length} matériel${lignes.length > 1 ? "s" : ""}, du plus urgent au plus tranquille.</p>
       ${nomsEnDouble.length ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Nom(s) présent(s) sur plusieurs lignes de l'onglet Materiels, avec des N° de série différents (visibles sous chaque nom ci-dessous) : ${nomsEnDouble.map(escapeHtml).join(", ")}. Chaque ligne garde son propre historique et son propre délai — vérifiez s'il ne s'agit pas d'une ligne en double à supprimer/fusionner.</p>` : ""}
-      ${diagnosticsDoublons.length ? `<p class="admin-login-texte" style="color:var(--color-warn);font-weight:600;">⚠️ Diagnostic : matériels avec plusieurs lignes Controles rattachées :<br>${diagnosticsDoublons.map(escapeHtml).join("<br>")}</p>` : ""}
       <div class="echeances-liste">
         ${lignes.map((l) => {
           const info = l.joursRestants === null ? { classe: "echeances-liste__pastille--neutre", label: "Jamais contrôlé" } : classeEtLabelPourJours(l.joursRestants);
           return `
             <button type="button" class="echeances-liste__ligne ${clicable ? "" : "echeances-liste__ligne--non-cliquable"}" data-materiel="${l.materiel.id}" ${clicable ? "" : "disabled"}>
               <span class="echeances-liste__pastille ${info.classe}"></span>
-              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}<small class="echeances-liste__numserie">N° ${escapeHtml(l.materiel.numSerie || "?")}${l.controleId ? ` · id ${escapeHtml(l.controleId)} · éch. ${escapeHtml(l.dateProchainControle)}` : ""}</small></span>
+              <span class="echeances-liste__nom">${escapeHtml(l.materiel.title)}<small class="echeances-liste__numserie">N° ${escapeHtml(l.materiel.numSerie || "?")}</small></span>
               <span class="echeances-liste__categorie">${escapeHtml(l.materiel.categorie)}</span>
               <span class="echeances-liste__jours ${info.classe}">${escapeHtml(info.label)}</span>
             </button>
