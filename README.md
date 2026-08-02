@@ -19,15 +19,17 @@ Solution complète de gestion des vérifications de matériel de sécurité cat�
 | Conseils d'amélioration & bonnes pratiques Microsoft | [`docs/06-bonnes-pratiques.md`](docs/06-bonnes-pratiques.md) |
 | Migration pas à pas de vos listes existantes vers le modèle final | [`docs/07-migration-listes-existantes.md`](docs/07-migration-listes-existantes.md) |
 | Rôles, calendrier, ressources, export PDF, personnalisation | [`docs/09-roles-et-fonctionnalites.md`](docs/09-roles-et-fonctionnalites.md) |
+| Programmation GMAO des interventions/réparations (demande, validation, rappel en retard, coupure caténaire) | [`docs/11-programmation-interventions-gmao.md`](docs/11-programmation-interventions-gmao.md) |
 
 ## Aperçu de l'interface web
 
 Ouvrir `index.html` dans un navigateur (aucune installation requise). Parcours :
 
-- **Accueil** : statistiques globales + une vignette par catégorie d'équipement (avec répartition de conformité) + vignettes "Tableau général", "Calendrier" et "Ressources".
-- **Vue catégorie** : galerie des matériels de la catégorie choisie, avec accès à l'historique et au bouton **Nouveau contrôle** (masqué pour le rôle Utilisateur).
+- **Accueil** : statistiques globales + une vignette par catégorie d'équipement (avec répartition de conformité) + vignettes "Tableau général", "Calendrier", "Interventions" et "Ressources".
+- **Vue catégorie** : galerie des matériels de la catégorie choisie, avec accès à l'historique et aux boutons **Nouveau contrôle** et **Intervention** (masqués selon permission).
 - **Tableau général** : recherche instantanée, filtres (catégorie, conformité, statut, contrôleur, plage de dates), tri par colonne, code couleur 🟢🟠🔴⚪, export CSV.
-- **Calendrier** : vue mensuelle des prochains contrôles par équipement, navigable mois par mois.
+- **Calendrier** : vue mensuelle des prochains contrôles *et* des interventions programmées par équipement, navigable mois par mois.
+- **Interventions** *(GMAO, voir docs/11)* : programmation matériel par matériel des interventions/réparations (jour, durée, lieu, impact, conséquences, intervenant, coupure caténaire, dates de demande/validation), circuit de validation à deux étapes, mise à jour automatique de la base une fois l'intervention réalisée, et rappel visuel en rouge dès qu'une intervention est en retard (bandeau, bannière d'accueil, vignette).
 - **Ressources** : liste de documents/liens regroupés par catégorie (onglet `Ressources`, voir docs/09).
 - **Fiche matériel** : historique complet des contrôles (accordéon), détail des points de contrôle par événement, export PDF.
 - **Écran de contrôle** : sélection du contrôleur, case à cocher Conforme/Non conforme par point, observations/actions correctives/commentaires, bouton **✅ Valider le contrôle**.
@@ -36,7 +38,7 @@ Ouvrir `index.html` dans un navigateur (aucune installation requise). Parcours :
 ### Deux modes de fonctionnement
 
 - **Mode démonstration** (par défaut, tant que vous n'êtes pas connecté) : les données viennent de `js/data.js` et le bouton "Valider le contrôle" simule l'enregistrement localement (rien n'est écrit dans Google Sheets).
-- **Mode connecté** (après clic sur **🔑 Se connecter avec Google**) : les 4 onglets (`Materiels`, `TypesPointControle`, `Controles`, `ResultatsPointsControle`) d'un classeur Google Sheets sont lus via l'API Google Sheets, et le bouton "Valider le contrôle" **crée réellement** une ligne dans `Controles` + une ligne par point dans `ResultatsPointsControle`, avec l'utilisateur Google connecté comme contrôleur. Voir `js/google-config.js` pour l'identifiant du classeur et le Client ID, et `docs/08-migration-google-sheets.md` pour la création du classeur et le déploiement.
+- **Mode connecté** (après clic sur **🔑 Se connecter avec Google**) : les onglets (`Materiels`, `TypesPointControle`, `Controles`, `ResultatsPointsControle`, et `Interventions` — docs/11) d'un classeur Google Sheets sont lus via l'API Google Sheets, et le bouton "Valider le contrôle" **crée réellement** une ligne dans `Controles` + une ligne par point dans `ResultatsPointsControle`, avec l'utilisateur Google connecté comme contrôleur. Voir `js/google-config.js` pour l'identifiant du classeur et le Client ID, et `docs/08-migration-google-sheets.md` pour la création du classeur et le déploiement.
 
 ## Par où commencer
 

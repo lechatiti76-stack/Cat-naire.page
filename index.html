@@ -106,6 +106,16 @@
       <span class="echeances-banniere__fleche">→</span>
     </button>
 
+    <!-- Rappel GMAO en rouge : uniquement visible s'il existe des interventions en retard (voir docs/11) -->
+    <button type="button" class="echeances-banniere echeances-banniere--danger" id="interventionsBanniere" hidden>
+      <span class="echeances-banniere__icone">🔧</span>
+      <span class="echeances-banniere__texte">
+        <strong>⚠ Interventions en retard</strong>
+        <span id="interventionsBanniereResume"></span>
+      </span>
+      <span class="echeances-banniere__fleche">→</span>
+    </button>
+
     <div class="tiles-grid" id="tilesGrid">
       <!-- vignette "Tableau général" + une vignette par catégorie, générées par js/app.js -->
     </div>
@@ -244,6 +254,140 @@
         <button class="btn btn--secondary btn--small" id="btnMoisSuivant" type="button">Mois suivant ›</button>
       </div>
       <div id="calendrierGrille"></div>
+    </div>
+  </section>
+
+  <!-- ============ VUE INTERVENTIONS : PROGRAMMATION GMAO ============ -->
+  <section id="viewInterventions" class="interventions-view" hidden>
+    <section class="toolbar" aria-label="Recherche et filtres des interventions">
+      <div class="toolbar__search">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" id="intervSearch" placeholder="Rechercher un matériel, un lieu, un intervenant…" aria-label="Recherche">
+      </div>
+      <div class="toolbar__filters">
+        <div class="field"><label for="intervFilterCategorie">Catégorie</label><select id="intervFilterCategorie"><option value="">Toutes</option></select></div>
+        <div class="field"><label for="intervFilterType">Type</label>
+          <select id="intervFilterType"><option value="">Tous</option><option value="Maintenance préventive">Maintenance préventive</option><option value="Réparation">Réparation</option><option value="Autre">Autre</option></select>
+        </div>
+        <div class="field"><label for="intervFilterStatut">Statut</label>
+          <select id="intervFilterStatut">
+            <option value="">Tous</option>
+            <option value="attente_validation">🔵 En attente de validation</option>
+            <option value="planifiee">🟢 Planifiée</option>
+            <option value="imminente">🟠 Imminente</option>
+            <option value="retard">🔴 En retard</option>
+            <option value="realisee">⚪ Réalisée</option>
+          </select>
+        </div>
+        <div class="field"><label for="intervFilterDateFrom">Intervention du</label><input type="date" id="intervFilterDateFrom"></div>
+        <div class="field"><label for="intervFilterDateTo">Au</label><input type="date" id="intervFilterDateTo"></div>
+        <button id="btnResetIntervFilters" class="btn btn--ghost btn--small" type="button">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15a8 8 0 0014 3M19 9A8 8 0 005 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          Réinitialiser
+        </button>
+      </div>
+      <div class="toolbar__actions">
+        <button id="btnExportIntervCsv" class="btn btn--ghost btn--small" type="button" hidden>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Exporter CSV
+        </button>
+        <button id="btnNouvelleIntervention" class="btn btn--primary btn--small" type="button" hidden>🆕 Nouvelle intervention</button>
+      </div>
+    </section>
+
+    <section class="legend" aria-label="Légende des statuts d'intervention">
+      <span class="legend__item"><span class="dot dot--neutral"></span> En attente de validation</span>
+      <span class="legend__item"><span class="dot dot--ok"></span> Planifiée</span>
+      <span class="legend__item"><span class="dot dot--warn"></span> Imminente</span>
+      <span class="legend__item"><span class="dot dot--danger"></span> En retard</span>
+      <span class="legend__count" id="intervResultCount"></span>
+    </section>
+
+    <div class="cards-grid" id="intervCardsGrid"></div>
+    <p class="table-empty" id="intervEmptyState" hidden>Aucune intervention ne correspond à ces critères.</p>
+  </section>
+
+  <!-- ============ VUE FORMULAIRE INTERVENTION : DEMANDE GMAO ============ -->
+  <section id="viewInterventionForm" class="controle-view" hidden>
+    <div class="controle-card">
+      <div class="controle-header">
+        <div>
+          <h2 id="intervFormTitre">Nouvelle intervention</h2>
+          <p class="controle-soustitre" id="intervFormSousTitre"></p>
+        </div>
+        <span class="badge" id="intervFormBadgeStatut"></span>
+      </div>
+
+      <div class="controle-champs">
+        <div class="field field--full">
+          <label for="intervMaterielSelect">Matériel concerné</label>
+          <select id="intervMaterielSelect"></select>
+        </div>
+        <div class="field">
+          <label for="intervTypeSelect">Type d'intervention</label>
+          <select id="intervTypeSelect">
+            <option value="Maintenance préventive">Maintenance préventive</option>
+            <option value="Réparation">Réparation</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="intervDate">Jour de l'intervention</label>
+          <input type="date" id="intervDate">
+        </div>
+        <div class="field">
+          <label for="intervDuree">Durée prévue (heures)</label>
+          <input type="number" id="intervDuree" min="0" step="0.5" placeholder="ex. 2">
+        </div>
+        <div class="field">
+          <label for="intervLieu">Lieu</label>
+          <input type="text" id="intervLieu" placeholder="ex. Voie 3 — quai Nord">
+        </div>
+        <div class="field">
+          <label for="intervIntervenantSelect">Intervenant</label>
+          <select id="intervIntervenantSelect"></select>
+        </div>
+        <div class="field field--full">
+          <label class="admin-permission" for="intervCoupureCatenaire" style="font-size:14px;">
+            <input type="checkbox" id="intervCoupureCatenaire">
+            ⚡ Coupure caténaire nécessaire
+          </label>
+        </div>
+        <div class="controle-champs" id="intervCoupureChamps" hidden style="grid-column: 1 / -1;">
+          <div class="field">
+            <label for="intervCoupureDebut">Coupure — début</label>
+            <input type="time" id="intervCoupureDebut">
+          </div>
+          <div class="field">
+            <label for="intervCoupureFin">Coupure — fin</label>
+            <input type="time" id="intervCoupureFin">
+          </div>
+        </div>
+      </div>
+
+      <div class="controle-champs controle-champs--texte">
+        <div class="field field--full">
+          <label for="intervImpact">Impact</label>
+          <textarea id="intervImpact" rows="2" placeholder="Conséquence opérationnelle immédiate (ex. signalisation indisponible)"></textarea>
+        </div>
+        <div class="field field--full">
+          <label for="intervConsequences">Conséquences</label>
+          <textarea id="intervConsequences" rows="2" placeholder="Mesures compensatoires, report d'activité…"></textarea>
+        </div>
+        <div class="field field--full">
+          <label for="intervCommentaires">Commentaires</label>
+          <textarea id="intervCommentaires" rows="2"></textarea>
+        </div>
+      </div>
+
+      <p class="controle-soustitre" id="intervDemandeInfo" style="margin-top:10px;"></p>
+
+      <div class="controle-resultat" id="intervResultat" hidden></div>
+
+      <div class="controle-actions">
+        <button class="btn btn--secondary" id="btnAnnulerIntervention" type="button">Annuler</button>
+        <button class="btn btn--primary" id="btnValiderNouvelleIntervention" type="button">📩 Enregistrer la demande</button>
+      </div>
     </div>
   </section>
 

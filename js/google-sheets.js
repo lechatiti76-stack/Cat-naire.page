@@ -13,6 +13,10 @@
  *   TypesPointControle       : Categorie | Title (libellé du point) | Ordre
  *   Controles                : ControleId | NumSerie | DateControle | DateProchainControle | Controleur | Conforme | Statut | Observations | ActionsCorrectives | Commentaires | Photos (liens Google Drive, séparés par des virgules, facultatif — docs/10 §11)
  *   ResultatsPointsControle  : Title | Controle (= ControleId) | Effectue | Observation | PointControle (libellé) | Rapport | Statut
+ *   Interventions (GMAO, optionnel, voir docs/11) : InterventionId | NumSerie | TypeIntervention |
+ *     DateDemande | DemandePar | DateIntervention | DureeHeures | Lieu | Impact | Consequences |
+ *     Intervenant | CoupureCatenaire | CoupureDebut | CoupureFin | DateValidation | ValidePar |
+ *     DateRealisation | Commentaires
  *
  * Des colonnes supplémentaires (ex. "Item Type", "Path" laissées par un export
  * SharePoint) peuvent exister sans problème : seules les colonnes ci-dessus
@@ -257,15 +261,47 @@ const GoogleSheetsAPI = (() => {
     return texte;
   }
 
-  /** Charge Materiels + TypesPointControle + Controles + ResultatsPointsControle + Utilisateurs + Ressources. */
+  /** Convertit les lignes brutes de l'onglet Interventions (GMAO, optionnel — voir docs/11) en objets exploitables par l'application. */
+  function interventionsDepuisLignes(lignes, materiels) {
+    return lignesEnObjets(lignes).map((iv) => {
+      const materiel = materiels.find((m) => normaliserNumSerie(m.numSerie) === normaliserNumSerie(iv.NumSerie)) || {};
+      return {
+        ligne: iv._ligne,
+        id: iv.InterventionId || String(iv._ligne),
+        materielId: materiel.id,
+        materiel: materiel.title || iv.NumSerie,
+        numSerie: iv.NumSerie || "",
+        categorie: materiel.categorie || "",
+        type: iv.TypeIntervention || "",
+        dateDemande: normaliserDate(iv.DateDemande),
+        demandePar: iv.DemandePar || "",
+        dateIntervention: normaliserDate(iv.DateIntervention),
+        dureeHeures: iv.DureeHeures !== "" && iv.DureeHeures !== undefined ? Number(iv.DureeHeures) : null,
+        lieu: iv.Lieu || "",
+        impact: iv.Impact || "",
+        consequences: iv.Consequences || "",
+        intervenant: iv.Intervenant || "",
+        coupureCatenaire: estVrai(iv.CoupureCatenaire),
+        coupureDebut: iv.CoupureDebut || "",
+        coupureFin: iv.CoupureFin || "",
+        dateValidation: normaliserDate(iv.DateValidation),
+        validePar: iv.ValidePar || "",
+        dateRealisation: normaliserDate(iv.DateRealisation),
+        commentaires: iv.Commentaires || "",
+      };
+    });
+  }
+
+  /** Charge Materiels + TypesPointControle + Controles + ResultatsPointsControle + Utilisateurs + Ressources + Interventions. */
   async function chargerDonnees() {
-    const [materielsRows, typesRows, controlesRows, resultatsRows, utilisateursRows, ressourcesRows] = await Promise.all([
+    const [materielsRows, typesRows, controlesRows, resultatsRows, utilisateursRows, ressourcesRows, interventionsRows] = await Promise.all([
       obtenirValeurs(GOOGLE_CONFIG.feuilles.materiels),
       obtenirValeurs(GOOGLE_CONFIG.feuilles.typesPointControle),
       obtenirValeurs(GOOGLE_CONFIG.feuilles.controles),
       obtenirValeurs(GOOGLE_CONFIG.feuilles.resultatsPointsControle),
       obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.utilisateurs),
       obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.ressources),
+      obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.interventions),
     ]);
 
     const materiels = lignesEnObjets(materielsRows)
@@ -342,7 +378,9 @@ const GoogleSheetsAPI = (() => {
       .map((r) => ({ titre: r.Titre || r.Title, lien: r.Lien || r.Link || r.URL, categorie: r.Categorie || "" }))
       .filter((r) => r.titre && r.lien);
 
-    return { materiels, typesPointControle, controles, utilisateurs, ressources };
+    const interventions = interventionsDepuisLignes(interventionsRows, materiels);
+
+    return { materiels, typesPointControle, controles, utilisateurs, ressources, interventions };
   }
 
   /** Charge le journal des actions (onglet optionnel, voir docs/10 §2), le plus récent en premier. */
@@ -480,10 +518,10 @@ const GoogleSheetsAPI = (() => {
     return ajouterLignes(feuille, [valeurs]);
   }
 
-  /** Ajoute plusieurs lignes en un seul appel réseau (plus rapide qu'un appel par ligne). */
+  /** Ajoute plusieurs lignes en un seul appel réseau (plus rapide qu'un appel par ligne). Renvoie la réponse de l'API (utile pour connaître la ligne réelle où les valeurs ont atterri, voir ajouterIntervention). */
   async function ajouterLignes(feuille, lignesDeValeurs) {
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(feuille)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-    await appelJson(url, { method: "POST", body: JSON.stringify({ values: lignesDeValeurs }) });
+    return appelJson(url, { method: "POST", body: JSON.stringify({ values: lignesDeValeurs }) });
   }
 
   function ajouterMois(dateIso, nbMois) {
@@ -585,11 +623,65 @@ const GoogleSheetsAPI = (() => {
     return { id: controleId, statut: statutGlobal, conforme: conformeGlobal, dateProchainControle: dateProchain, photos: liensPhotos };
   }
 
+  // -- Programmation GMAO : interventions/réparations (voir docs/11) --------
+  const INTERVENTIONS_ENTETES = [
+    "InterventionId", "NumSerie", "TypeIntervention", "DateDemande", "DemandePar", "DateIntervention",
+    "DureeHeures", "Lieu", "Impact", "Consequences", "Intervenant", "CoupureCatenaire", "CoupureDebut",
+    "CoupureFin", "DateValidation", "ValidePar", "DateRealisation", "Commentaires",
+  ];
+
+  function ligneIntervention(iv) {
+    return [
+      iv.id, iv.numSerie, iv.type, iv.dateDemande || "", iv.demandePar || "", iv.dateIntervention || "",
+      iv.dureeHeures ?? "", iv.lieu || "", iv.impact || "", iv.consequences || "", iv.intervenant || "",
+      iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut || "", iv.coupureFin || "",
+      iv.dateValidation || "", iv.validePar || "", iv.dateRealisation || "", iv.commentaires || "",
+    ];
+  }
+
+  /**
+   * Crée une demande d'intervention (étape 1 du circuit demande/validation —
+   * voir docs/11). Déduit le numéro de ligne réel du classeur depuis la
+   * réponse d'ajout (updatedRange) pour permettre de la valider/réaliser tout
+   * de suite après, sans attendre une actualisation complète des données.
+   */
+  async function ajouterIntervention(iv) {
+    await assurerFeuille(GOOGLE_CONFIG.feuilles.interventions, INTERVENTIONS_ENTETES);
+    const id = "INT" + Date.now();
+    const reponse = await ajouterLigne(GOOGLE_CONFIG.feuilles.interventions, ligneIntervention({ ...iv, id }));
+    const plage = (reponse && reponse.updates && reponse.updates.updatedRange) || "";
+    const correspondance = plage.match(/![A-Z]+(\d+):/);
+    const ligne = correspondance ? Number(correspondance[1]) : null;
+    return { id, ligne };
+  }
+
+  /**
+   * Réécrit l'intégralité d'une ligne Interventions, identifiée par son
+   * numéro de ligne réel dans le classeur (`ligne`, voir interventionsDepuisLignes) —
+   * utilisée pour valider une demande ou la marquer réalisée (docs/11), sur le
+   * même principe que modifierUtilisateur.
+   */
+  async function mettreAJourIntervention(ligne, iv) {
+    const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length); // "R"
+    const plage = `${GOOGLE_CONFIG.feuilles.interventions}!A${ligne}:${derniereColonne}${ligne}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
+    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [ligneIntervention(iv)] }) });
+  }
+
+  /** Annule une demande d'intervention (vide sa ligne — les lignes vides sont ignorées à la lecture, comme supprimerUtilisateur). */
+  async function supprimerIntervention(ligne) {
+    const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length); // "R"
+    const plage = `${GOOGLE_CONFIG.feuilles.interventions}!A${ligne}:${derniereColonne}${ligne}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}:clear`;
+    await appelJson(url, { method: "POST" });
+  }
+
   return {
     connecter, connecterSilencieux, estConnecte, deconnecter, utilisateurCourant, chargerDonnees,
     enregistrerControle, determinerRole, trouverUtilisateur,
     creerUtilisateur, modifierUtilisateur, supprimerUtilisateur,
     chargerJournal, enregistrerJournal,
     hacherMotDePasse, trouverUtilisateurParIdentifiant, verifierMotDePasse,
+    ajouterIntervention, mettreAJourIntervention, supprimerIntervention,
   };
 })();

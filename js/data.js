@@ -103,7 +103,81 @@ function construireJeuDeDemonstration() {
     { titre: "Fiche de sécurité VAT", lien: "#", categorie: "Sécurité" },
   ];
 
-  return { materiels, typesPointControle: typesPointControleAvecId, controles, utilisateurs, ressources };
+  // -- Programmation GMAO : interventions/réparations (voir docs/11) --------
+  // Jeu d'exemple couvrant chaque statut (en attente de validation, planifiée,
+  // imminente, en retard, réalisée) pour que la démonstration montre tout de
+  // suite le rappel rouge et les couleurs sans configuration.
+  const donneesInterventions = [
+    {
+      materielId: 9, type: "Réparation", dateDemande: "2026-07-10", demandePar: "Karim Belaid",
+      dateIntervention: "2026-07-25", dureeHeures: 3, lieu: "Voie 3 — quai Nord",
+      impact: "Signalisation LED indisponible sur ce point", consequences: "Report du contrôle visuel manuel en attendant la remise en service",
+      intervenant: "Julien Marchand", coupureCatenaire: true, coupureDebut: "09:00", coupureFin: "12:00",
+      dateValidation: "2026-07-11", validePar: "Amandine Roy", dateRealisation: "",
+      commentaires: "Diagnostic panne électronique en atelier, remplacement de la carte.",
+    }, // en retard (date dépassée, non réalisée)
+    {
+      materielId: 12, type: "Réparation", dateDemande: "2026-07-28", demandePar: "Amandine Roy",
+      dateIntervention: "2026-08-04", dureeHeures: 4, lieu: "Atelier caténaire",
+      impact: "VAT hors service, aucun contrôle possible sur cet appareil", consequences: "Utilisation d'un VAT de secours en doublon pendant l'immobilisation",
+      intervenant: "Sophie Nguyen", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "2026-07-29", validePar: "Amandine Roy", dateRealisation: "",
+      commentaires: "",
+    }, // imminente (< seuilInterventionImminenteJours)
+    {
+      materielId: 6, type: "Maintenance préventive", dateDemande: "2026-07-30", demandePar: "Sophie Nguyen",
+      dateIntervention: "2026-08-15", dureeHeures: 1.5, lieu: "Poste caténaire secteur B",
+      impact: "Aucun — contrôle courant", consequences: "",
+      intervenant: "Karim Belaid", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "", validePar: "", dateRealisation: "",
+      commentaires: "En attente d'un créneau de coupure caténaire.",
+    }, // en attente de validation
+    {
+      materielId: 3, type: "Maintenance préventive", dateDemande: "2026-06-01", demandePar: "Julien Marchand",
+      dateIntervention: "2026-08-20", dureeHeures: 2, lieu: "Zone de stockage perches",
+      impact: "Aucun", consequences: "",
+      intervenant: "Julien Marchand", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "2026-06-02", validePar: "Amandine Roy", dateRealisation: "",
+      commentaires: "",
+    }, // planifiée
+    {
+      materielId: 17, type: "Réparation", dateDemande: "2026-05-10", demandePar: "Karim Belaid",
+      dateIntervention: "2026-05-20", dureeHeures: 1, lieu: "Local matériel signalisation",
+      impact: "Drapeau rouge indisponible temporairement", consequences: "Remplacement provisoire par le drapeau de réserve",
+      intervenant: "Karim Belaid", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "2026-05-11", validePar: "Amandine Roy", dateRealisation: "2026-05-20",
+      commentaires: "Couture reprise, RAS.",
+    }, // réalisée
+  ];
+  let idIntervention = 1;
+  const interventions = donneesInterventions.map((iv) => {
+    const materiel = materiels.find((m) => m.id === iv.materielId);
+    return {
+      id: idIntervention++,
+      materielId: materiel.id,
+      materiel: materiel.title,
+      numSerie: materiel.numSerie,
+      categorie: materiel.categorie,
+      type: iv.type,
+      dateDemande: iv.dateDemande,
+      demandePar: iv.demandePar,
+      dateIntervention: iv.dateIntervention,
+      dureeHeures: iv.dureeHeures,
+      lieu: iv.lieu,
+      impact: iv.impact,
+      consequences: iv.consequences,
+      intervenant: iv.intervenant,
+      coupureCatenaire: iv.coupureCatenaire,
+      coupureDebut: iv.coupureDebut,
+      coupureFin: iv.coupureFin,
+      dateValidation: iv.dateValidation,
+      validePar: iv.validePar,
+      dateRealisation: iv.dateRealisation,
+      commentaires: iv.commentaires,
+    };
+  });
+
+  return { materiels, typesPointControle: typesPointControleAvecId, controles, utilisateurs, ressources, interventions };
 }
 
 function genererPointsDemo(categorie, conforme, libelleNonConforme, typesPointControleAvecId) {

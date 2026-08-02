@@ -27,6 +27,9 @@ const GOOGLE_CONFIG = {
     // Onglet Date | Heure | Utilisateur | Action | Adresse IP (journal des actions, optionnel,
     // créé automatiquement au premier événement si absent — voir docs/10).
     journal: "Journal",
+    // Onglet de programmation GMAO des interventions/réparations (optionnel,
+    // créé automatiquement à la première demande si absent — voir docs/11).
+    interventions: "Interventions",
   },
 
   // Nom du dossier Google Drive où sont envoyées les photos prises depuis l'écran
@@ -51,6 +54,12 @@ const GOOGLE_CONFIG = {
   // Fenêtre (en jours) avant échéance à partir de laquelle un matériel apparaît
   // dans le bandeau d'alertes défilant en bas de l'écran (docs/10 §3).
   seuilBandeauJours: 60,
+
+  // Nombre de jours avant la date d'une intervention programmée (GMAO, voir
+  // docs/11) à partir duquel elle passe en orange ("imminente") dans la
+  // vignette, la liste et le calendrier. Au-delà de la date prévue sans
+  // qu'elle soit marquée réalisée, elle passe en rouge ("en retard").
+  seuilInterventionImminenteJours: 3,
 
   // Organisation affichée dans le pied de page
   organisation: {
@@ -78,6 +87,10 @@ const PERMISSIONS_CONFIG = [
   { cle: "nouveauControle", label: "Créer un nouveau contrôle" },
   { cle: "exporterPdf",     label: "Exporter un matériel en PDF" },
   { cle: "exporterCsv",     label: "Exporter le tableau général en CSV" },
+  // Programmation GMAO des interventions/réparations (voir docs/11).
+  { cle: "interventions",        label: "Planification des interventions (consultation)" },
+  { cle: "nouvelleIntervention", label: "Créer une demande d'intervention" },
+  { cle: "validerIntervention",  label: "Valider une intervention et la marquer réalisée" },
 ];
 
 // Rôles disponibles : chacun ne fait que fixer les permissions PAR DÉFAUT
@@ -87,9 +100,11 @@ const PERMISSIONS_CONFIG = [
 // uniquement, la vraie sécurité reste le partage du classeur Google Sheets,
 // voir docs/09-roles-et-fonctionnalites.md et docs/10.
 const ROLES_CONFIG = {
+  // Administrateur : seul rôle pouvant valider une intervention (circuit de
+  // validation à deux étapes, voir docs/11).
   Administrateur: { permissions: PERMISSIONS_CONFIG.map((p) => p.cle) },
-  "Contrôleur":   { permissions: ["nouveauControle"] },
-  Utilisateur:    { permissions: ["tableauBord", "calendrier", "ressources", "galerie", "historique", "exporterPdf", "exporterCsv"] },
+  "Contrôleur":   { permissions: ["nouveauControle", "interventions", "nouvelleIntervention"] },
+  Utilisateur:    { permissions: ["tableauBord", "calendrier", "ressources", "galerie", "historique", "exporterPdf", "exporterCsv", "interventions"] },
 };
 const ROLE_PAR_DEFAUT = "Contrôleur";
 
