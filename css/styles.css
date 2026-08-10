@@ -550,7 +550,7 @@ html, body {
 }
 .calendrier-grille-jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .calendrier-jour {
-  min-height: 84px; border: 1px solid var(--border); border-radius: 6px; padding: 6px;
+  min-height: 84px; min-width: 0; border: 1px solid var(--border); border-radius: 6px; padding: 6px;
   display: flex; flex-direction: column; gap: 4px; background: var(--surface-alt);
 }
 .calendrier-jour--vide { background: transparent; border: none; }
@@ -757,7 +757,11 @@ body.a-bandeau-flash .app-footer { margin-bottom: 42px; }
   .tiles-grid, .cards-grid { grid-template-columns: 1fr; }
   .admin-form { flex-direction: column; align-items: stretch; }
   .admin-permissions { grid-template-columns: 1fr; }
-  .controle-champs { flex-direction: column; }
+  /* .controle-champs est une grille (display:grid), pas une ligne flexible : c'est
+     grid-template-columns, pas flex-direction, qui l'empile en une seule colonne
+     au doigt (l'écran Nouveau contrôle et le formulaire Nouvelle intervention,
+     docs/11, partagent cette classe). */
+  .controle-champs { grid-template-columns: 1fr; }
 
   /* Boutons et cases à cocher plus grands au doigt */
   .btn { min-height: 44px; padding: 10px 16px; }
