@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GMAO — Interventions & Réparations</title>
+<link rel="stylesheet" href="../css/styles.css">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="../assets/icon-192.png">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<meta name="theme-color" content="#0B7285">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GMAO">
+</head>
+<body>
+
+<!-- ============ EN-TÊTE ============ -->
+<header class="app-header">
+  <div class="app-header__brand">
+    <span class="icon icon--brand" style="display:flex;align-items:center;justify-content:center;font-size:22px;">🔧</span>
+    <div>
+      <h1>GMAO</h1>
+      <p class="app-header__subtitle" id="headerSubtitle">Programmation, validation et suivi des interventions/réparations</p>
+    </div>
+  </div>
+  <div class="app-header__actions">
+    <span class="role-badge" id="roleBadge" hidden></span>
+    <button id="btnGoogleConnect" class="btn btn--ghost" type="button" title="Se connecter à votre classeur Google Sheets">
+      🔑 Se connecter avec Google
+    </button>
+    <button id="btnActualiser" class="btn btn--ghost" type="button" title="Recharger les données depuis Google Sheets, sans se reconnecter">
+      🔄 Actualiser
+    </button>
+    <button id="btnTheme" class="btn btn--ghost" type="button" title="Basculer le thème clair/sombre">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 109 9 9 9 0 11-9-9z" fill="currentColor"/></svg>
+      Thème
+    </button>
+  </div>
+</header>
+
+<div class="banner banner--info" id="bannerEtat" hidden></div>
+
+<main class="app-main">
+
+  <!-- ============ STATISTIQUES (toujours visibles) ============ -->
+  <section class="stats" aria-label="Statistiques des interventions">
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--total">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 9h16" stroke="currentColor" stroke-width="2"/></svg>
+      </span>
+      <div><p class="stat-card__value" id="statTotal">0</p><p class="stat-card__label">Interventions programmées</p></div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--ok">
+        <svg viewBox="0 0 24 24"><path d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5z" fill="currentColor"/></svg>
+      </span>
+      <div><p class="stat-card__value" id="statPlanifiees">0</p><p class="stat-card__label">Planifiées</p></div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--warn">
+        <svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 6v6m0 3.2h.01" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div><p class="stat-card__value" id="statImminentes">0</p><p class="stat-card__label">Imminentes</p></div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--danger">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8l8 8m0-8l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <div><p class="stat-card__value" id="statEnRetard">0</p><p class="stat-card__label">En retard</p></div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__icon stat-card__icon--neutral">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 5l14 14" stroke="currentColor" stroke-width="2"/></svg>
+      </span>
+      <div><p class="stat-card__value" id="statAttente">0</p><p class="stat-card__label">En attente de validation</p></div>
+    </div>
+  </section>
+
+  <!-- ============ FIL D'ARIANE ============ -->
+  <nav class="breadcrumb" id="breadcrumb" aria-label="Fil d'Ariane">
+    <button class="breadcrumb__link" id="crumbAccueil" type="button">🏠 Interventions</button>
+    <span class="breadcrumb__sep" id="crumbSep" hidden>›</span>
+    <span class="breadcrumb__current" id="crumbCourant"></span>
+  </nav>
+
+  <!-- Rappel rouge : n'apparaît que s'il existe des interventions en retard (voir docs/11) -->
+  <button type="button" class="echeances-banniere echeances-banniere--danger" id="interventionsBanniere" hidden>
+    <span class="echeances-banniere__icone">🔧</span>
+    <span class="echeances-banniere__texte">
+      <strong>⚠ Interventions en retard</strong>
+      <span id="interventionsBanniereResume"></span>
+    </span>
+    <span class="echeances-banniere__fleche">→</span>
+  </button>
+
+  <!-- ============ VUE INTERVENTIONS (accueil de l'appli) ============ -->
+  <section id="viewInterventions" class="interventions-view">
+    <section class="toolbar" aria-label="Recherche et filtres des interventions">
+      <div class="toolbar__search">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <input type="search" id="intervSearch" placeholder="Rechercher un matériel, un poste technique, un lieu, un intervenant…" aria-label="Recherche">
+      </div>
+      <div class="toolbar__filters">
+        <div class="field"><label for="intervFilterCategorie">Catégorie</label><select id="intervFilterCategorie"><option value="">Toutes</option></select></div>
+        <div class="field"><label for="intervFilterType">Type</label>
+          <select id="intervFilterType"><option value="">Tous</option></select>
+        </div>
+        <div class="field"><label for="intervFilterStatut">Statut</label>
+          <select id="intervFilterStatut">
+            <option value="">Tous</option>
+            <option value="attente_validation">🔵 En attente de validation</option>
+            <option value="planifiee">🟢 Planifiée</option>
+            <option value="imminente">🟠 Imminente</option>
+            <option value="retard">🔴 En retard</option>
+            <option value="realisee">⚪ Réalisée</option>
+          </select>
+        </div>
+        <div class="field"><label for="intervFilterDateFrom">Intervention du</label><input type="date" id="intervFilterDateFrom"></div>
+        <div class="field"><label for="intervFilterDateTo">Au</label><input type="date" id="intervFilterDateTo"></div>
+        <button id="btnResetIntervFilters" class="btn btn--ghost btn--small" type="button">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 4v6h6M20 20v-6h-6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 15a8 8 0 0014 3M19 9A8 8 0 005 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          Réinitialiser
+        </button>
+      </div>
+      <div class="toolbar__actions">
+        <button id="btnExportIntervCsv" class="btn btn--ghost btn--small" type="button" hidden>
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Exporter CSV
+        </button>
+        <button id="btnVoirCalendrier" class="btn btn--secondary btn--small" type="button">📅 Calendrier</button>
+        <button id="btnNouvelleIntervention" class="btn btn--primary btn--small" type="button" hidden>🆕 Nouvelle intervention</button>
+      </div>
+    </section>
+
+    <section class="legend" aria-label="Légende des statuts d'intervention">
+      <span class="legend__item"><span class="dot dot--neutral"></span> En attente de validation</span>
+      <span class="legend__item"><span class="dot dot--ok"></span> Planifiée</span>
+      <span class="legend__item"><span class="dot dot--warn"></span> Imminente</span>
+      <span class="legend__item"><span class="dot dot--danger"></span> En retard</span>
+      <span class="legend__count" id="intervResultCount"></span>
+    </section>
+
+    <div class="cards-grid" id="intervCardsGrid"></div>
+    <p class="table-empty" id="intervEmptyState" hidden>Aucune intervention ne correspond à ces critères.</p>
+  </section>
+
+  <!-- ============ VUE CALENDRIER ============ -->
+  <section id="viewCalendrier" class="calendrier-view" hidden>
+    <div class="calendrier-carte">
+      <div class="calendrier-nav">
+        <button class="btn btn--secondary btn--small" id="btnMoisPrecedent" type="button">‹ Mois précédent</button>
+        <h2 id="calendrierTitre"></h2>
+        <button class="btn btn--secondary btn--small" id="btnMoisSuivant" type="button">Mois suivant ›</button>
+      </div>
+      <div id="calendrierGrille"></div>
+    </div>
+  </section>
+
+  <!-- ============ VUE FORMULAIRE : DEMANDE D'INTERVENTION ============ -->
+  <section id="viewInterventionForm" class="controle-view" hidden>
+    <div class="controle-card">
+      <div class="controle-header">
+        <div>
+          <h2 id="intervFormTitre">Nouvelle intervention</h2>
+          <p class="controle-soustitre" id="intervFormSousTitre"></p>
+        </div>
+        <span class="badge" id="intervFormBadgeStatut"></span>
+      </div>
+
+      <div class="controle-champs">
+        <div class="field field--full">
+          <label for="intervMaterielSelect">Matériel concerné</label>
+          <select id="intervMaterielSelect"></select>
+        </div>
+        <div class="field field--full">
+          <label for="intervPosteTechnique">Poste technique / équipement (si hors liste)</label>
+          <input type="text" id="intervPosteTechnique" placeholder="ex. 3HMCM-EFE-VDF-VF5, ou nom de l'équipement">
+        </div>
+        <div class="field">
+          <label for="intervTypeSelect">Type d'intervention</label>
+          <select id="intervTypeSelect">
+            <option value="Maintenance préventive">Maintenance préventive</option>
+            <option value="Réparation">Réparation</option>
+            <option value="Autre">Autre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="intervPriorite">Priorité (optionnel)</label>
+          <input type="text" id="intervPriorite" placeholder="ex. C, N…">
+        </div>
+        <div class="field">
+          <label for="intervDate">Jour de l'intervention</label>
+          <input type="date" id="intervDate">
+        </div>
+        <div class="field">
+          <label for="intervDateFin">Fin planifiée (optionnel, si fenêtre)</label>
+          <input type="date" id="intervDateFin">
+        </div>
+        <div class="field">
+          <label for="intervDuree">Durée prévue (heures)</label>
+          <input type="number" id="intervDuree" min="0" step="0.5" placeholder="ex. 2">
+        </div>
+        <div class="field">
+          <label for="intervLieu">Lieu</label>
+          <input type="text" id="intervLieu" placeholder="ex. Voie 3 — quai Nord">
+        </div>
+        <div class="field">
+          <label for="intervIntervenantSelect">Intervenant</label>
+          <select id="intervIntervenantSelect"></select>
+        </div>
+        <div class="field field--full">
+          <label class="admin-permission" for="intervCoupureCatenaire" style="font-size:14px;">
+            <input type="checkbox" id="intervCoupureCatenaire">
+            ⚡ Coupure caténaire nécessaire
+          </label>
+        </div>
+        <div class="controle-champs" id="intervCoupureChamps" hidden style="grid-column: 1 / -1;">
+          <div class="field">
+            <label for="intervCoupureDebut">Coupure — début</label>
+            <input type="time" id="intervCoupureDebut">
+          </div>
+          <div class="field">
+            <label for="intervCoupureFin">Coupure — fin</label>
+            <input type="time" id="intervCoupureFin">
+          </div>
+        </div>
+      </div>
+
+      <div class="controle-champs controle-champs--texte">
+        <div class="field field--full">
+          <label for="intervImpact">Impact</label>
+          <textarea id="intervImpact" rows="2" placeholder="Conséquence opérationnelle immédiate (ex. signalisation indisponible)"></textarea>
+        </div>
+        <div class="field field--full">
+          <label for="intervConsequences">Conséquences</label>
+          <textarea id="intervConsequences" rows="2" placeholder="Mesures compensatoires, report d'activité…"></textarea>
+        </div>
+        <div class="field field--full">
+          <label for="intervCommentaires">Commentaires</label>
+          <textarea id="intervCommentaires" rows="2"></textarea>
+        </div>
+      </div>
+
+      <p class="controle-soustitre" id="intervDemandeInfo" style="margin-top:10px;"></p>
+
+      <div class="controle-resultat" id="intervResultat" hidden></div>
+
+      <div class="controle-actions">
+        <button class="btn btn--secondary" id="btnAnnulerIntervention" type="button">Annuler</button>
+        <button class="btn btn--primary" id="btnValiderNouvelleIntervention" type="button">📩 Enregistrer la demande</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ BANDEAU FLASH INFO (rappels, façon bandeau d'actualités) ============ -->
+<div id="bandeauFlash" class="bandeau-flash" hidden aria-label="Alertes d'échéances">
+  <span class="bandeau-flash__label">⚠ ALERTES</span>
+  <div class="bandeau-flash__fenetre">
+    <div class="bandeau-flash__piste" id="bandeauFlashPiste"></div>
+  </div>
+</div>
+
+<!-- ============ FICHE INTERVENTION (détail) ============ -->
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal__close" id="modalClose" aria-label="Fermer">✕</button>
+    <h2 id="modalTitle">Détail de l'intervention</h2>
+    <div class="modal__body" id="modalBody"></div>
+  </div>
+</div>
+
+<footer class="app-footer">
+  <div class="app-footer__org">
+    <strong>Terminal Multimodal du Havre</strong> — Service Circulation Ferroviaire<br>
+    Agent caténaire · Habilitation Agent E CH1CB1
+  </div>
+  <p>GMAO — Interventions &amp; Réparations — appli détachée du Registre des Vérifications de Matériel, connectée au même classeur Google Sheets après clic sur « Se connecter avec Google ». Voir <code>../docs/11-programmation-interventions-gmao.md</code>.</p>
+  <p><a href="../index.html">← Ouvrir le Registre des Vérifications de Matériel</a></p>
+</footer>
+
+<script src="../js/google-config.js"></script>
+<script src="js/data.js"></script>
+<script src="../js/google-sheets.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

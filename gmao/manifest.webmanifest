@@ -1,0 +1,15 @@
+{
+  "name": "GMAO — Interventions & Réparations",
+  "short_name": "GMAO",
+  "description": "Programmation, validation et suivi des interventions/réparations — Terminal Multimodal du Havre.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B7285",
+  "theme_color": "#0B7285",
+  "lang": "fr",
+  "icons": [
+    { "src": "../assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

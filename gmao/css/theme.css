@@ -1,0 +1,13 @@
+/**
+ * theme.css — Rhabille l'accent principal du système de design partagé
+ * (../css/styles.css) pour que l'appli GMAO ait une identité visuelle
+ * distincte de celle du Registre des Vérifications de Matériel (bleu),
+ * tout en réutilisant exactement les mêmes composants (cartes, badges,
+ * boutons, bandeaux…). Chargé APRÈS styles.css : ne redéfinit que les
+ * variables de couleur, rien d'autre.
+ */
+:root {
+  --color-primary: #0B7285;
+  --color-primary-dark: #085A69;
+}
+.stat-card__icon--total, .stat-card__icon--rate { background: #E1F3F6; }

@@ -639,6 +639,8 @@ tr[data-index-permissions] td { padding-top: 0; padding-bottom: 14px; border-bot
   margin-bottom: 10px;
   line-height: 1.6;
 }
+.app-footer a { color: var(--color-primary); text-decoration: none; font-weight: 600; }
+.app-footer a:hover { text-decoration: underline; }
 .app-footer code {
   background: var(--surface-alt);
   padding: 1px 6px;

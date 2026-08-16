@@ -2,12 +2,22 @@
 
 Solution complète de gestion des vérifications de matériel de sécurité caténaire ferroviaire (perches isolantes, LED de signalisation, VAT, drapeaux, signaux d'arrêt à main). L'interface web se connecte en écriture réelle à un classeur **Google Sheets** (voir docs/08) ; la conception complète SharePoint / Power Apps / Power Automate (docs/01 à 07) reste disponible comme référence si ce chantier est repris un jour sous Power Apps.
 
+Le dépôt contient **deux applications web séparées et installables (PWA)**, connectées au même classeur Google Sheets :
+
+| Application | Dossier | Rôle |
+|---|---|---|
+| Registre des Vérifications de Matériel | [`index.html`](index.html) (racine) | Contrôles périodiques de conformité du matériel de sécurité |
+| **GMAO — Interventions & Réparations** | [`gmao/index.html`](gmao/index.html) | Programmation, validation et suivi des interventions/réparations (voir docs/11) — appli détachée, sa propre icône/nom d'installation |
+
+Chaque appli renvoie vers l'autre depuis son pied de page.
+
 ## Contenu du dépôt
 
 | Élément | Emplacement |
 |---|---|
 | Interface web (accueil à vignettes, catégories, tableau général, saisie de contrôle) | [`index.html`](index.html), [`css/styles.css`](css/styles.css), [`js/app.js`](js/app.js) |
 | Jeu de données de démonstration (mode avant connexion) | [`js/data.js`](js/data.js) |
+| **Appli GMAO détachée** (interventions/réparations, PWA autonome) | [`gmao/index.html`](gmao/index.html), [`gmao/js/app.js`](gmao/js/app.js), [`gmao/js/data.js`](gmao/js/data.js), [`gmao/css/theme.css`](gmao/css/theme.css) |
 | Connexion Google Sheets réelle (lecture des 4 onglets + écriture d'un contrôle) | [`js/google-sheets.js`](js/google-sheets.js), [`js/google-config.js`](js/google-config.js) |
 | Guide Google Sheets : création du classeur, OAuth, déploiement | [`docs/08-migration-google-sheets.md`](docs/08-migration-google-sheets.md) |
 | *(Référence)* Connexion SharePoint réelle (non utilisée par défaut) | [`js/sharepoint.js`](js/sharepoint.js), [`js/sharepoint-config.js`](js/sharepoint-config.js) |

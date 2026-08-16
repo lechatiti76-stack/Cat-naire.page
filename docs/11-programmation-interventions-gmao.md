@@ -1,11 +1,18 @@
 # 11. Programmation GMAO des interventions/réparations
 
-Ce document décrit le module **Interventions**, ajouté au registre pour programmer et
-suivre les interventions de maintenance/réparation (distinct des contrôles périodiques
-de conformité déjà couverts par docs/01 à 10). Il répond au besoin d'une petite GMAO
+Ce document décrit le module **Interventions**, qui répond au besoin d'une petite GMAO
 (Gestion de Maintenance Assistée par Ordinateur) : demande, validation, planification,
 rappel automatique en cas de retard, mise à jour de la base une fois l'intervention
-saisie.
+saisie — distinct des contrôles périodiques de conformité déjà couverts par docs/01 à 10.
+
+**Appli dédiée** : `gmao/index.html` — une PWA autonome et installable séparément
+(icône, nom "GMAO", accent de couleur propres — voir `gmao/css/theme.css`), détachée du
+Registre des Vérifications de Matériel mais connectée au **même classeur Google Sheets**
+(mêmes onglets `Materiels`/`Utilisateurs`/`Interventions`, mêmes rôles). Son code
+(`gmao/js/app.js`, `gmao/js/data.js`) est un sous-ensemble volontairement allégé de
+`js/app.js` : uniquement ce qui concerne les interventions (pas de contrôles, pas
+d'écran Administration — la gestion des utilisateurs/rôles reste dans le Registre).
+Chaque appli renvoie vers l'autre depuis son pied de page.
 
 ## 11.1 Onglet Google Sheets `Interventions`
 
