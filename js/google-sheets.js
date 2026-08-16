@@ -13,10 +13,14 @@
  *   TypesPointControle       : Categorie | Title (libellé du point) | Ordre
  *   Controles                : ControleId | NumSerie | DateControle | DateProchainControle | Controleur | Conforme | Statut | Observations | ActionsCorrectives | Commentaires | Photos (liens Google Drive, séparés par des virgules, facultatif — docs/10 §11)
  *   ResultatsPointsControle  : Title | Controle (= ControleId) | Effectue | Observation | PointControle (libellé) | Rapport | Statut
- *   Interventions (GMAO, optionnel, voir docs/11) : InterventionId | NumSerie | TypeIntervention |
- *     DateDemande | DemandePar | DateIntervention | DureeHeures | Lieu | Impact | Consequences |
- *     Intervenant | CoupureCatenaire | CoupureDebut | CoupureFin | DateValidation | ValidePar |
- *     DateRealisation | Commentaires
+ *   Interventions (GMAO, optionnel, voir docs/11) : InterventionId | NumSerie | Materiel |
+ *     PosteTechnique | TypeIntervention | Priorite | DateDemande | DemandePar | DateIntervention |
+ *     DateFinPlanifiee | DureeHeures | Lieu | Impact | Consequences | Intervenant |
+ *     CoupureCatenaire | CoupureDebut | CoupureFin | DateValidation | ValidePar | DateRealisation |
+ *     Commentaires
+ *     (Materiel/PosteTechnique/Priorite/DateFinPlanifiee : import d'un plan de maintenance externe
+ *     type SAP — équipement hors du référentiel Materiels, fenêtre planifiée plutôt qu'un jour
+ *     unique. NumSerie reste vide dans ce cas ; Materiel sert alors de titre d'affichage.)
  *
  * Des colonnes supplémentaires (ex. "Item Type", "Path" laissées par un export
  * SharePoint) peuvent exister sans problème : seules les colonnes ci-dessus
@@ -269,13 +273,17 @@ const GoogleSheetsAPI = (() => {
         ligne: iv._ligne,
         id: iv.InterventionId || String(iv._ligne),
         materielId: materiel.id,
-        materiel: materiel.title || iv.NumSerie,
+        // Priorité d'affichage : titre saisi/importé tel quel > nom du matériel lié > N° série brut > repère technique (voir docs/11).
+        materiel: iv.Materiel || materiel.title || iv.NumSerie || iv.PosteTechnique || "",
         numSerie: iv.NumSerie || "",
+        posteTechnique: iv.PosteTechnique || "",
         categorie: materiel.categorie || "",
         type: iv.TypeIntervention || "",
+        priorite: iv.Priorite || "",
         dateDemande: normaliserDate(iv.DateDemande),
         demandePar: iv.DemandePar || "",
         dateIntervention: normaliserDate(iv.DateIntervention),
+        dateFinPlanifiee: normaliserDate(iv.DateFinPlanifiee),
         dureeHeures: iv.DureeHeures !== "" && iv.DureeHeures !== undefined ? Number(iv.DureeHeures) : null,
         lieu: iv.Lieu || "",
         impact: iv.Impact || "",
@@ -625,14 +633,16 @@ const GoogleSheetsAPI = (() => {
 
   // -- Programmation GMAO : interventions/réparations (voir docs/11) --------
   const INTERVENTIONS_ENTETES = [
-    "InterventionId", "NumSerie", "TypeIntervention", "DateDemande", "DemandePar", "DateIntervention",
-    "DureeHeures", "Lieu", "Impact", "Consequences", "Intervenant", "CoupureCatenaire", "CoupureDebut",
-    "CoupureFin", "DateValidation", "ValidePar", "DateRealisation", "Commentaires",
+    "InterventionId", "NumSerie", "Materiel", "PosteTechnique", "TypeIntervention", "Priorite",
+    "DateDemande", "DemandePar", "DateIntervention", "DateFinPlanifiee", "DureeHeures", "Lieu",
+    "Impact", "Consequences", "Intervenant", "CoupureCatenaire", "CoupureDebut", "CoupureFin",
+    "DateValidation", "ValidePar", "DateRealisation", "Commentaires",
   ];
 
   function ligneIntervention(iv) {
     return [
-      iv.id, iv.numSerie, iv.type, iv.dateDemande || "", iv.demandePar || "", iv.dateIntervention || "",
+      iv.id, iv.numSerie || "", iv.materiel || "", iv.posteTechnique || "", iv.type || "", iv.priorite || "",
+      iv.dateDemande || "", iv.demandePar || "", iv.dateIntervention || "", iv.dateFinPlanifiee || "",
       iv.dureeHeures ?? "", iv.lieu || "", iv.impact || "", iv.consequences || "", iv.intervenant || "",
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut || "", iv.coupureFin || "",
       iv.dateValidation || "", iv.validePar || "", iv.dateRealisation || "", iv.commentaires || "",

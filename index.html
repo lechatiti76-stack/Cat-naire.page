@@ -262,12 +262,12 @@
     <section class="toolbar" aria-label="Recherche et filtres des interventions">
       <div class="toolbar__search">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <input type="search" id="intervSearch" placeholder="Rechercher un matériel, un lieu, un intervenant…" aria-label="Recherche">
+        <input type="search" id="intervSearch" placeholder="Rechercher un matériel, un poste technique, un lieu, un intervenant…" aria-label="Recherche">
       </div>
       <div class="toolbar__filters">
         <div class="field"><label for="intervFilterCategorie">Catégorie</label><select id="intervFilterCategorie"><option value="">Toutes</option></select></div>
         <div class="field"><label for="intervFilterType">Type</label>
-          <select id="intervFilterType"><option value="">Tous</option><option value="Maintenance préventive">Maintenance préventive</option><option value="Réparation">Réparation</option><option value="Autre">Autre</option></select>
+          <select id="intervFilterType"><option value="">Tous</option></select>
         </div>
         <div class="field"><label for="intervFilterStatut">Statut</label>
           <select id="intervFilterStatut">
@@ -323,6 +323,10 @@
           <label for="intervMaterielSelect">Matériel concerné</label>
           <select id="intervMaterielSelect"></select>
         </div>
+        <div class="field field--full">
+          <label for="intervPosteTechnique">Poste technique / équipement (si hors liste)</label>
+          <input type="text" id="intervPosteTechnique" placeholder="ex. 3HMCM-EFE-VDF-VF5, ou nom de l'équipement">
+        </div>
         <div class="field">
           <label for="intervTypeSelect">Type d'intervention</label>
           <select id="intervTypeSelect">
@@ -332,8 +336,16 @@
           </select>
         </div>
         <div class="field">
+          <label for="intervPriorite">Priorité (optionnel)</label>
+          <input type="text" id="intervPriorite" placeholder="ex. C, N…">
+        </div>
+        <div class="field">
           <label for="intervDate">Jour de l'intervention</label>
           <input type="date" id="intervDate">
+        </div>
+        <div class="field">
+          <label for="intervDateFin">Fin planifiée (optionnel, si fenêtre)</label>
+          <input type="date" id="intervDateFin">
         </div>
         <div class="field">
           <label for="intervDuree">Durée prévue (heures)</label>

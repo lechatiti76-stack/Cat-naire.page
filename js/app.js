@@ -283,8 +283,11 @@
       intervFormSousTitre: document.getElementById("intervFormSousTitre"),
       intervFormBadgeStatut: document.getElementById("intervFormBadgeStatut"),
       intervMaterielSelect: document.getElementById("intervMaterielSelect"),
+      intervPosteTechnique: document.getElementById("intervPosteTechnique"),
       intervTypeSelect: document.getElementById("intervTypeSelect"),
+      intervPriorite: document.getElementById("intervPriorite"),
       intervDate: document.getElementById("intervDate"),
+      intervDateFin: document.getElementById("intervDateFin"),
       intervDuree: document.getElementById("intervDuree"),
       intervLieu: document.getElementById("intervLieu"),
       intervIntervenantSelect: document.getElementById("intervIntervenantSelect"),
@@ -723,10 +726,21 @@
   }
 
   // -- Programmation GMAO des interventions/réparations (voir docs/11) -------
-  /** Jours restants avant la date d'intervention prévue (négatif = en retard), ou null si aucune date. */
+  /**
+   * Date d'échéance d'une intervention : la fin de fenêtre planifiée si elle est
+   * renseignée (import d'un plan de maintenance externe type SAP, dont les
+   * ordres courent sur plusieurs semaines — voir docs/11), sinon le jour
+   * d'intervention saisi manuellement.
+   */
+  function dateEcheanceIntervention(iv) {
+    return iv.dateFinPlanifiee || iv.dateIntervention;
+  }
+
+  /** Jours restants avant l'échéance de l'intervention (négatif = en retard), ou null si aucune date. */
   function joursRestantsIntervention(iv) {
-    if (!iv.dateIntervention) return null;
-    return Math.ceil((new Date(iv.dateIntervention) - new Date()) / 86400000);
+    const echeance = dateEcheanceIntervention(iv);
+    if (!echeance) return null;
+    return Math.ceil((new Date(echeance) - new Date()) / 86400000);
   }
 
   /**
@@ -787,12 +801,16 @@
     // les échéances de contrôle — seule la consultation détaillée (clic) est
     // soumise à la permission "interventions", pas l'affichage du rappel lui-même
     // (information de sécurité, ex. coupure caténaire à venir).
-    const itemsInterventions = state.interventions.filter((iv) => !iv.dateRealisation).map((iv) => {
+    const itemsInterventions = state.interventions.map((iv) => {
+      // Réutilise statutIntervention() plutôt que de recalculer une échéance ici :
+      // une demande pas encore validée ne doit jamais apparaître "en retard" dans le
+      // bandeau alors que sa pastille/son badge affichent "En attente de validation"
+      // partout ailleurs (voir docs/11 §11.2 — le retard ne s'applique qu'après
+      // validation).
+      const cle = statutIntervention(iv);
+      if (cle !== "retard" && cle !== "imminente") return null;
       const j = joursRestantsIntervention(iv);
-      if (j === null) return null;
-      const enRetard = j < 0;
-      const imminente = !enRetard && j <= GOOGLE_CONFIG.seuilInterventionImminenteJours;
-      if (!enRetard && !imminente) return null;
+      const enRetard = cle === "retard";
       const nomAffiche = `${iv.materiel || iv.numSerie} — ${iv.type || "Intervention"}`;
       const texte = enRetard
         ? `🔧 ${nomAffiche} — en retard de ${Math.abs(j)} jour${Math.abs(j) > 1 ? "s" : ""}`
@@ -1609,6 +1627,11 @@
     if (!els.intervFilterCategorie) return;
     const categories = [...new Set(state.materiels.map((m) => m.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
     populateSelect(els.intervFilterCategorie, categories);
+    // Peuplé depuis les données réelles (pas une liste figée) : un import de plan de
+    // maintenance externe (voir docs/11) apporte des types bien plus variés que les
+    // 3 valeurs du formulaire de demande manuelle ("Maintenance signal", etc.).
+    const types = [...new Set(state.interventions.map((iv) => iv.type).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+    populateSelect(els.intervFilterType, types);
   }
 
   const INTERVENTION_ORDRE_PRIORITE = { retard: 0, imminente: 1, attente_validation: 2, planifiee: 3, realisee: 4 };
@@ -1623,7 +1646,7 @@
 
     let rows = state.interventions.filter((iv) => {
       if (term) {
-        const haystack = [iv.materiel, iv.numSerie, iv.lieu, iv.intervenant, iv.impact].join(" ").toLowerCase();
+        const haystack = [iv.materiel, iv.numSerie, iv.posteTechnique, iv.lieu, iv.intervenant, iv.impact].join(" ").toLowerCase();
         if (!haystack.includes(term)) return false;
       }
       if (categorie && iv.categorie !== categorie) return false;
@@ -1655,17 +1678,21 @@
       const cle = statutIntervention(iv);
       const info = INTERVENTION_STATUT_LABELS[cle];
       const j = joursRestantsIntervention(iv);
+      const periode = iv.dateFinPlanifiee && iv.dateFinPlanifiee !== iv.dateIntervention
+        ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
+        : formatDate(iv.dateIntervention);
+      const lieuAffiche = [iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ");
       const carte = document.createElement("div");
       carte.className = "materiel-card";
       carte.innerHTML = `
         <div class="materiel-card__entete">
           <div>
             <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${formatDate(iv.dateIntervention)}${iv.coupureCatenaire ? " · ⚡ Coupure caténaire" : ""}</p>
+            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Coupure caténaire" : ""}</p>
           </div>
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
-        <p class="materiel-card__info">📍 ${escapeHtml(iv.lieu) || "—"} · 👤 ${escapeHtml(iv.intervenant) || "—"}${cle === "retard" && j !== null ? ` · en retard de ${Math.abs(j)} j` : ""}</p>
+        <p class="materiel-card__info">📍 ${escapeHtml(lieuAffiche) || "—"} · 👤 ${escapeHtml(iv.intervenant) || "—"}${cle === "retard" && j !== null ? ` · en retard de ${Math.abs(j)} j` : ""}</p>
         <div class="materiel-card__actions">
           <button class="btn btn--secondary btn--small btn--interv-detail" type="button">Détails</button>
         </div>
@@ -1677,10 +1704,10 @@
 
   function exporterCsvInterventions() {
     const rows = getFilteredInterventions();
-    const headers = ["Matériel", "N° série", "Type", "Statut", "Date intervention", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Coupure caténaire", "Début coupure", "Fin coupure", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
+    const headers = ["Matériel", "N° série", "Poste technique", "Type", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Coupure caténaire", "Début coupure", "Fin coupure", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
     const lines = rows.map((iv) => [
-      iv.materiel, iv.numSerie, iv.type, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateIntervention, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
+      iv.materiel, iv.numSerie, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
+      iv.dateIntervention, iv.dateFinPlanifiee, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
       iv.dateDemande, iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation, iv.commentaires,
     ].map(csvEscape).join(";"));
@@ -1709,9 +1736,11 @@
       <span class="badge ${info.badge}">${info.label}</span>
       <dl class="modal__grid" style="margin-top:16px;">
         <div class="modal__field"><dt>Type</dt><dd>${escapeHtml(iv.type) || "—"}</dd></div>
-        <div class="modal__field"><dt>Jour de l'intervention</dt><dd>${formatDate(iv.dateIntervention)}</dd></div>
+        ${iv.priorite ? `<div class="modal__field"><dt>Priorité</dt><dd>${escapeHtml(iv.priorite)}</dd></div>` : ""}
+        <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}</dd></div>
         <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
         <div class="modal__field"><dt>Lieu</dt><dd>${escapeHtml(iv.lieu) || "—"}</dd></div>
+        ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
         <div class="modal__field"><dt>Intervenant</dt><dd>${escapeHtml(iv.intervenant) || "—"}</dd></div>
         <div class="modal__field"><dt>Coupure caténaire</dt><dd>${iv.coupureCatenaire ? `⚡ Oui (${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"})` : "Non"}</dd></div>
         <div class="modal__field"><dt>Demande</dt><dd>${formatDate(iv.dateDemande)}${iv.demandePar ? " · " + escapeHtml(iv.demandePar) : ""}</dd></div>
@@ -1806,18 +1835,17 @@
       afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de créer une demande d'intervention.", "warn");
       return;
     }
-    if (state.materiels.length === 0) {
-      afficherBanniere("⚠️ Aucun matériel disponible.", "warn");
-      return;
-    }
     els.intervFormTitre.textContent = "Nouvelle intervention";
     els.intervFormSousTitre.textContent = "Demande de programmation GMAO";
     els.intervFormBadgeStatut.textContent = "";
     els.intervFormBadgeStatut.className = "badge";
     renderSelecteurMaterielIntervention(materielIdPreselectionne);
     renderSelecteurIntervenant();
+    els.intervPosteTechnique.value = "";
     els.intervTypeSelect.value = "Maintenance préventive";
+    els.intervPriorite.value = "";
     els.intervDate.value = "";
+    els.intervDateFin.value = "";
     els.intervDuree.value = "";
     els.intervLieu.value = "";
     els.intervImpact.value = "";
@@ -1835,8 +1863,12 @@
     afficherVue("interventionForm");
   }
 
+  const VALEUR_MATERIEL_HORS_LISTE = "";
+
+  /** Sélecteur de matériel : première option "hors liste" pour un équipement absent du référentiel Materiels (poste technique libre, voir docs/11). */
   function renderSelecteurMaterielIntervention(materielIdPreselectionne) {
-    els.intervMaterielSelect.innerHTML = state.materiels
+    const optionHorsListe = `<option value="${VALEUR_MATERIEL_HORS_LISTE}">— Hors liste (poste technique ci-dessous) —</option>`;
+    els.intervMaterielSelect.innerHTML = optionHorsListe + state.materiels
       .map((m) => `<option value="${m.id}">${escapeHtml(m.title)} (${escapeHtml(m.numSerie)})</option>`)
       .join("");
     if (materielIdPreselectionne) els.intervMaterielSelect.value = materielIdPreselectionne;
@@ -1855,11 +1887,20 @@
   }
 
   async function validerNouvelleIntervention() {
-    const materielId = Number(els.intervMaterielSelect.value);
-    const materiel = state.materiels.find((m) => m.id === materielId);
-    if (!materiel) { alert("Veuillez sélectionner un matériel."); return; }
+    const materielId = els.intervMaterielSelect.value ? Number(els.intervMaterielSelect.value) : null;
+    const materiel = materielId ? state.materiels.find((m) => m.id === materielId) : null;
+    const posteTechnique = els.intervPosteTechnique.value.trim();
+    if (!materiel && !posteTechnique) {
+      alert("Veuillez sélectionner un matériel dans la liste, ou renseigner un poste technique / nom d'équipement.");
+      return;
+    }
     const dateIntervention = els.intervDate.value;
     if (!dateIntervention) { alert("Veuillez renseigner le jour de l'intervention."); return; }
+    const dateFinPlanifiee = els.intervDateFin.value;
+    if (dateFinPlanifiee && dateFinPlanifiee < dateIntervention) {
+      alert("La fin planifiée ne peut pas être avant le jour de l'intervention.");
+      return;
+    }
     const coupureCatenaire = els.intervCoupureCatenaire.checked;
     if (coupureCatenaire && (!els.intervCoupureDebut.value || !els.intervCoupureFin.value)) {
       alert("Veuillez renseigner l'heure de début et de fin de la coupure caténaire.");
@@ -1869,10 +1910,16 @@
     const nom = (state.utilisateur && state.utilisateur.nom) || "";
     const dateDemande = new Date().toISOString().slice(0, 10);
     const nouvelleIntervention = {
-      materielId: materiel.id, materiel: materiel.title, numSerie: materiel.numSerie, categorie: materiel.categorie,
+      materielId: materiel ? materiel.id : null,
+      materiel: materiel ? materiel.title : posteTechnique,
+      numSerie: materiel ? materiel.numSerie : "",
+      categorie: materiel ? materiel.categorie : "",
+      posteTechnique,
       type: els.intervTypeSelect.value,
+      priorite: els.intervPriorite.value.trim(),
       dateDemande, demandePar: nom,
       dateIntervention,
+      dateFinPlanifiee,
       dureeHeures: els.intervDuree.value ? Number(els.intervDuree.value) : null,
       lieu: els.intervLieu.value.trim(),
       impact: els.intervImpact.value.trim(),
@@ -1902,8 +1949,9 @@
       els.intervResultat.className = "controle-resultat";
       els.intervResultat.innerHTML = `<span class="badge badge--neutral">En attente de validation</span> Demande enregistrée${state.modeDemo ? " (simulation locale)" : " dans Google Sheets"}.`;
       els.btnValiderNouvelleIntervention.textContent = "✅ Demande enregistrée";
-      journaliser(`Demande d'intervention créée — ${materiel.title} (${materiel.numSerie}) — ${dateIntervention}`);
+      journaliser(`Demande d'intervention créée — ${nouvelleIntervention.materiel} — ${dateIntervention}`);
       renderTuiles();
+      peuplerFiltresInterventions();
       setTimeout(() => afficherVue("interventions"), 1200);
     } catch (e) {
       console.error(e);

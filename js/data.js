@@ -148,20 +148,36 @@ function construireJeuDeDemonstration() {
       dateValidation: "2026-05-11", validePar: "Amandine Roy", dateRealisation: "2026-05-20",
       commentaires: "Couture reprise, RAS.",
     }, // réalisée
+    {
+      // Exemple d'ordre importé d'un plan de maintenance externe type SAP (voir
+      // docs/11) : pas de matériel lié (numéros/valeurs fictifs), fenêtre
+      // planifiée sur plusieurs semaines plutôt qu'un jour unique, priorité brute.
+      materielId: null, materiel: "Signal Cv 5046 (Cv, M)", posteTechnique: "3HMCM-EFE-VDF-VF5",
+      type: "Maintenance signal", priorite: "N",
+      dateDemande: "2026-01-05", demandePar: "Import PDM 2026",
+      dateIntervention: "2026-09-02", dateFinPlanifiee: "2026-11-02", dureeHeures: null, lieu: "",
+      impact: "", consequences: "",
+      intervenant: "", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "2026-01-05", validePar: "Import PDM 2026", dateRealisation: "",
+      commentaires: "",
+    }, // planifiée, importée (fenêtre) — illustre le mapping décrit en docs/11
   ];
   let idIntervention = 1;
   const interventions = donneesInterventions.map((iv) => {
-    const materiel = materiels.find((m) => m.id === iv.materielId);
+    const materiel = iv.materielId ? materiels.find((m) => m.id === iv.materielId) : null;
     return {
       id: idIntervention++,
-      materielId: materiel.id,
-      materiel: materiel.title,
-      numSerie: materiel.numSerie,
-      categorie: materiel.categorie,
+      materielId: materiel ? materiel.id : null,
+      materiel: materiel ? materiel.title : (iv.materiel || ""),
+      numSerie: materiel ? materiel.numSerie : "",
+      categorie: materiel ? materiel.categorie : "",
+      posteTechnique: iv.posteTechnique || "",
       type: iv.type,
+      priorite: iv.priorite || "",
       dateDemande: iv.dateDemande,
       demandePar: iv.demandePar,
       dateIntervention: iv.dateIntervention,
+      dateFinPlanifiee: iv.dateFinPlanifiee || "",
       dureeHeures: iv.dureeHeures,
       lieu: iv.lieu,
       impact: iv.impact,

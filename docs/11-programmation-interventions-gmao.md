@@ -13,19 +13,39 @@ Onglet optionnel (créé automatiquement à la première demande si absent, comm
 `Utilisateurs` ou `Journal` — voir docs/10). Colonnes, dans cet ordre :
 
 ```
-InterventionId | NumSerie | TypeIntervention | DateDemande | DemandePar | DateIntervention |
-DureeHeures | Lieu | Impact | Consequences | Intervenant | CoupureCatenaire | CoupureDebut |
-CoupureFin | DateValidation | ValidePar | DateRealisation | Commentaires
+InterventionId | NumSerie | Materiel | PosteTechnique | TypeIntervention | Priorite |
+DateDemande | DemandePar | DateIntervention | DateFinPlanifiee | DureeHeures | Lieu |
+Impact | Consequences | Intervenant | CoupureCatenaire | CoupureDebut | CoupureFin |
+DateValidation | ValidePar | DateRealisation | Commentaires
 ```
 
 - `NumSerie` relie l'intervention au matériel concerné (onglet `Materiels`, même
-  logique de correspondance que `Controles`).
-- `TypeIntervention` : "Maintenance préventive", "Réparation" ou "Autre".
+  logique de correspondance que `Controles`) — **optionnel** : laissez vide pour un
+  équipement hors du référentiel Materiels (voir §11.6, import d'un plan de
+  maintenance externe).
+- `Materiel` : titre affiché sur la carte/fiche. Rempli automatiquement au nom du
+  matériel choisi si `NumSerie` correspond à une ligne `Materiels` ; à défaut, saisi
+  ou importé tel quel (ex. désignation précise d'un équipement de signalisation).
+- `PosteTechnique` : repère technique libre (ex. code de poste/zone d'un système
+  externe) — complète ou remplace `Lieu` pour un équipement identifié par un code
+  plutôt qu'un nom de lieu.
+- `TypeIntervention` : libre. Le formulaire de demande manuelle propose "Maintenance
+  préventive", "Réparation" ou "Autre" ; un import externe peut apporter des libellés
+  plus précis (ex. "Maintenance signal") — le filtre de la vue Interventions se
+  peuple automatiquement à partir des valeurs réellement présentes.
+- `Priorite` : code brut recopié tel quel (ex. "C", "N" d'un export SAP) — affiché
+  sans réinterprétation, l'application ne connaît pas la signification propre à
+  chaque système source.
+- `DateFinPlanifiee` : optionnelle. Pour une intervention ponctuelle, laissez vide
+  (`DateIntervention` suffit). Pour une fenêtre de plusieurs jours/semaines (plan de
+  maintenance externe), renseignez la fin de fenêtre : c'est **elle qui détermine le
+  retard** (§11.4) quand elle est présente, pas `DateIntervention`.
 - `CoupureCatenaire` : "Oui"/"Non" ; `CoupureDebut`/`CoupureFin` : heure (HH:MM) du
   créneau de coupure, à ne remplir que si `CoupureCatenaire` = Oui — trace de sécurité
   (consignation) de l'intervention sous caténaire.
 - `DateValidation`/`ValidePar` et `DateRealisation` restent vides tant que l'étape
-  correspondante n'a pas eu lieu (voir circuit ci-dessous).
+  correspondante n'a pas eu lieu (voir circuit ci-dessous) — sauf import d'un plan déjà
+  approuvé (§11.6), pré-rempli en conséquence.
 
 ## 11.2 Circuit demande → validation → réalisation
 
@@ -68,10 +88,15 @@ exactement comme le statut d'un contrôle (docs/03, docs/04) :
 | Statut | Condition | Couleur |
 |---|---|---|
 | En attente de validation | `DateValidation` vide | 🔵 |
-| Planifiée | Validée, date d'intervention à plus de `seuilInterventionImminenteJours` jours | 🟢 |
-| Imminente | Validée, date d'intervention à ≤ `seuilInterventionImminenteJours` jours (3 par défaut) | 🟠 |
-| En retard | Validée, date d'intervention dépassée, pas encore réalisée | 🔴 |
+| Planifiée | Validée, échéance à plus de `seuilInterventionImminenteJours` jours | 🟢 |
+| Imminente | Validée, échéance à ≤ `seuilInterventionImminenteJours` jours (3 par défaut) | 🟠 |
+| En retard | Validée, échéance dépassée, pas encore réalisée | 🔴 |
 | Réalisée | `DateRealisation` renseignée | ⚪ |
+
+« Échéance » = `DateFinPlanifiee` si elle est renseignée, sinon `DateIntervention` — une
+intervention ponctuelle n'a donc qu'une seule date à surveiller, tandis qu'un ordre importé
+avec une fenêtre de plusieurs semaines n'est considéré en retard qu'une fois cette fenêtre
+close, pas dès son premier jour.
 
 `seuilInterventionImminenteJours` se règle dans `js/google-config.js`.
 
@@ -99,15 +124,42 @@ les échéances de contrôle (docs/10 §3 et §10), pour une cohérence visuelle
   champs de la demande, plus les actions de circuit (Valider / Marquer réalisée /
   Annuler) selon la permission de la personne connectée.
 
-## 11.6 Points d'entrée pour créer une demande
+## 11.6 Import d'un plan de maintenance externe (type SAP)
 
-- Bouton "🆕 Nouvelle intervention" en haut de la vue "Interventions" (matériel à
-  choisir dans le formulaire).
+Un plan de maintenance annuel exporté d'un autre système (ex. ordres SAP PM) peut être
+collé directement dans l'onglet `Interventions`, une fois ses colonnes renommées vers le
+schéma ci-dessus. Correspondance type observée sur un export "Ordre / Priorité / Date
+début plf / Fin planifiée / Désignation / Poste technique / Description" :
+
+| Colonne source | Colonne `Interventions` |
+|---|---|
+| Ordre | `InterventionId` (utilisé tel quel plutôt qu'un identifiant généré) |
+| Description (équipement précis) — à défaut, Poste technique | `Materiel` |
+| Poste technique | `PosteTechnique` |
+| Désignation | `TypeIntervention` |
+| Priorité | `Priorite` (recopiée sans interprétation) |
+| Date début plf | `DateIntervention` |
+| Fin planifiée | `DateFinPlanifiee` |
+| — | `NumSerie` laissé vide (équipement hors référentiel `Materiels`) |
+
+Un plan déjà approuvé n'a pas besoin de repasser par le circuit demande/validation
+(§11.2) : `DateDemande`/`DateValidation` peuvent être pré-remplies à la date de l'import,
+`DemandePar`/`ValidePar` à une mention du type "Import PDM 2026", pour que chaque ligne
+apparaisse directement 🟢 Planifiée (ou 🟠/🔴 selon sa fenêtre). `DureeHeures`, `Lieu`,
+`Impact`, `Consequences`, `Intervenant` et la coupure caténaire restent à compléter au fil
+de l'eau si le plan source ne les fournit pas — ce ne sont pas des colonnes obligatoires.
+
+## 11.7 Points d'entrée pour créer une demande
+
+- Bouton "🆕 Nouvelle intervention" en haut de la vue "Interventions" — le matériel peut
+  être choisi dans la liste `Materiels`, ou laissé sur "— Hors liste —" pour saisir à la
+  place un poste technique/nom d'équipement libre (import ponctuel, équipement
+  d'infrastructure non suivi comme matériel de sécurité).
 - Bouton "🔧 Intervention" sur chaque carte de la vue Catégorie, et "🔧 Programmer une
   intervention" dans la fiche d'un matériel (docs/10 §10) : le matériel est
   présélectionné, pour une saisie strictement "matériel par matériel".
 
-## 11.7 Limites connues
+## 11.8 Limites connues
 
 - Comme le reste de l'application (docs/09 §9.1bis), la sécurité réelle reste le
   partage du classeur Google Sheets : les permissions ci-dessus sont un confort
