@@ -156,6 +156,33 @@ apparaisse directement 🟢 Planifiée (ou 🟠/🔴 selon sa fenêtre). `DureeH
 `Impact`, `Consequences`, `Intervenant` et la coupure caténaire restent à compléter au fil
 de l'eau si le plan source ne les fournit pas — ce ne sont pas des colonnes obligatoires.
 
+## 11.6bis Référentiel réel (vocabulaire, suggestions du formulaire)
+
+Le vocabulaire de l'écran "Nouvelle intervention" est aligné sur celui du classeur
+Excel historique **"Notes TX LHTE 2026"** (planning hebdomadaire à 52 feuilles S1-S52,
+alimenté par son onglet `Données`) :
+
+| Terme GMAO | Terme historique (classeur Excel) |
+|---|---|
+| Nature des travaux (`TypeIntervention`) | Nature des travaux |
+| Poste technique (`PosteTechnique`) | Appareils / colonne B de `Données` |
+| Lieu / zone (`Lieu`) | ZONE |
+| Consignation caténaire (`CoupureCatenaire`) | Consignation Électrique |
+| Demandeur (`DemandePar`) | Demandeur |
+| Date demande / date validation (`DateDemande`/`DateValidation`) | date demande / date validation AC |
+| Commentaire (`Commentaires`) | Commentaire |
+
+`REFERENTIEL_TRAVAUX` (`js/google-config.js`, partagé par les deux applis) reprend les
+valeurs réelles observées dans l'onglet `Données` de ce classeur — natures de travaux
+(ex. "Maintenance signal", "Consignation Caténaire"), préfixes de poste technique
+(ex. "3HMCM-EFE-ADV") et zones (ex. "LE HAVRE", "CENTRE POSTE 1E (EST)"). Elles
+alimentent des `<datalist>` sur les champs **Nature des travaux**, **Poste
+technique** et **Lieu / zone** du formulaire : des suggestions à la saisie, pas des
+listes fermées — une valeur hors référentiel reste acceptée, pour ne jamais bloquer une
+demande sur un type de travaux ou un site nouveau. Mettre à jour cette constante
+manuellement si le référentiel réel évolue (pas de synchronisation automatique avec le
+classeur Excel).
+
 ## 11.7 Points d'entrée pour créer une demande
 
 - Bouton "🆕 Nouvelle intervention" en haut de la vue "Interventions" — le matériel peut

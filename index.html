@@ -325,15 +325,13 @@
         </div>
         <div class="field field--full">
           <label for="intervPosteTechnique">Poste technique / équipement (si hors liste)</label>
-          <input type="text" id="intervPosteTechnique" placeholder="ex. 3HMCM-EFE-VDF-VF5, ou nom de l'équipement">
+          <input type="text" id="intervPosteTechnique" list="listePostesTechniques" placeholder="ex. 3HMCM-EFE-VDF-VF5, ou nom de l'équipement">
+          <datalist id="listePostesTechniques"></datalist>
         </div>
         <div class="field">
-          <label for="intervTypeSelect">Type d'intervention</label>
-          <select id="intervTypeSelect">
-            <option value="Maintenance préventive">Maintenance préventive</option>
-            <option value="Réparation">Réparation</option>
-            <option value="Autre">Autre</option>
-          </select>
+          <label for="intervTypeSelect">Nature des travaux</label>
+          <input type="text" id="intervTypeSelect" list="listeNatureTravaux" placeholder="ex. Maintenance signal, Réparation…">
+          <datalist id="listeNatureTravaux"></datalist>
         </div>
         <div class="field">
           <label for="intervPriorite">Priorité (optionnel)</label>
@@ -352,8 +350,9 @@
           <input type="number" id="intervDuree" min="0" step="0.5" placeholder="ex. 2">
         </div>
         <div class="field">
-          <label for="intervLieu">Lieu</label>
-          <input type="text" id="intervLieu" placeholder="ex. Voie 3 — quai Nord">
+          <label for="intervLieu">Lieu / zone</label>
+          <input type="text" id="intervLieu" list="listeZones" placeholder="ex. Voie 3 — quai Nord, LE HAVRE…">
+          <datalist id="listeZones"></datalist>
         </div>
         <div class="field">
           <label for="intervIntervenantSelect">Intervenant</label>
@@ -362,16 +361,16 @@
         <div class="field field--full">
           <label class="admin-permission" for="intervCoupureCatenaire" style="font-size:14px;">
             <input type="checkbox" id="intervCoupureCatenaire">
-            ⚡ Coupure caténaire nécessaire
+            ⚡ Consignation caténaire nécessaire
           </label>
         </div>
         <div class="controle-champs" id="intervCoupureChamps" hidden style="grid-column: 1 / -1;">
           <div class="field">
-            <label for="intervCoupureDebut">Coupure — début</label>
+            <label for="intervCoupureDebut">Consignation — début</label>
             <input type="time" id="intervCoupureDebut">
           </div>
           <div class="field">
-            <label for="intervCoupureFin">Coupure — fin</label>
+            <label for="intervCoupureFin">Consignation — fin</label>
             <input type="time" id="intervCoupureFin">
           </div>
         </div>

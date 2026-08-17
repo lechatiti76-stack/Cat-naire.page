@@ -152,3 +152,49 @@ const CATEGORIES_CONFIG = [
     icone: '<path d="M12 12v9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2"/>',
   },
 ];
+
+/**
+ * Référentiel réel des travaux (GMAO, voir docs/11 §11.6bis), extrait du classeur
+ * "Notes TX LHTE 2026" (onglet Données) qui alimente le planning hebdomadaire
+ * historique (feuilles S1 à S52). Utilisé comme suggestions (listes <datalist>,
+ * pas des <select> fermés) sur les champs Nature des travaux / Poste technique /
+ * Lieu du formulaire "Nouvelle intervention" — champs texte libres, ces listes
+ * accélèrent la saisie sans empêcher une valeur hors référentiel.
+ */
+const REFERENTIEL_TRAVAUX = {
+  // Colonne C de l'onglet Données : nature exacte des travaux (hors "TOUS", valeur
+  // joker du classeur source plutôt qu'un type de travaux réel).
+  natureTravaux: [
+    "Entretien JGP (dont graissage)",
+    "Maintenance ADV (commande électrique)",
+    "Maintenance ADV (commande mécanique)",
+    "Maintenance ADV (pas de commande)",
+    "Maintenance ADV (aiguille à pieds d'œuvre)",
+    "Maintenance Centre",
+    "Maintenance Circuit de Voie",
+    "Maintenance PN",
+    "Maintenance signal",
+    "Maintenance feu de heurtoir",
+    "Maintenance Wagons",
+    "Maintenance TR",
+    "Relevé des AD",
+    "Tournée de conformité du LRS",
+    "Tournée enregistrement géométrie",
+    "Tournée périodique à pied",
+    "Entretient espace vert",
+    "déchargement/chargement",
+    "Consignation Caténaire",
+  ],
+  // Colonne B de l'onglet Données : préfixes de poste technique.
+  postesTechniques: [
+    "3HMCM", "3HMCM-EFE", "3HMCM-EFE-ADV", "3HMCM-EFE-CEN",
+    "3HMCM-EFE-PNV", "3HMCM-EFE-VDF", "3HMCM-EFE-VLI",
+    "LHTE-1", "LHTE-2", "LHTE-3", "LHTE-4", "LHTE-5", "LHTE-6",
+  ],
+  // Colonne F de l'onglet Données (postes) + colonne A des feuilles S1-S52 (zones ville).
+  zones: [
+    "PARIS", "YVETOT", "LE HAVRE",
+    "CENTRE POSTE 1O (OUEST)", "CENTRE POSTE 2O (OUEST)", "CENTRE POSTE 3O (OUEST)",
+    "CENTRE POSTE 1E (EST)", "CENTRE POSTE 2E (EST)",
+  ],
+};

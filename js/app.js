@@ -147,6 +147,7 @@
     chargerDemo();
     peuplerFiltresTableau();
     peuplerFiltresInterventions();
+    peuplerDatalistsTravaux();
     afficherVue("accueil");
     chargerPhotos();
 
@@ -1634,6 +1635,18 @@
     populateSelect(els.intervFilterType, types);
   }
 
+  /** Suggestions (datalists) du formulaire "Nouvelle intervention" à partir du référentiel réel (voir docs/11 §11.6bis). Champs texte libres : ce ne sont que des suggestions, pas des valeurs imposées. */
+  function peuplerDatalistsTravaux() {
+    const remplir = (id, valeurs) => {
+      const liste = document.getElementById(id);
+      if (!liste) return;
+      liste.innerHTML = valeurs.map((v) => `<option value="${escapeHtml(v)}"></option>`).join("");
+    };
+    remplir("listeNatureTravaux", REFERENTIEL_TRAVAUX.natureTravaux);
+    remplir("listePostesTechniques", REFERENTIEL_TRAVAUX.postesTechniques);
+    remplir("listeZones", REFERENTIEL_TRAVAUX.zones);
+  }
+
   const INTERVENTION_ORDRE_PRIORITE = { retard: 0, imminente: 1, attente_validation: 2, planifiee: 3, realisee: 4 };
 
   function getFilteredInterventions() {
@@ -1688,7 +1701,7 @@
         <div class="materiel-card__entete">
           <div>
             <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Coupure caténaire" : ""}</p>
+            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}</p>
           </div>
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
@@ -1704,7 +1717,7 @@
 
   function exporterCsvInterventions() {
     const rows = getFilteredInterventions();
-    const headers = ["Matériel", "N° série", "Poste technique", "Type", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Coupure caténaire", "Début coupure", "Fin coupure", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
+    const headers = ["Matériel", "N° série", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Consignation caténaire", "Début consignation", "Fin consignation", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
     const lines = rows.map((iv) => [
       iv.materiel, iv.numSerie, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
       iv.dateIntervention, iv.dateFinPlanifiee, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
@@ -1742,7 +1755,7 @@
         <div class="modal__field"><dt>Lieu</dt><dd>${escapeHtml(iv.lieu) || "—"}</dd></div>
         ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
         <div class="modal__field"><dt>Intervenant</dt><dd>${escapeHtml(iv.intervenant) || "—"}</dd></div>
-        <div class="modal__field"><dt>Coupure caténaire</dt><dd>${iv.coupureCatenaire ? `⚡ Oui (${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"})` : "Non"}</dd></div>
+        <div class="modal__field"><dt>Consignation caténaire</dt><dd>${iv.coupureCatenaire ? `⚡ Oui (${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"})` : "Non"}</dd></div>
         <div class="modal__field"><dt>Demande</dt><dd>${formatDate(iv.dateDemande)}${iv.demandePar ? " · " + escapeHtml(iv.demandePar) : ""}</dd></div>
         <div class="modal__field"><dt>Validation</dt><dd>${iv.dateValidation ? formatDate(iv.dateValidation) + (iv.validePar ? " · " + escapeHtml(iv.validePar) : "") : "En attente"}</dd></div>
       </dl>
@@ -1842,7 +1855,7 @@
     renderSelecteurMaterielIntervention(materielIdPreselectionne);
     renderSelecteurIntervenant();
     els.intervPosteTechnique.value = "";
-    els.intervTypeSelect.value = "Maintenance préventive";
+    els.intervTypeSelect.value = "";
     els.intervPriorite.value = "";
     els.intervDate.value = "";
     els.intervDateFin.value = "";
