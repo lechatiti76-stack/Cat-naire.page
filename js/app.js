@@ -20,15 +20,6 @@
     "Non conforme": "nonconforme", "Hors service": "hs",
   };
 
-  // Programmation GMAO des interventions/réparations (voir docs/11).
-  const INTERVENTION_STATUT_LABELS = {
-    attente_validation: { label: "En attente de validation", badge: "badge--neutral" },
-    planifiee:          { label: "Planifiée",                 badge: "badge--ok" },
-    imminente:          { label: "Imminente",                 badge: "badge--warn" },
-    retard:             { label: "En retard",                 badge: "badge--danger" },
-    realisee:           { label: "Réalisée",                  badge: "badge--neutral" },
-  };
-
   const state = {
     materiels: [],
     typesPointControle: {},
@@ -36,7 +27,6 @@
     utilisateurs: [],
     ressources: [],
     photos: [],
-    interventions: [],
     controleurs: [],
     journal: [],
     role: ROLE_PAR_DEFAUT,
@@ -146,8 +136,6 @@
     lierEvenements();
     chargerDemo();
     peuplerFiltresTableau();
-    peuplerFiltresInterventions();
-    peuplerDatalistsTravaux();
     afficherVue("accueil");
     chargerPhotos();
 
@@ -264,45 +252,6 @@
       bandeauFlashPiste: document.getElementById("bandeauFlashPiste"),
       echeancesBanniere: document.getElementById("echeancesBanniere"),
       echeancesBanniereResume: document.getElementById("echeancesBanniereResume"),
-      interventionsBanniere: document.getElementById("interventionsBanniere"),
-      interventionsBanniereResume: document.getElementById("interventionsBanniereResume"),
-      viewInterventions: document.getElementById("viewInterventions"),
-      viewInterventionForm: document.getElementById("viewInterventionForm"),
-      intervCardsGrid: document.getElementById("intervCardsGrid"),
-      intervEmptyState: document.getElementById("intervEmptyState"),
-      intervResultCount: document.getElementById("intervResultCount"),
-      intervSearch: document.getElementById("intervSearch"),
-      intervFilterCategorie: document.getElementById("intervFilterCategorie"),
-      intervFilterType: document.getElementById("intervFilterType"),
-      intervFilterStatut: document.getElementById("intervFilterStatut"),
-      intervFilterDateFrom: document.getElementById("intervFilterDateFrom"),
-      intervFilterDateTo: document.getElementById("intervFilterDateTo"),
-      btnResetIntervFilters: document.getElementById("btnResetIntervFilters"),
-      btnExportIntervCsv: document.getElementById("btnExportIntervCsv"),
-      btnNouvelleIntervention: document.getElementById("btnNouvelleIntervention"),
-      intervFormTitre: document.getElementById("intervFormTitre"),
-      intervFormSousTitre: document.getElementById("intervFormSousTitre"),
-      intervFormBadgeStatut: document.getElementById("intervFormBadgeStatut"),
-      intervMaterielSelect: document.getElementById("intervMaterielSelect"),
-      intervPosteTechnique: document.getElementById("intervPosteTechnique"),
-      intervTypeSelect: document.getElementById("intervTypeSelect"),
-      intervPriorite: document.getElementById("intervPriorite"),
-      intervDate: document.getElementById("intervDate"),
-      intervDateFin: document.getElementById("intervDateFin"),
-      intervDuree: document.getElementById("intervDuree"),
-      intervLieu: document.getElementById("intervLieu"),
-      intervIntervenantSelect: document.getElementById("intervIntervenantSelect"),
-      intervCoupureCatenaire: document.getElementById("intervCoupureCatenaire"),
-      intervCoupureChamps: document.getElementById("intervCoupureChamps"),
-      intervCoupureDebut: document.getElementById("intervCoupureDebut"),
-      intervCoupureFin: document.getElementById("intervCoupureFin"),
-      intervImpact: document.getElementById("intervImpact"),
-      intervConsequences: document.getElementById("intervConsequences"),
-      intervCommentaires: document.getElementById("intervCommentaires"),
-      intervDemandeInfo: document.getElementById("intervDemandeInfo"),
-      intervResultat: document.getElementById("intervResultat"),
-      btnAnnulerIntervention: document.getElementById("btnAnnulerIntervention"),
-      btnValiderNouvelleIntervention: document.getElementById("btnValiderNouvelleIntervention"),
     });
   }
 
@@ -364,7 +313,6 @@
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles et le bouton \"Valider le contrôle\" écrit dans votre classeur.", "info");
       try { afficherRoleBadge(); } catch (e) { console.error(e); }
       try { peuplerFiltresTableau(); } catch (e) { console.error(e); }
-      try { peuplerFiltresInterventions(); } catch (e) { console.error(e); }
       try { journaliser("Connexion"); } catch (e) { console.error(e); }
       GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; if (state.vue === "administration") renderAdministration(); }).catch(() => {});
     } catch (e) {
@@ -437,7 +385,6 @@
       }
       rafraichirModalOuvert();
       try { peuplerFiltresTableau(); } catch (e) { console.error(e); }
-      try { peuplerFiltresInterventions(); } catch (e) { console.error(e); }
       try { afficherRoleBadge(); } catch (e) { console.error(e); }
       if (state.adminDeverrouille) GoogleSheetsAPI.chargerJournal().then((j) => { state.journal = j; }).catch(() => {});
       if (!silencieux) afficherBanniere("✅ Données actualisées depuis Google Sheets.", "info");
@@ -473,7 +420,7 @@
   }
 
   // -- Navigation entre vues --------------------------------------------------
-  const VUES_RESTREINTES = { tableau: "tableauBord", calendrier: "calendrier", ressources: "ressources", galerie: "galerie", interventions: "interventions" };
+  const VUES_RESTREINTES = { tableau: "tableauBord", calendrier: "calendrier", ressources: "ressources", galerie: "galerie" };
 
   function afficherVue(vue, options = {}) {
     if (VUES_RESTREINTES[vue] && !aPermission(VUES_RESTREINTES[vue])) {
@@ -489,8 +436,6 @@
     els.viewRessources.hidden = vue !== "ressources";
     els.viewGalerie.hidden = vue !== "galerie";
     els.viewAdministration.hidden = vue !== "administration";
-    els.viewInterventions.hidden = vue !== "interventions";
-    els.viewInterventionForm.hidden = vue !== "interventionForm";
 
     if (vue === "accueil") {
       els.crumbSep.hidden = true;
@@ -525,13 +470,6 @@
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Administration des utilisateurs";
       renderAdministration();
-    } else if (vue === "interventions") {
-      els.crumbSep.hidden = false;
-      els.crumbCourant.textContent = "Interventions";
-      renderInterventions();
-    } else if (vue === "interventionForm") {
-      els.crumbSep.hidden = false;
-      els.crumbCourant.textContent = "Nouvelle intervention";
     }
     renderStatsGlobales();
     renderBandeauFlash();
@@ -565,11 +503,6 @@
     els.modalClose.addEventListener("click", fermerModal);
     els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) fermerModal(); });
     els.echeancesBanniere.addEventListener("click", ouvrirFenetreEcheances);
-    els.interventionsBanniere.addEventListener("click", () => {
-      afficherVue("interventions");
-      els.intervFilterStatut.value = "retard";
-      renderInterventions();
-    });
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       fermerModal();
@@ -600,24 +533,6 @@
     els.btnMoisSuivant.addEventListener("click", () => {
       state.moisCalendrier.setMonth(state.moisCalendrier.getMonth() + 1);
       renderCalendrier();
-    });
-
-    // -- Interventions (programmation GMAO, voir docs/11) --------------------
-    [els.intervSearch, els.intervFilterCategorie, els.intervFilterType, els.intervFilterStatut,
-     els.intervFilterDateFrom, els.intervFilterDateTo].forEach((el) =>
-      el.addEventListener("input", renderInterventions)
-    );
-    els.btnResetIntervFilters.addEventListener("click", () => {
-      els.intervSearch.value = ""; els.intervFilterCategorie.value = ""; els.intervFilterType.value = "";
-      els.intervFilterStatut.value = ""; els.intervFilterDateFrom.value = ""; els.intervFilterDateTo.value = "";
-      renderInterventions();
-    });
-    els.btnExportIntervCsv.addEventListener("click", exporterCsvInterventions);
-    els.btnNouvelleIntervention.addEventListener("click", () => ouvrirEcranNouvelleIntervention());
-    els.btnAnnulerIntervention.addEventListener("click", () => afficherVue("interventions"));
-    els.btnValiderNouvelleIntervention.addEventListener("click", validerNouvelleIntervention);
-    els.intervCoupureCatenaire.addEventListener("change", () => {
-      els.intervCoupureChamps.hidden = !els.intervCoupureCatenaire.checked;
     });
 
     Object.keys(ROLES_CONFIG).forEach((r) => {
@@ -726,39 +641,6 @@
     return historique.reduce((a, b) => (a.dateControle > b.dateControle ? a : b));
   }
 
-  // -- Programmation GMAO des interventions/réparations (voir docs/11) -------
-  /**
-   * Date d'échéance d'une intervention : la fin de fenêtre planifiée si elle est
-   * renseignée (import d'un plan de maintenance externe type SAP, dont les
-   * ordres courent sur plusieurs semaines — voir docs/11), sinon le jour
-   * d'intervention saisi manuellement.
-   */
-  function dateEcheanceIntervention(iv) {
-    return iv.dateFinPlanifiee || iv.dateIntervention;
-  }
-
-  /** Jours restants avant l'échéance de l'intervention (négatif = en retard), ou null si aucune date. */
-  function joursRestantsIntervention(iv) {
-    const echeance = dateEcheanceIntervention(iv);
-    if (!echeance) return null;
-    return Math.ceil((new Date(echeance) - new Date()) / 86400000);
-  }
-
-  /**
-   * Statut calculé d'une intervention (jamais stocké tel quel) : circuit de
-   * validation à deux étapes (demande → validation par un Administrateur),
-   * puis suivi de l'échéance jusqu'à ce qu'elle soit marquée réalisée.
-   */
-  function statutIntervention(iv) {
-    if (iv.dateRealisation) return "realisee";
-    if (!iv.dateValidation) return "attente_validation";
-    const j = joursRestantsIntervention(iv);
-    if (j === null) return "planifiee";
-    if (j < 0) return "retard";
-    if (j <= GOOGLE_CONFIG.seuilInterventionImminenteJours) return "imminente";
-    return "planifiee";
-  }
-
   function renderStatsGlobales() {
     const derniers = state.materiels.map((m) => dernierControle(m.id)).filter(Boolean);
     const counts = { conforme: 0, bientot: 0, nonconforme: 0, hs: 0 };
@@ -779,8 +661,7 @@
     if (!els.bandeauFlash) return;
     const maintenant = new Date();
     const clicable = aPermission("historique");
-    const clicableInterventions = aPermission("interventions");
-    const itemsControles = state.materiels.map((m) => {
+    const items = state.materiels.map((m) => {
       const c = dernierControle(m.id);
       if (!c || !c.dateProchainControle) return null;
       const echeance = new Date(c.dateProchainControle);
@@ -798,33 +679,6 @@
       return { materielId: m.id, texte, classeCouleur, clignote };
     }).filter(Boolean);
 
-    // Rappel GMAO (voir docs/11) : visible de partout dans l'application, comme
-    // les échéances de contrôle — seule la consultation détaillée (clic) est
-    // soumise à la permission "interventions", pas l'affichage du rappel lui-même
-    // (information de sécurité, ex. coupure caténaire à venir).
-    const itemsInterventions = state.interventions.map((iv) => {
-      // Réutilise statutIntervention() plutôt que de recalculer une échéance ici :
-      // une demande pas encore validée ne doit jamais apparaître "en retard" dans le
-      // bandeau alors que sa pastille/son badge affichent "En attente de validation"
-      // partout ailleurs (voir docs/11 §11.2 — le retard ne s'applique qu'après
-      // validation).
-      const cle = statutIntervention(iv);
-      if (cle !== "retard" && cle !== "imminente") return null;
-      const j = joursRestantsIntervention(iv);
-      const enRetard = cle === "retard";
-      const nomAffiche = `${iv.materiel || iv.numSerie} — ${iv.type || "Intervention"}`;
-      const texte = enRetard
-        ? `🔧 ${nomAffiche} — en retard de ${Math.abs(j)} jour${Math.abs(j) > 1 ? "s" : ""}`
-        : `🔧 ${nomAffiche} — prévue dans ${j} jour${j > 1 ? "s" : ""}`;
-      return {
-        interventionId: iv.id, texte,
-        classeCouleur: enRetard ? "bandeau-flash__item--rouge" : "bandeau-flash__item--orange",
-        clignote: enRetard,
-      };
-    }).filter(Boolean);
-
-    const items = [...itemsInterventions, ...itemsControles];
-
     if (items.length === 0) {
       els.bandeauFlash.hidden = true;
       els.bandeauFlashPiste.innerHTML = "";
@@ -834,42 +688,16 @@
     els.bandeauFlash.hidden = false;
     document.body.classList.add("a-bandeau-flash");
     els.bandeauFlashPiste.style.animationDuration = Math.max(18, items.length * 6) + "s";
-    const html = items.map((it) => {
-      const estIntervention = it.interventionId !== undefined;
-      const peutCliquer = estIntervention ? clicableInterventions : clicable;
-      const attribut = estIntervention ? `data-intervention="${it.interventionId}"` : `data-materiel="${it.materielId}"`;
-      return `<button type="button" class="bandeau-flash__item ${it.classeCouleur} ${it.clignote ? "bandeau-flash__item--clignote" : ""} ${peutCliquer ? "" : "bandeau-flash__item--non-cliquable"}" ${attribut}>${escapeHtml(it.texte)}</button>`;
-    }).join("");
+    const html = items.map((it) =>
+      `<button type="button" class="bandeau-flash__item ${it.classeCouleur} ${it.clignote ? "bandeau-flash__item--clignote" : ""} ${clicable ? "" : "bandeau-flash__item--non-cliquable"}" data-materiel="${it.materielId}">${escapeHtml(it.texte)}</button>`
+    ).join("");
     // Contenu dupliqué : le défilement (translateX -50%) boucle sans coupure visible.
     els.bandeauFlashPiste.innerHTML = html + html;
-    els.bandeauFlashPiste.querySelectorAll(".bandeau-flash__item").forEach((btn) => {
-      if (btn.dataset.intervention !== undefined) {
-        if (clicableInterventions) btn.addEventListener("click", () => ouvrirDetailIntervention(idDepuisAttribut(btn.dataset.intervention)));
-      } else if (clicable) {
+    if (clicable) {
+      els.bandeauFlashPiste.querySelectorAll(".bandeau-flash__item").forEach((btn) => {
         btn.addEventListener("click", () => ouvrirFicheMateriel(Number(btn.dataset.materiel)));
-      }
-    });
-  }
-
-  /** Un ID d'intervention est numérique en mode démonstration, texte ("INT…") en mode connecté — reconvertit depuis un attribut data-* (toujours une chaîne). */
-  function idDepuisAttribut(valeur) {
-    const nombre = Number(valeur);
-    return Number.isNaN(nombre) ? valeur : nombre;
-  }
-
-  /** Bannière rouge d'accueil, visible seulement s'il existe des interventions GMAO en retard (voir docs/11). */
-  function renderInterventionsBanniere() {
-    if (!els.interventionsBanniere) return;
-    if (!aPermission("interventions")) { els.interventionsBanniere.hidden = true; return; }
-    const enRetard = state.interventions
-      .filter((iv) => statutIntervention(iv) === "retard")
-      .sort((a, b) => (a.dateIntervention < b.dateIntervention ? -1 : 1));
-    if (enRetard.length === 0) { els.interventionsBanniere.hidden = true; return; }
-
-    const apercu = enRetard.slice(0, 3).map((iv) => `${iv.materiel} (${Math.abs(joursRestantsIntervention(iv))} j)`);
-    if (enRetard.length > 3) apercu.push(`+${enRetard.length - 3} autre${enRetard.length - 3 > 1 ? "s" : ""}`);
-    els.interventionsBanniereResume.textContent = apercu.join(" · ");
-    els.interventionsBanniere.hidden = false;
+      });
+    }
   }
 
   /** Fenêtre "Échéances" : liste complète des matériels avec jours restants, triée par urgence et mise en forme couleur (voir docs/10 §10). */
@@ -1023,7 +851,6 @@
   // -- Vue Accueil : vignettes par catégorie + tableau général ---------------
   function renderTuiles() {
     renderEcheancesBanniere();
-    renderInterventionsBanniere();
     const categories = CATEGORIES_CONFIG.filter((c) => state.materiels.some((m) => m.categorie === c.nom));
     els.tilesGrid.innerHTML = "";
 
@@ -1060,23 +887,6 @@
       `;
       tuileCalendrier.addEventListener("click", () => afficherVue("calendrier"));
       els.tilesGrid.appendChild(tuileCalendrier);
-    }
-
-    if (aPermission("interventions")) {
-      // Vignette "Interventions" (programmation GMAO, voir docs/11)
-      const enRetard = state.interventions.filter((iv) => statutIntervention(iv) === "retard").length;
-      const tuileInterventions = document.createElement("button");
-      tuileInterventions.type = "button";
-      tuileInterventions.className = "tile";
-      tuileInterventions.innerHTML = `
-        <span class="tile__icon" style="background:${enRetard ? "var(--color-danger-bg)" : "#FCE4D6"};color:${enRetard ? "var(--color-danger)" : "#D83B01"}">
-          <svg viewBox="0 0 24 24" width="26" height="26"><path d="M14.7 6.3a4 4 0 01-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 015.4-5.4l-2.6 2.6-2-2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
-        </span>
-        <span class="tile__titre">Interventions</span>
-        <span class="tile__sous-titre">${state.interventions.length} programmée${state.interventions.length > 1 ? "s" : ""}${enRetard ? ` · ⚠ ${enRetard} en retard` : ""}</span>
-      `;
-      tuileInterventions.addEventListener("click", () => afficherVue("interventions"));
-      els.tilesGrid.appendChild(tuileInterventions);
     }
 
     if (aPermission("ressources")) {
@@ -1183,15 +993,12 @@
         <div class="materiel-card__actions">
           ${voirTout ? `<button class="btn btn--secondary btn--small btn--historique" type="button" ${c ? "" : "disabled"}>Historique</button>` : ""}
           ${peutControler() ? '<button class="btn btn--primary btn--small btn--nouveau-controle" type="button">🆕 Nouveau contrôle</button>' : ""}
-          ${aPermission("nouvelleIntervention") ? '<button class="btn btn--secondary btn--small btn--nouvelle-intervention" type="button">🔧 Intervention</button>' : ""}
         </div>
       `;
       const btnHistorique = carte.querySelector(".btn--historique");
       if (btnHistorique) btnHistorique.addEventListener("click", () => ouvrirFicheMateriel(m.id));
       const btnNouveau = carte.querySelector(".btn--nouveau-controle");
       if (btnNouveau) btnNouveau.addEventListener("click", () => ouvrirEcranControle(m.id));
-      const btnIntervention = carte.querySelector(".btn--nouvelle-intervention");
-      if (btnIntervention) btnIntervention.addEventListener("click", () => ouvrirEcranNouvelleIntervention(m.id));
       els.cardsGrid.appendChild(carte);
     });
   }
@@ -1222,7 +1029,6 @@
       </dl>
       <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
         ${peutControler() ? '<button class="btn btn--primary btn--small" id="btnNouveauControleModal" type="button">🆕 Nouveau contrôle</button>' : ""}
-        ${aPermission("nouvelleIntervention") ? '<button class="btn btn--secondary btn--small" id="btnNouvelleInterventionModal" type="button">🔧 Programmer une intervention</button>' : ""}
         ${aPermission("exporterPdf") ? '<button class="btn btn--secondary btn--small" id="btnExporterPdf" type="button">🖨️ Exporter en PDF</button>' : ""}
         <button class="btn btn--secondary btn--small" id="btnQrCode" type="button">🔗 QR code</button>
       </div>
@@ -1239,8 +1045,6 @@
         ouvrirEcranControle(materielId);
       });
     }
-    const btnInterventionModal = els.modalBody.querySelector("#btnNouvelleInterventionModal");
-    if (btnInterventionModal) btnInterventionModal.addEventListener("click", () => { fermerModal(); ouvrirEcranNouvelleIntervention(materielId); });
     const btnExporterPdf = els.modalBody.querySelector("#btnExporterPdf");
     if (btnExporterPdf) btnExporterPdf.addEventListener("click", () => exporterPdfMateriel(materiel, historique));
 
@@ -1319,10 +1123,6 @@
     } else if (modalActuel.type === "fiche") {
       const materielId = modalActuel.materielId;
       if (state.materiels.some((m) => m.id === materielId)) ouvrirFicheMateriel(materielId);
-      else fermerModal();
-    } else if (modalActuel.type === "intervention") {
-      const id = modalActuel.id;
-      if (state.interventions.some((iv) => iv.id === id)) ouvrirDetailIntervention(id);
       else fermerModal();
     }
   }
@@ -1623,359 +1423,6 @@
     return /[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
   }
 
-  // -- Vue Interventions : programmation GMAO (voir docs/11) -----------------
-  function peuplerFiltresInterventions() {
-    if (!els.intervFilterCategorie) return;
-    const categories = [...new Set(state.materiels.map((m) => m.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
-    populateSelect(els.intervFilterCategorie, categories);
-    // Peuplé depuis les données réelles (pas une liste figée) : un import de plan de
-    // maintenance externe (voir docs/11) apporte des types bien plus variés que les
-    // 3 valeurs du formulaire de demande manuelle ("Maintenance signal", etc.).
-    const types = [...new Set(state.interventions.map((iv) => iv.type).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
-    populateSelect(els.intervFilterType, types);
-  }
-
-  /** Suggestions (datalists) du formulaire "Nouvelle intervention" à partir du référentiel réel (voir docs/11 §11.6bis). Champs texte libres : ce ne sont que des suggestions, pas des valeurs imposées. */
-  function peuplerDatalistsTravaux() {
-    const remplir = (id, valeurs) => {
-      const liste = document.getElementById(id);
-      if (!liste) return;
-      liste.innerHTML = valeurs.map((v) => `<option value="${escapeHtml(v)}"></option>`).join("");
-    };
-    remplir("listeNatureTravaux", REFERENTIEL_TRAVAUX.natureTravaux);
-    remplir("listePostesTechniques", REFERENTIEL_TRAVAUX.postesTechniques);
-    remplir("listeZones", REFERENTIEL_TRAVAUX.zones);
-  }
-
-  const INTERVENTION_ORDRE_PRIORITE = { retard: 0, imminente: 1, attente_validation: 2, planifiee: 3, realisee: 4 };
-
-  function getFilteredInterventions() {
-    const term = els.intervSearch.value.trim().toLowerCase();
-    const categorie = els.intervFilterCategorie.value;
-    const type = els.intervFilterType.value;
-    const statut = els.intervFilterStatut.value;
-    const dateFrom = els.intervFilterDateFrom.value;
-    const dateTo = els.intervFilterDateTo.value;
-
-    let rows = state.interventions.filter((iv) => {
-      if (term) {
-        const haystack = [iv.materiel, iv.numSerie, iv.posteTechnique, iv.lieu, iv.intervenant, iv.impact].join(" ").toLowerCase();
-        if (!haystack.includes(term)) return false;
-      }
-      if (categorie && iv.categorie !== categorie) return false;
-      if (type && iv.type !== type) return false;
-      if (statut && statutIntervention(iv) !== statut) return false;
-      if (dateFrom && (!iv.dateIntervention || iv.dateIntervention < dateFrom)) return false;
-      if (dateTo && (!iv.dateIntervention || iv.dateIntervention > dateTo)) return false;
-      return true;
-    });
-
-    rows.sort((a, b) => {
-      const pa = INTERVENTION_ORDRE_PRIORITE[statutIntervention(a)];
-      const pb = INTERVENTION_ORDRE_PRIORITE[statutIntervention(b)];
-      if (pa !== pb) return pa - pb;
-      return (a.dateIntervention || "9999-99-99") < (b.dateIntervention || "9999-99-99") ? -1 : 1;
-    });
-    return rows;
-  }
-
-  function renderInterventions() {
-    const rows = getFilteredInterventions();
-    els.intervCardsGrid.innerHTML = "";
-    els.intervEmptyState.hidden = rows.length > 0;
-    els.intervResultCount.textContent = `${rows.length} intervention${rows.length > 1 ? "s" : ""}`;
-    els.btnNouvelleIntervention.hidden = !aPermission("nouvelleIntervention");
-    els.btnExportIntervCsv.hidden = !aPermission("exporterCsv");
-
-    rows.forEach((iv) => {
-      const cle = statutIntervention(iv);
-      const info = INTERVENTION_STATUT_LABELS[cle];
-      const j = joursRestantsIntervention(iv);
-      const periode = iv.dateFinPlanifiee && iv.dateFinPlanifiee !== iv.dateIntervention
-        ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
-        : formatDate(iv.dateIntervention);
-      const lieuAffiche = [iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ");
-      const carte = document.createElement("div");
-      carte.className = "materiel-card";
-      carte.innerHTML = `
-        <div class="materiel-card__entete">
-          <div>
-            <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}</p>
-          </div>
-          <span class="badge ${info.badge}">${info.label}</span>
-        </div>
-        <p class="materiel-card__info">📍 ${escapeHtml(lieuAffiche) || "—"} · 👤 ${escapeHtml(iv.intervenant) || "—"}${cle === "retard" && j !== null ? ` · en retard de ${Math.abs(j)} j` : ""}</p>
-        <div class="materiel-card__actions">
-          <button class="btn btn--secondary btn--small btn--interv-detail" type="button">Détails</button>
-        </div>
-      `;
-      carte.querySelector(".btn--interv-detail").addEventListener("click", () => ouvrirDetailIntervention(iv.id));
-      els.intervCardsGrid.appendChild(carte);
-    });
-  }
-
-  function exporterCsvInterventions() {
-    const rows = getFilteredInterventions();
-    const headers = ["Matériel", "N° série", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Consignation caténaire", "Début consignation", "Fin consignation", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
-    const lines = rows.map((iv) => [
-      iv.materiel, iv.numSerie, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateIntervention, iv.dateFinPlanifiee, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
-      iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
-      iv.dateDemande, iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation, iv.commentaires,
-    ].map(csvEscape).join(";"));
-    const csvContent = "﻿" + [headers.map(csvEscape).join(";"), ...lines].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `interventions_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-  }
-
-  /** Fenêtre de détail d'une intervention, avec les actions de circuit demande/validation (voir docs/11). */
-  function ouvrirDetailIntervention(id) {
-    if (!aPermission("interventions")) {
-      afficherBanniere("⛔ Vous n'avez pas la permission de consulter les interventions.", "warn");
-      return;
-    }
-    const iv = state.interventions.find((x) => x.id === id);
-    if (!iv) return;
-    modalActuel = { type: "intervention", id };
-    const cle = statutIntervention(iv);
-    const info = INTERVENTION_STATUT_LABELS[cle];
-
-    els.modalTitle.textContent = `🔧 ${iv.materiel || iv.numSerie}`;
-    els.modalBody.innerHTML = `
-      <span class="badge ${info.badge}">${info.label}</span>
-      <dl class="modal__grid" style="margin-top:16px;">
-        <div class="modal__field"><dt>Type</dt><dd>${escapeHtml(iv.type) || "—"}</dd></div>
-        ${iv.priorite ? `<div class="modal__field"><dt>Priorité</dt><dd>${escapeHtml(iv.priorite)}</dd></div>` : ""}
-        <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}</dd></div>
-        <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
-        <div class="modal__field"><dt>Lieu</dt><dd>${escapeHtml(iv.lieu) || "—"}</dd></div>
-        ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
-        <div class="modal__field"><dt>Intervenant</dt><dd>${escapeHtml(iv.intervenant) || "—"}</dd></div>
-        <div class="modal__field"><dt>Consignation caténaire</dt><dd>${iv.coupureCatenaire ? `⚡ Oui (${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"})` : "Non"}</dd></div>
-        <div class="modal__field"><dt>Demande</dt><dd>${formatDate(iv.dateDemande)}${iv.demandePar ? " · " + escapeHtml(iv.demandePar) : ""}</dd></div>
-        <div class="modal__field"><dt>Validation</dt><dd>${iv.dateValidation ? formatDate(iv.dateValidation) + (iv.validePar ? " · " + escapeHtml(iv.validePar) : "") : "En attente"}</dd></div>
-      </dl>
-      <div class="modal__section"><h3>Impact</h3><p>${escapeHtml(iv.impact) || "—"}</p></div>
-      <div class="modal__section"><h3>Conséquences</h3><p>${escapeHtml(iv.consequences) || "—"}</p></div>
-      ${iv.commentaires ? `<div class="modal__section"><h3>Commentaires</h3><p>${escapeHtml(iv.commentaires)}</p></div>` : ""}
-      ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p>${formatDate(iv.dateRealisation)}</p></div>` : ""}
-      <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
-        ${!iv.dateValidation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnValiderInterventionModal" type="button">✅ Valider</button>' : ""}
-        ${iv.dateValidation && !iv.dateRealisation && (aPermission("validerIntervention") || aPermission("nouvelleIntervention")) ? '<button class="btn btn--primary btn--small" id="btnRealiserInterventionModal" type="button">☑️ Marquer réalisée</button>' : ""}
-        ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small" id="btnAnnulerInterventionModal" type="button">🗑️ Annuler la demande</button>' : ""}
-      </div>
-    `;
-    const btnValider = els.modalBody.querySelector("#btnValiderInterventionModal");
-    if (btnValider) btnValider.addEventListener("click", () => validerInterventionAction(id));
-    const btnRealiser = els.modalBody.querySelector("#btnRealiserInterventionModal");
-    if (btnRealiser) btnRealiser.addEventListener("click", () => marquerInterventionRealiseeAction(id));
-    const btnAnnuler = els.modalBody.querySelector("#btnAnnulerInterventionModal");
-    if (btnAnnuler) btnAnnuler.addEventListener("click", () => annulerInterventionAction(id));
-    els.modalOverlay.hidden = false;
-  }
-
-  async function validerInterventionAction(id) {
-    if (!aPermission("validerIntervention")) {
-      afficherBanniere("⛔ Vous n'avez pas la permission de valider une intervention.", "warn");
-      return;
-    }
-    const iv = state.interventions.find((x) => x.id === id);
-    if (!iv) return;
-    const nom = (state.utilisateur && state.utilisateur.nom) || "";
-    const dateValidation = new Date().toISOString().slice(0, 10);
-    try {
-      if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateValidation, validePar: nom });
-      iv.dateValidation = dateValidation;
-      iv.validePar = nom;
-      journaliser(`Intervention validée — ${iv.materiel} (${formatDate(iv.dateIntervention)})`);
-      afficherBanniere("✅ Intervention validée" + (state.modeDemo ? " (simulation locale)." : "."), "info");
-      ouvrirDetailIntervention(id);
-      renderTuiles();
-      if (state.vue === "interventions") renderInterventions();
-    } catch (e) {
-      console.error(e);
-      afficherBanniere("⚠️ Erreur lors de la validation : " + e.message, "warn");
-    }
-  }
-
-  async function marquerInterventionRealiseeAction(id) {
-    const iv = state.interventions.find((x) => x.id === id);
-    if (!iv) return;
-    const dateRealisation = new Date().toISOString().slice(0, 10);
-    try {
-      if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateRealisation });
-      iv.dateRealisation = dateRealisation;
-      journaliser(`Intervention marquée réalisée — ${iv.materiel} (${formatDate(iv.dateIntervention)})`);
-      afficherBanniere("✅ Intervention marquée réalisée" + (state.modeDemo ? " (simulation locale)." : "."), "info");
-      ouvrirDetailIntervention(id);
-      renderTuiles();
-      if (state.vue === "interventions") renderInterventions();
-    } catch (e) {
-      console.error(e);
-      afficherBanniere("⚠️ Erreur : " + e.message, "warn");
-    }
-  }
-
-  async function annulerInterventionAction(id) {
-    if (!aPermission("validerIntervention")) {
-      afficherBanniere("⛔ Vous n'avez pas la permission d'annuler une demande d'intervention.", "warn");
-      return;
-    }
-    const iv = state.interventions.find((x) => x.id === id);
-    if (!iv) return;
-    if (!confirm(`Annuler définitivement la demande d'intervention pour ${iv.materiel} ?`)) return;
-    try {
-      if (!state.modeDemo) await GoogleSheetsAPI.supprimerIntervention(iv.ligne);
-      state.interventions = state.interventions.filter((x) => x.id !== id);
-      journaliser(`Demande d'intervention annulée — ${iv.materiel} (${formatDate(iv.dateIntervention)})`);
-      fermerModal();
-      afficherBanniere("✅ Demande annulée" + (state.modeDemo ? " (simulation locale)." : "."), "info");
-      renderTuiles();
-      if (state.vue === "interventions") renderInterventions();
-    } catch (e) {
-      console.error(e);
-      afficherBanniere("⚠️ Erreur : " + e.message, "warn");
-    }
-  }
-
-  /** Écran de demande d'intervention (étape 1 du circuit demande/validation, voir docs/11). Préremplit le matériel si ouvert depuis sa fiche. */
-  function ouvrirEcranNouvelleIntervention(materielIdPreselectionne) {
-    if (!aPermission("nouvelleIntervention")) {
-      afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de créer une demande d'intervention.", "warn");
-      return;
-    }
-    els.intervFormTitre.textContent = "Nouvelle intervention";
-    els.intervFormSousTitre.textContent = "Demande de programmation GMAO";
-    els.intervFormBadgeStatut.textContent = "";
-    els.intervFormBadgeStatut.className = "badge";
-    renderSelecteurMaterielIntervention(materielIdPreselectionne);
-    renderSelecteurIntervenant();
-    els.intervPosteTechnique.value = "";
-    els.intervTypeSelect.value = "";
-    els.intervPriorite.value = "";
-    els.intervDate.value = "";
-    els.intervDateFin.value = "";
-    els.intervDuree.value = "";
-    els.intervLieu.value = "";
-    els.intervImpact.value = "";
-    els.intervConsequences.value = "";
-    els.intervCommentaires.value = "";
-    els.intervCoupureCatenaire.checked = false;
-    els.intervCoupureChamps.hidden = true;
-    els.intervCoupureDebut.value = "";
-    els.intervCoupureFin.value = "";
-    const nom = (state.utilisateur && state.utilisateur.nom) || "";
-    els.intervDemandeInfo.textContent = `Demande créée par ${nom || "—"} le ${formatDate(new Date().toISOString().slice(0, 10))} — nécessitera la validation d'un administrateur.`;
-    els.intervResultat.hidden = true;
-    els.btnValiderNouvelleIntervention.disabled = false;
-    els.btnValiderNouvelleIntervention.textContent = "📩 Enregistrer la demande";
-    afficherVue("interventionForm");
-  }
-
-  const VALEUR_MATERIEL_HORS_LISTE = "";
-
-  /** Sélecteur de matériel : première option "hors liste" pour un équipement absent du référentiel Materiels (poste technique libre, voir docs/11). */
-  function renderSelecteurMaterielIntervention(materielIdPreselectionne) {
-    const optionHorsListe = `<option value="${VALEUR_MATERIEL_HORS_LISTE}">— Hors liste (poste technique ci-dessous) —</option>`;
-    els.intervMaterielSelect.innerHTML = optionHorsListe + state.materiels
-      .map((m) => `<option value="${m.id}">${escapeHtml(m.title)} (${escapeHtml(m.numSerie)})</option>`)
-      .join("");
-    if (materielIdPreselectionne) els.intervMaterielSelect.value = materielIdPreselectionne;
-  }
-
-  /** Liste déroulante des intervenants possibles (mêmes personnes que le sélecteur de contrôleur), présélectionne l'utilisateur connecté s'il y figure. */
-  function renderSelecteurIntervenant() {
-    const nomCourant = (state.utilisateur && state.utilisateur.nom) || "";
-    const liste = state.controleurs && state.controleurs.length ? state.controleurs : state.utilisateurs;
-    if (!liste || liste.length === 0) {
-      els.intervIntervenantSelect.innerHTML = `<option value="${escapeHtml(nomCourant)}">${escapeHtml(nomCourant) || "—"}</option>`;
-      return;
-    }
-    els.intervIntervenantSelect.innerHTML = liste.map((c) => `<option value="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</option>`).join("");
-    if (liste.some((c) => c.nom === nomCourant)) els.intervIntervenantSelect.value = nomCourant;
-  }
-
-  async function validerNouvelleIntervention() {
-    const materielId = els.intervMaterielSelect.value ? Number(els.intervMaterielSelect.value) : null;
-    const materiel = materielId ? state.materiels.find((m) => m.id === materielId) : null;
-    const posteTechnique = els.intervPosteTechnique.value.trim();
-    if (!materiel && !posteTechnique) {
-      alert("Veuillez sélectionner un matériel dans la liste, ou renseigner un poste technique / nom d'équipement.");
-      return;
-    }
-    const dateIntervention = els.intervDate.value;
-    if (!dateIntervention) { alert("Veuillez renseigner le jour de l'intervention."); return; }
-    const dateFinPlanifiee = els.intervDateFin.value;
-    if (dateFinPlanifiee && dateFinPlanifiee < dateIntervention) {
-      alert("La fin planifiée ne peut pas être avant le jour de l'intervention.");
-      return;
-    }
-    const coupureCatenaire = els.intervCoupureCatenaire.checked;
-    if (coupureCatenaire && (!els.intervCoupureDebut.value || !els.intervCoupureFin.value)) {
-      alert("Veuillez renseigner l'heure de début et de fin de la coupure caténaire.");
-      return;
-    }
-
-    const nom = (state.utilisateur && state.utilisateur.nom) || "";
-    const dateDemande = new Date().toISOString().slice(0, 10);
-    const nouvelleIntervention = {
-      materielId: materiel ? materiel.id : null,
-      materiel: materiel ? materiel.title : posteTechnique,
-      numSerie: materiel ? materiel.numSerie : "",
-      categorie: materiel ? materiel.categorie : "",
-      posteTechnique,
-      type: els.intervTypeSelect.value,
-      priorite: els.intervPriorite.value.trim(),
-      dateDemande, demandePar: nom,
-      dateIntervention,
-      dateFinPlanifiee,
-      dureeHeures: els.intervDuree.value ? Number(els.intervDuree.value) : null,
-      lieu: els.intervLieu.value.trim(),
-      impact: els.intervImpact.value.trim(),
-      consequences: els.intervConsequences.value.trim(),
-      intervenant: els.intervIntervenantSelect.value || nom,
-      coupureCatenaire,
-      coupureDebut: coupureCatenaire ? els.intervCoupureDebut.value : "",
-      coupureFin: coupureCatenaire ? els.intervCoupureFin.value : "",
-      dateValidation: "", validePar: "", dateRealisation: "",
-      commentaires: els.intervCommentaires.value.trim(),
-    };
-
-    els.btnValiderNouvelleIntervention.disabled = true;
-    els.btnValiderNouvelleIntervention.textContent = "Enregistrement…";
-
-    try {
-      if (!state.modeDemo) {
-        const resultat = await GoogleSheetsAPI.ajouterIntervention(nouvelleIntervention);
-        nouvelleIntervention.id = resultat.id;
-        nouvelleIntervention.ligne = resultat.ligne;
-      } else {
-        nouvelleIntervention.id = Math.max(0, ...state.interventions.map((iv) => Number(iv.id) || 0)) + 1;
-      }
-      state.interventions.unshift(nouvelleIntervention);
-
-      els.intervResultat.hidden = false;
-      els.intervResultat.className = "controle-resultat";
-      els.intervResultat.innerHTML = `<span class="badge badge--neutral">En attente de validation</span> Demande enregistrée${state.modeDemo ? " (simulation locale)" : " dans Google Sheets"}.`;
-      els.btnValiderNouvelleIntervention.textContent = "✅ Demande enregistrée";
-      journaliser(`Demande d'intervention créée — ${nouvelleIntervention.materiel} — ${dateIntervention}`);
-      renderTuiles();
-      peuplerFiltresInterventions();
-      setTimeout(() => afficherVue("interventions"), 1200);
-    } catch (e) {
-      console.error(e);
-      els.intervResultat.hidden = false;
-      els.intervResultat.className = "controle-resultat controle-resultat--erreur";
-      els.intervResultat.textContent = "Erreur lors de l'enregistrement : " + e.message;
-      els.btnValiderNouvelleIntervention.disabled = false;
-      els.btnValiderNouvelleIntervention.textContent = "📩 Enregistrer la demande";
-    }
-  }
-
   // -- Vue Calendrier : contrôles à venir par mois ----------------------------
   function renderCalendrier() {
     const mois = state.moisCalendrier;
@@ -1987,11 +1434,6 @@
     const echeances = state.materiels
       .map((m) => ({ materiel: m, controle: dernierControle(m.id) }))
       .filter((e) => e.controle && e.controle.dateProchainControle);
-
-    // Interventions GMAO programmées (voir docs/11), affichées sur le même calendrier.
-    const echeancesInterventions = aPermission("interventions")
-      ? state.interventions.filter((iv) => iv.dateIntervention)
-      : [];
 
     const premierJourMois = new Date(annee, moisIndex, 1);
     const decalage = (premierJourMois.getDay() + 6) % 7; // semaine commençant lundi
@@ -2007,7 +1449,6 @@
     for (let jour = 1; jour <= nbJours; jour++) {
       const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
       const echeancesJour = echeances.filter((e) => e.controle.dateProchainControle === dateJour);
-      const interventionsJour = echeancesInterventions.filter((iv) => iv.dateIntervention === dateJour);
       const estAujourdhui = dateJour === new Date().toISOString().slice(0, 10);
       html += `
         <div class="calendrier-jour ${estAujourdhui ? "calendrier-jour--aujourdhui" : ""}">
@@ -2015,11 +1456,6 @@
           ${echeancesJour.map((e) => {
             const info = STATUT_LABELS[statutDeControle(e.controle)];
             return `<button type="button" class="calendrier-echeance ${info.badge}" title="${escapeHtml(e.materiel.title)}">${escapeHtml(e.materiel.title)}</button>`;
-          }).join("")}
-          ${interventionsJour.map((iv) => {
-            const info = INTERVENTION_STATUT_LABELS[statutIntervention(iv)];
-            const titre = `🔧 ${iv.materiel || iv.numSerie}`;
-            return `<button type="button" class="calendrier-intervention ${info.badge}" title="${escapeHtml(titre)}">${escapeHtml(titre)}</button>`;
           }).join("")}
         </div>`;
     }
@@ -2035,18 +1471,6 @@
         const btn = els.calendrierGrille.querySelectorAll(".calendrier-echeance")[index];
         if (btn) btn.addEventListener("click", () => ouvrirFicheMateriel(e.materiel.id));
         index++;
-      });
-    }
-
-    // Association clic → détail intervention (voir docs/11)
-    let indexInterv = 0;
-    for (let jour = 1; jour <= nbJours; jour++) {
-      const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
-      const interventionsJour = echeancesInterventions.filter((iv) => iv.dateIntervention === dateJour);
-      interventionsJour.forEach((iv) => {
-        const btn = els.calendrierGrille.querySelectorAll(".calendrier-intervention")[indexInterv];
-        if (btn) btn.addEventListener("click", () => ouvrirDetailIntervention(iv.id));
-        indexInterv++;
       });
     }
   }

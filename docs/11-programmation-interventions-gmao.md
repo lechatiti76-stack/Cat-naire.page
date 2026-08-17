@@ -5,14 +5,25 @@ Ce document décrit le module **Interventions**, qui répond au besoin d'une pet
 rappel automatique en cas de retard, mise à jour de la base une fois l'intervention
 saisie — distinct des contrôles périodiques de conformité déjà couverts par docs/01 à 10.
 
-**Appli dédiée** : `gmao/index.html` — une PWA autonome et installable séparément
-(icône, nom "GMAO", accent de couleur propres — voir `gmao/css/theme.css`), détachée du
-Registre des Vérifications de Matériel mais connectée au **même classeur Google Sheets**
-(mêmes onglets `Materiels`/`Utilisateurs`/`Interventions`, mêmes rôles). Son code
-(`gmao/js/app.js`, `gmao/js/data.js`) est un sous-ensemble volontairement allégé de
-`js/app.js` : uniquement ce qui concerne les interventions (pas de contrôles, pas
+**Appli dédiée, exclusivement** : `gmao/index.html` — une PWA autonome et installable
+séparément (icône, nom "GMAO", accent de couleur propres — voir `gmao/css/theme.css`),
+détachée du Registre des Vérifications de Matériel mais connectée au **même classeur
+Google Sheets** (mêmes onglets `Materiels`/`Utilisateurs`/`Interventions`, mêmes rôles).
+Son code (`gmao/js/app.js`, `gmao/js/data.js`) est un sous-ensemble volontairement allégé
+de `js/app.js` : uniquement ce qui concerne les interventions (pas de contrôles, pas
 d'écran Administration — la gestion des utilisateurs/rôles reste dans le Registre).
 Chaque appli renvoie vers l'autre depuis son pied de page.
+
+**Séparation stricte des deux fonctionnalités** : le Registre des Vérifications de
+Matériel (racine du site, `index.html`/`js/app.js`) ne contient **aucune** UI ni logique
+Interventions — pas de vignette, pas de bandeau de rappel d'intervention, pas de
+formulaire, pas de calendrier d'intervention. Tout ce qui touche aux interventions vit
+uniquement dans `gmao/`. Le Registre garde seulement `js/google-config.js` et
+`js/google-sheets.js` (fichiers **partagés**, lus par les deux applis pour la
+configuration, les permissions et la lecture/écriture Google Sheets) — mais son propre
+code (`js/app.js`, `js/data.js`) n'affiche jamais les données de l'onglet `Interventions`,
+même quand elles existent dans le classeur. Le seul lien entre les deux applis dans
+l'interface est le renvoi réciproque en pied de page.
 
 ## 11.1 Onglet Google Sheets `Interventions`
 
@@ -109,27 +120,34 @@ close, pas dès son premier jour.
 
 ## 11.5 Visualisation et rappels
 
-Le module reprend la logique "bandeau + bannière + fenêtre dédiée" déjà utilisée pour
-les échéances de contrôle (docs/10 §3 et §10), pour une cohérence visuelle complète :
+Le module reprend, **dans l'appli GMAO uniquement**, la logique "bandeau + bannière +
+fenêtre dédiée" déjà utilisée pour les échéances de contrôle dans le Registre (docs/10
+§3 et §10), pour une cohérence visuelle entre les deux applis sans mélanger leurs
+données :
 
-- **Vignette "Interventions"** sur l'accueil : nombre total programmé, et nombre en
-  retard mis en évidence.
-- **Bandeau défilant** (bas d'écran, visible depuis n'importe quelle vue de
-  l'application) : les interventions en retard (🔴, clignotant) et imminentes (🟠) y
-  apparaissent aux côtés des échéances de contrôle. L'affichage du rappel n'est pas
-  soumis à permission (information de sécurité visible de tous) ; seul le clic pour
-  ouvrir le détail requiert la permission `interventions`.
+- **Vignettes** sur l'accueil GMAO : nombre total programmé, planifiées, imminentes, en
+  retard, en attente de validation.
+- **Bandeau défilant** (bas d'écran, visible depuis n'importe quelle vue de l'appli
+  GMAO) : les interventions en retard (🔴, clignotant) et imminentes (🟠). L'affichage du
+  rappel n'est pas soumis à permission (information de sécurité visible de tous) ; seul
+  le clic pour ouvrir le détail requiert la permission `interventions`.
 - **Bannière rouge d'accueil "⚠ Interventions en retard"** : n'apparaît que s'il existe
   au moins une intervention en retard — c'est le rappel explicitement demandé, en
   rouge, qui renvoie vers la liste filtrée sur "En retard" d'un clic.
 - **Vue "Interventions"** (liste filtrable : matériel/catégorie, type, statut, plage de
   dates de recherche + texte libre) avec export CSV, triée par urgence (en retard
   d'abord).
-- **Calendrier** : les interventions programmées apparaissent sur le même calendrier
-  mensuel que les échéances de contrôle (icône 🔧), sur leur jour prévu.
+- **Calendrier** (propre à GMAO) : les interventions programmées apparaissent sur un
+  calendrier mensuel dédié (icône 🔧), sur leur jour prévu.
+- **Vue semaine** (§11.9) : point hebdomadaire imprimable/envoyable par e-mail.
 - **Fiche détaillée** (clic sur une intervention, où qu'elle apparaisse) : tous les
   champs de la demande, plus les actions de circuit (Valider / Marquer réalisée /
   Annuler) selon la permission de la personne connectée.
+
+Le Registre des Vérifications de Matériel (racine) ne reprend **aucun** de ces éléments :
+pas de vignette, pas de bandeau ni de bannière liés aux interventions, pas de calendrier
+d'intervention — son propre bandeau/calendrier/bannière ne concernent que les échéances
+de contrôle du matériel de sécurité.
 
 ## 11.6 Import d'un plan de maintenance externe (type SAP)
 
@@ -185,13 +203,13 @@ classeur Excel).
 
 ## 11.7 Points d'entrée pour créer une demande
 
+Tous dans l'appli GMAO (`gmao/index.html`) — le Registre des Vérifications de Matériel
+n'expose aucun de ces boutons :
+
 - Bouton "🆕 Nouvelle intervention" en haut de la vue "Interventions" — le matériel peut
   être choisi dans la liste `Materiels`, ou laissé sur "— Hors liste —" pour saisir à la
   place un poste technique/nom d'équipement libre (import ponctuel, équipement
   d'infrastructure non suivi comme matériel de sécurité).
-- Bouton "🔧 Intervention" sur chaque carte de la vue Catégorie, et "🔧 Programmer une
-  intervention" dans la fiche d'un matériel (docs/10 §10) : le matériel est
-  présélectionné, pour une saisie strictement "matériel par matériel".
 
 ## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
 
