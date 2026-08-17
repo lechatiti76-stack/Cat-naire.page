@@ -11,6 +11,10 @@ Le dépôt contient **deux applications web séparées et installables (PWA)**, 
 
 Chaque appli renvoie vers l'autre depuis son pied de page.
 
+Déployées via GitHub Pages depuis la branche `main` :
+- https://lechatiti76-stack.github.io/Cat-naire.page/
+- https://lechatiti76-stack.github.io/Cat-naire.page/gmao/
+
 ## Contenu du dépôt
 
 | Élément | Emplacement |
