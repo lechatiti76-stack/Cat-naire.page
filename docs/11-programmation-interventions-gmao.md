@@ -193,13 +193,41 @@ classeur Excel).
   intervention" dans la fiche d'un matériel (docs/10 §10) : le matériel est
   présélectionné, pour une saisie strictement "matériel par matériel".
 
-## 11.8 Limites connues
+## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
+
+Bouton **"🗓️ Vue semaine"** (à côté de "Calendrier") — pensé pour reproduire, sans la
+grille macro à 52 feuilles, l'usage réel du classeur "Notes TX LHTE 2026" : préparer et
+diffuser un point hebdomadaire des travaux, semaine calendaire par semaine calendaire
+(Lundi → Samedi, même découpage que ce classeur, numérotée selon la même convention
+S1-S52 — ISO-8601).
+
+- **Navigation** : "‹ Semaine précédente" / "Semaine suivante ›", comme le calendrier
+  mensuel.
+- **Contenu** : toutes les interventions dont le jour prévu (ou la fenêtre planifiée,
+  voir §11.6) chevauche la semaine affichée, triées par date. Une seconde section
+  **"⚠ Blocages / consignations de la semaine"** isole celles qui ont une consignation
+  caténaire, un impact ou des conséquences renseignés — la réponse directe au besoin
+  d'avoir "les travaux et les blocages éventuels" en un coup d'œil.
+- **🖨️ Imprimer la semaine** : génère une vue imprimable (tableau des travaux + détail
+  des blocages) et ouvre la boîte d'impression du navigateur, sur le même principe que
+  l'export PDF d'un matériel (docs/09 §9.5) — choisir "Enregistrer au format PDF" comme
+  imprimante pour obtenir un fichier.
+- **📧 Envoyer par e-mail** : ouvre le client de messagerie par défaut (lien `mailto:`)
+  avec un sujet et un corps déjà rédigés (mêmes travaux + blocages, en texte). L'appli
+  ne peut pas envoyer l'e-mail elle-même — site statique, pas de serveur d'envoi — elle
+  prépare le brouillon, à vérifier et envoyer depuis le client de messagerie.
+
+## 11.10 Limites connues
 
 - Comme le reste de l'application (docs/09 §9.1bis), la sécurité réelle reste le
   partage du classeur Google Sheets : les permissions ci-dessus sont un confort
   d'affichage côté navigateur, pas une barrière serveur.
-- Le rappel est **visuel, dans l'application** (bandeau + bannière), pas un e-mail :
-  cette page est un site statique sans serveur. Un envoi d'e-mail automatique en cas de
-  retard nécessiterait un script Google Apps Script déclenché périodiquement sur le
-  classeur (déclencheur temporel) — non mis en place par défaut, mais réalisable en
-  complément si besoin.
+- Le rappel de retard est **visuel, dans l'application** (bandeau + bannière) ; l'envoi
+  du point hebdomadaire (§11.9) reste une action manuelle (bouton "Envoyer par e-mail")
+  plutôt qu'automatique — un envoi automatique et périodique nécessiterait un script
+  Google Apps Script déclenché sur le classeur (déclencheur temporel), non mis en place
+  par défaut mais réalisable en complément si besoin.
+- Le référentiel réel (§11.6bis) et la correspondance de colonnes du classeur "Notes TX"
+  (§11.6bis, §11.9) sont figés dans le code au moment de leur rédaction : une évolution
+  du classeur source (nouvelle nature de travaux, nouveau poste ZEP, etc.) ne se
+  répercute pas automatiquement dans GMAO.

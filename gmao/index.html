@@ -130,6 +130,7 @@
           Exporter CSV
         </button>
         <button id="btnVoirCalendrier" class="btn btn--secondary btn--small" type="button">📅 Calendrier</button>
+        <button id="btnVoirSemaine" class="btn btn--secondary btn--small" type="button">🗓️ Vue semaine</button>
         <button id="btnNouvelleIntervention" class="btn btn--primary btn--small" type="button" hidden>🆕 Nouvelle intervention</button>
       </div>
     </section>
@@ -155,6 +156,22 @@
         <button class="btn btn--secondary btn--small" id="btnMoisSuivant" type="button">Mois suivant ›</button>
       </div>
       <div id="calendrierGrille"></div>
+    </div>
+  </section>
+
+  <!-- ============ VUE SEMAINE : imprimer/envoyer par e-mail les travaux d'une semaine (voir docs/11 §11.9) ============ -->
+  <section id="viewSemaine" class="calendrier-view" hidden>
+    <div class="calendrier-carte">
+      <div class="calendrier-nav">
+        <button class="btn btn--secondary btn--small" id="btnSemainePrecedente" type="button">‹ Semaine précédente</button>
+        <h2 id="semaineTitre"></h2>
+        <button class="btn btn--secondary btn--small" id="btnSemaineSuivante" type="button">Semaine suivante ›</button>
+      </div>
+      <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;">
+        <button class="btn btn--secondary btn--small" id="btnImprimerSemaine" type="button">🖨️ Imprimer la semaine</button>
+        <button class="btn btn--secondary btn--small" id="btnEmailSemaine" type="button">📧 Envoyer par e-mail</button>
+      </div>
+      <div id="semaineContenu"></div>
     </div>
   </section>
 
@@ -261,6 +278,9 @@
     <div class="bandeau-flash__piste" id="bandeauFlashPiste"></div>
   </div>
 </div>
+
+<!-- ============ ZONE D'IMPRESSION (vue semaine, visible uniquement à l'impression) ============ -->
+<div id="zoneImpression" class="zone-impression"></div>
 
 <!-- ============ FICHE INTERVENTION (détail) ============ -->
 <div class="modal-overlay" id="modalOverlay" hidden>

@@ -28,6 +28,7 @@
     utilisateur: null,
     vue: "interventions",
     moisCalendrier: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    semaineCourante: lundiDeLaSemaine(new Date()),
   };
 
   let modalActuel = null;
@@ -81,6 +82,7 @@
       crumbCourant: document.getElementById("crumbCourant"),
       viewInterventions: document.getElementById("viewInterventions"),
       viewCalendrier: document.getElementById("viewCalendrier"),
+      viewSemaine: document.getElementById("viewSemaine"),
       viewInterventionForm: document.getElementById("viewInterventionForm"),
       roleBadge: document.getElementById("roleBadge"),
       btnGoogleConnect: document.getElementById("btnGoogleConnect"),
@@ -106,11 +108,19 @@
       btnResetIntervFilters: document.getElementById("btnResetIntervFilters"),
       btnExportIntervCsv: document.getElementById("btnExportIntervCsv"),
       btnVoirCalendrier: document.getElementById("btnVoirCalendrier"),
+      btnVoirSemaine: document.getElementById("btnVoirSemaine"),
       btnNouvelleIntervention: document.getElementById("btnNouvelleIntervention"),
       calendrierGrille: document.getElementById("calendrierGrille"),
       calendrierTitre: document.getElementById("calendrierTitre"),
       btnMoisPrecedent: document.getElementById("btnMoisPrecedent"),
       btnMoisSuivant: document.getElementById("btnMoisSuivant"),
+      semaineTitre: document.getElementById("semaineTitre"),
+      semaineContenu: document.getElementById("semaineContenu"),
+      btnSemainePrecedente: document.getElementById("btnSemainePrecedente"),
+      btnSemaineSuivante: document.getElementById("btnSemaineSuivante"),
+      btnImprimerSemaine: document.getElementById("btnImprimerSemaine"),
+      btnEmailSemaine: document.getElementById("btnEmailSemaine"),
+      zoneImpression: document.getElementById("zoneImpression"),
       intervFormTitre: document.getElementById("intervFormTitre"),
       intervFormSousTitre: document.getElementById("intervFormSousTitre"),
       intervFormBadgeStatut: document.getElementById("intervFormBadgeStatut"),
@@ -259,6 +269,7 @@
     state.vue = vue;
     els.viewInterventions.hidden = vue !== "interventions";
     els.viewCalendrier.hidden = vue !== "calendrier";
+    els.viewSemaine.hidden = vue !== "semaine";
     els.viewInterventionForm.hidden = vue !== "interventionForm";
 
     if (vue === "interventions") {
@@ -269,6 +280,10 @@
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Calendrier";
       renderCalendrier();
+    } else if (vue === "semaine") {
+      els.crumbSep.hidden = false;
+      els.crumbCourant.textContent = "Vue semaine";
+      renderSemaine();
     } else if (vue === "interventionForm") {
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Nouvelle intervention";
@@ -284,6 +299,7 @@
     els.btnGoogleConnect.addEventListener("click", connecterGoogle);
     els.btnActualiser.addEventListener("click", () => actualiserDonnees());
     els.btnVoirCalendrier.addEventListener("click", () => afficherVue("calendrier"));
+    els.btnVoirSemaine.addEventListener("click", () => afficherVue("semaine"));
 
     els.modalClose.addEventListener("click", fermerModal);
     els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) fermerModal(); });
@@ -302,6 +318,17 @@
       state.moisCalendrier.setMonth(state.moisCalendrier.getMonth() + 1);
       renderCalendrier();
     });
+
+    els.btnSemainePrecedente.addEventListener("click", () => {
+      state.semaineCourante.setDate(state.semaineCourante.getDate() - 7);
+      renderSemaine();
+    });
+    els.btnSemaineSuivante.addEventListener("click", () => {
+      state.semaineCourante.setDate(state.semaineCourante.getDate() + 7);
+      renderSemaine();
+    });
+    els.btnImprimerSemaine.addEventListener("click", imprimerSemaine);
+    els.btnEmailSemaine.addEventListener("click", envoyerEmailSemaine);
 
     [els.intervSearch, els.intervFilterCategorie, els.intervFilterType, els.intervFilterStatut,
      els.intervFilterDateFrom, els.intervFilterDateTo].forEach((el) =>
@@ -828,6 +855,156 @@
         indexInterv++;
       });
     }
+  }
+
+  // -- Vue semaine : imprimer / envoyer par e-mail les travaux d'une semaine (docs/11 §11.9) --
+  /** Lundi 00:00 de la semaine contenant `date` (semaine de travail Lundi→Samedi, comme le classeur "Notes TX"). */
+  function lundiDeLaSemaine(date) {
+    const d = new Date(date);
+    const jour = d.getDay() || 7; // dimanche (0) -> 7
+    d.setDate(d.getDate() - jour + 1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  /** Numéro de semaine ISO-8601 (S1, S2… — même numérotation que les feuilles S1-S52 du classeur "Notes TX"). */
+  function numeroSemaineISO(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const jour = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - jour);
+    const debutAnnee = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d - debutAnnee) / 86400000 + 1) / 7);
+  }
+
+  function dateISO(date) { return date.toISOString().slice(0, 10); }
+
+  /** Rassemble les données de la semaine affichée (partagé entre l'écran, l'impression et l'e-mail). */
+  function construireResumeSemaine() {
+    const lundi = state.semaineCourante;
+    const samedi = new Date(lundi);
+    samedi.setDate(samedi.getDate() + 5);
+    const lundiIso = dateISO(lundi);
+    const samediIso = dateISO(samedi);
+
+    // Une intervention appartient à la semaine si son jour prévu y tombe, ou si sa
+    // fenêtre planifiée (import d'un plan externe, voir docs/11 §11.6) chevauche la
+    // semaine — pour ne rien oublier d'actif pendant la période imprimée/envoyée.
+    const interventions = state.interventions
+      .filter((iv) => {
+        if (!iv.dateIntervention) return false;
+        const debut = iv.dateIntervention;
+        const fin = iv.dateFinPlanifiee || iv.dateIntervention;
+        return debut <= samediIso && fin >= lundiIso;
+      })
+      .sort((a, b) => (a.dateIntervention < b.dateIntervention ? -1 : 1));
+
+    const blocages = interventions.filter((iv) => iv.coupureCatenaire || iv.impact || iv.consequences);
+
+    return { lundi, samedi, numeroSemaine: numeroSemaineISO(lundi), interventions, blocages };
+  }
+
+  function renderSemaine() {
+    const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
+    els.semaineTitre.textContent = `Semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
+
+    if (interventions.length === 0) {
+      els.semaineContenu.innerHTML = `<p style="margin-top:16px;">Aucun travaux prévu cette semaine.</p>`;
+      return;
+    }
+
+    const ligne = (iv) => {
+      const cle = statutIntervention(iv);
+      const info = INTERVENTION_STATUT_LABELS[cle];
+      const jourNom = iv.dateIntervention ? new Date(iv.dateIntervention).toLocaleDateString("fr-FR", { weekday: "long" }) : "";
+      return `
+        <div class="historique-ligne">
+          <div class="historique-ligne__entete" style="cursor:default;">
+            <span>${jourNom ? jourNom.charAt(0).toUpperCase() + jourNom.slice(1) + " " : ""}${formatDate(iv.dateIntervention)} — ${escapeHtml(iv.materiel || iv.numSerie)}</span>
+            <span class="badge ${info.badge}">${info.label}</span>
+          </div>
+          <div class="historique-ligne__detail">
+            <p><strong>Nature des travaux :</strong> ${escapeHtml(iv.type) || "—"}${iv.priorite ? ` (priorité ${escapeHtml(iv.priorite)})` : ""}</p>
+            <p><strong>Lieu :</strong> ${escapeHtml([iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ")) || "—"} · <strong>Intervenant :</strong> ${escapeHtml(iv.intervenant) || "—"}</p>
+            ${iv.coupureCatenaire ? `<p><strong>⚡ Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
+            ${iv.impact ? `<p><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
+            ${iv.consequences ? `<p><strong>Conséquences / blocages :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
+          </div>
+        </div>`;
+    };
+
+    els.semaineContenu.innerHTML = `
+      <div class="modal__section">
+        <h3>Travaux de la semaine (${interventions.length})</h3>
+        ${interventions.map(ligne).join("")}
+      </div>
+      ${blocages.length ? `
+        <div class="modal__section">
+          <h3>⚠ Blocages / consignations de la semaine (${blocages.length})</h3>
+          ${blocages.map(ligne).join("")}
+        </div>
+      ` : ""}
+    `;
+  }
+
+  function imprimerSemaine() {
+    const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
+    const genererLigne = (iv) => `
+      <tr>
+        <td>${formatDate(iv.dateIntervention)}</td>
+        <td>${escapeHtml(iv.materiel || iv.numSerie)}</td>
+        <td>${escapeHtml(iv.type) || "—"}</td>
+        <td>${escapeHtml([iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ")) || "—"}</td>
+        <td>${escapeHtml(iv.intervenant) || "—"}</td>
+        <td>${iv.coupureCatenaire ? `⚡ ${escapeHtml(iv.coupureDebut) || "?"}-${escapeHtml(iv.coupureFin) || "?"}` : "—"}</td>
+        <td>${escapeHtml(INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label)}</td>
+      </tr>`;
+    els.zoneImpression.innerHTML = `
+      <h1>Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} → ${formatDate(dateISO(samedi))})</h1>
+      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+        <thead><tr>
+          ${["Date", "Matériel", "Nature des travaux", "Lieu", "Intervenant", "Consignation", "Statut"].map((h) => `<th style="border:1px solid #ccc; padding:4px 6px; text-align:left;">${h}</th>`).join("")}
+        </tr></thead>
+        <tbody>${interventions.map(genererLigne).join("")}</tbody>
+      </table>
+      ${blocages.length ? `
+        <h2>⚠ Blocages / consignations à surveiller</h2>
+        ${blocages.map((iv) => `
+          <div class="impression-controle">
+            <h3>${formatDate(iv.dateIntervention)} — ${escapeHtml(iv.materiel || iv.numSerie)}</h3>
+            ${iv.coupureCatenaire ? `<p><strong>Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
+            ${iv.impact ? `<p><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
+            ${iv.consequences ? `<p><strong>Conséquences :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
+          </div>
+        `).join("")}
+      ` : ""}
+    `;
+    window.print();
+  }
+
+  /**
+   * Ouvre le client de messagerie par défaut (lien mailto:) avec un résumé de la
+   * semaine déjà rédigé. Ce site est statique (sans serveur) : il ne peut pas
+   * envoyer un e-mail lui-même, seulement préparer le brouillon — voir docs/11 §11.9.
+   */
+  function envoyerEmailSemaine() {
+    const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
+    const sujet = `Travaux semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
+    const ligneTexte = (iv) => `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} · ${iv.type || "—"} · ${[iv.lieu, iv.posteTechnique].filter(Boolean).join(" / ") || "—"} · ${iv.intervenant || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
+    let corps = `Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))})\n\n`;
+    corps += interventions.length ? interventions.map(ligneTexte).join("\n") : "Aucun travaux prévu cette semaine.";
+    if (blocages.length) {
+      corps += `\n\n⚠ BLOCAGES / CONSIGNATIONS À SURVEILLER :\n`;
+      corps += blocages.map((iv) => {
+        const details = [
+          iv.coupureCatenaire ? `consignation caténaire ${iv.coupureDebut || "?"}→${iv.coupureFin || "?"}` : "",
+          iv.impact ? `impact : ${iv.impact}` : "",
+          iv.consequences ? `conséquences : ${iv.consequences}` : "",
+        ].filter(Boolean).join(" — ");
+        return `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} : ${details}`;
+      }).join("\n");
+    }
+    const lien = `mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
+    window.location.href = lien;
   }
 
   // -- Thème clair / sombre ---------------------------------------------------

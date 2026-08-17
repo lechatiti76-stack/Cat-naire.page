@@ -185,11 +185,13 @@ const REFERENTIEL_TRAVAUX = {
     "déchargement/chargement",
     "Consignation Caténaire",
   ],
-  // Colonne B de l'onglet Données : préfixes de poste technique.
+  // Colonne B de l'onglet Données : préfixes de poste technique. Colonne O : postes
+  // "ZEP" des tournées (table séparée du même onglet, voir docs/11 §11.6bis).
   postesTechniques: [
     "3HMCM", "3HMCM-EFE", "3HMCM-EFE-ADV", "3HMCM-EFE-CEN",
     "3HMCM-EFE-PNV", "3HMCM-EFE-VDF", "3HMCM-EFE-VLI",
     "LHTE-1", "LHTE-2", "LHTE-3", "LHTE-4", "LHTE-5", "LHTE-6",
+    "ZEP",
   ],
   // Colonne F de l'onglet Données (postes) + colonne A des feuilles S1-S52 (zones ville).
   zones: [

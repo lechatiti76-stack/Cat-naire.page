@@ -68,7 +68,7 @@ function construireJeuDeDemonstrationGmao() {
     {
       materielId: 3, type: "Maintenance préventive", dateDemande: "2026-06-01", demandePar: "Julien Marchand",
       dateIntervention: "2026-08-20", dureeHeures: 2, lieu: "Zone de stockage perches",
-      impact: "Aucun", consequences: "",
+      impact: "", consequences: "",
       intervenant: "Julien Marchand", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
       dateValidation: "2026-06-02", validePar: "Amandine Roy", dateRealisation: "",
       commentaires: "",
