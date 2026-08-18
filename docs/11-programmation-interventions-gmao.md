@@ -34,8 +34,12 @@ Onglet optionnel (créé automatiquement à la première demande si absent, comm
 InterventionId | NumSerie | Materiel | PosteTechnique | TypeIntervention | Priorite |
 DateDemande | DemandePar | DateIntervention | DateFinPlanifiee | DureeHeures | Lieu |
 Impact | Consequences | Intervenant | CoupureCatenaire | CoupureDebut | CoupureFin |
-DateValidation | ValidePar | DateRealisation | Commentaires
+DateValidation | ValidePar | DateRealisation | Commentaires | DateTheorique | HeureDebut | HeureFin
 ```
+
+Les 3 dernières colonnes (`DateTheorique`/`HeureDebut`/`HeureFin`) servent à la
+planification pratique décrite en §11.8 — `DateIntervention` reste la date de référence
+utilisée partout ailleurs (calendrier, statuts, vue semaine).
 
 - `NumSerie` relie l'intervention au matériel concerné (onglet `Materiels`, même
   logique de correspondance que `Controles`) — **optionnel** : laissez vide pour un
@@ -210,6 +214,64 @@ n'expose aucun de ces boutons :
   être choisi dans la liste `Materiels`, ou laissé sur "— Hors liste —" pour saisir à la
   place un poste technique/nom d'équipement libre (import ponctuel, équipement
   d'infrastructure non suivi comme matériel de sécurité).
+
+## 11.8 Planification pratique : date théorique → date réelle programmée
+
+Le plan de maintenance importé (§11.6) ne fournit qu'une **date théorique** —
+`DateIntervention` telle qu'apportée par l'import. Dans la réalité, cette date glisse
+souvent (disponibilité caténaire, aléas de chantier…) : l'écran **"📌 Planifier"** sert à
+transformer cette date théorique en date réelle programmée, avec ses horaires, sans
+ressaisir ce qui est déjà connu de la fiche.
+
+**Trois colonnes supplémentaires** dans l'onglet `Interventions` (ajoutées en fin de
+tableau pour ne jamais décaler les colonnes existantes ni les lignes déjà importées) :
+
+```
+… DateRealisation | Commentaires | DateTheorique | HeureDebut | HeureFin
+```
+
+- `DateTheorique` : capturée **automatiquement, une seule fois**, à la première
+  reprogrammation d'une intervention (elle recopie alors l'ancienne valeur de
+  `DateIntervention` avant de la remplacer) — jamais réécrite ensuite, même si
+  l'intervention est reprogrammée plusieurs fois. C'est la référence stable du plan
+  d'origine.
+- `HeureDebut`/`HeureFin` : horaires de la fenêtre de travail réelle ; `HeureFin` est
+  toujours calculée (`HeureDebut` + durée allouée), jamais saisie à la main.
+
+Si l'onglet `Interventions` existe déjà dans votre classeur (créé par une version
+antérieure de l'appli, avant ces 3 colonnes), son en-tête est complété automatiquement à
+la prochaine écriture — `assurerFeuille` (`js/google-sheets.js`) compare l'en-tête réel de
+la ligne 1 au schéma attendu et ajoute les colonnes manquantes, sans jamais toucher aux
+lignes de données déjà présentes.
+
+**Écran "📌 Planifier"** (bouton dans la barre d'outils de la vue Interventions, sur
+chaque carte non réalisée, et dans la fiche détaillée — permission `validerIntervention`,
+la même que "Valider" puisque cet écran renseigne aussi la validation) :
+
+1. **Intervention à planifier** : liste déroulante de toutes les interventions non
+   réalisées, avec leur date théorique — la sélectionner précharge automatiquement les
+   champs déjà connus de sa fiche : zone/lieu, impact, conséquences, demandeur, date de
+   demande, consignation caténaire.
+2. **Date réelle de l'intervention**, **Heure de début**, **Durée allouée (heures)** :
+   seuls champs vraiment nouveaux à saisir. L'**Heure de fin** se calcule automatiquement
+   (début + durée) à chaque modification.
+3. **Consignation caténaire nécessaire** (case à cocher) : si cochée, les heures de
+   début/fin de consignation se resynchronisent automatiquement sur la fenêtre de travail
+   à chaque modification de l'heure de début ou de la durée — reste modifiable
+   manuellement juste avant l'enregistrement si la consignation doit différer (ex. coupure
+   commencée plus tôt par sécurité).
+4. **Date de validation** (préremplie à aujourd'hui) et **Validé par** (le nom de la
+   personne connectée, en lecture seule) : cet écran vaut validation, cohérent avec le
+   circuit à deux étapes (§11.2).
+5. Un **indicateur d'écart** ("⚠ Retard de X jours sur le plan théorique" ou "✅ Conforme
+   au plan théorique") se met à jour en direct pendant la saisie de la date réelle.
+
+**Répercussions automatiques** : la date réelle devient la `DateIntervention` de
+référence pour tout le reste de l'appli — calendrier, vue semaine, statuts, rappels —
+sans action supplémentaire. Partout où l'intervention est affichée (carte, calendrier,
+fiche détaillée), un repère "⏱ +X j vs théorique" rappelle l'écart par rapport au plan
+d'origine dès qu'il existe, distinct du statut "🔴 En retard" (qui compare la date réelle
+à *aujourd'hui*, pas au plan théorique).
 
 ## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
 

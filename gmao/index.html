@@ -131,6 +131,7 @@
         </button>
         <button id="btnVoirCalendrier" class="btn btn--secondary btn--small" type="button">📅 Calendrier</button>
         <button id="btnVoirSemaine" class="btn btn--secondary btn--small" type="button">🗓️ Vue semaine</button>
+        <button id="btnPlanifierIntervention" class="btn btn--secondary btn--small" type="button" hidden>📌 Planifier</button>
         <button id="btnNouvelleIntervention" class="btn btn--primary btn--small" type="button" hidden>🆕 Nouvelle intervention</button>
       </div>
     </section>
@@ -266,6 +267,112 @@
       <div class="controle-actions">
         <button class="btn btn--secondary" id="btnAnnulerIntervention" type="button">Annuler</button>
         <button class="btn btn--primary" id="btnValiderNouvelleIntervention" type="button">📩 Enregistrer la demande</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VUE FORMULAIRE : PLANIFICATION PRATIQUE (théorique → date réelle, voir docs/11 §11.8) ============ -->
+  <section id="viewPlanificationForm" class="controle-view" hidden>
+    <div class="controle-card">
+      <div class="controle-header">
+        <div>
+          <h2>📌 Planifier une intervention</h2>
+          <p class="controle-soustitre">Fait passer une intervention du plan théorique à une date réelle programmée, avec ses horaires.</p>
+        </div>
+      </div>
+
+      <div class="controle-champs">
+        <div class="field field--full">
+          <label for="planifInterventionSelect">Intervention à planifier</label>
+          <select id="planifInterventionSelect"></select>
+        </div>
+        <div class="field field--full">
+          <p class="controle-soustitre" id="planifDateTheoriqueInfo" style="margin:0;">Sélectionnez une intervention ci-dessus pour préremplir sa fiche.</p>
+        </div>
+      </div>
+
+      <div class="controle-champs">
+        <div class="field">
+          <label for="planifLieu">Zone / lieu</label>
+          <input type="text" id="planifLieu" list="listeZones" placeholder="ex. LE HAVRE, Voie 3 — quai Nord…">
+        </div>
+        <div class="field">
+          <label for="planifDemandeurSelect">Demandeur</label>
+          <select id="planifDemandeurSelect"></select>
+        </div>
+        <div class="field">
+          <label for="planifDateDemande">Date de demande</label>
+          <input type="date" id="planifDateDemande">
+        </div>
+        <div class="field">
+          <label for="planifDate">Date réelle de l'intervention</label>
+          <input type="date" id="planifDate">
+        </div>
+        <div class="field">
+          <label for="planifHeureDebut">Heure de début</label>
+          <input type="time" id="planifHeureDebut">
+        </div>
+        <div class="field">
+          <label for="planifDuree">Durée allouée (heures)</label>
+          <input type="number" id="planifDuree" min="0" step="0.5" list="listeDureesPlanif" placeholder="ex. 4">
+          <datalist id="listeDureesPlanif">
+            <option value="0.5"></option>
+            <option value="1"></option>
+            <option value="1.5"></option>
+            <option value="2"></option>
+            <option value="3"></option>
+            <option value="4"></option>
+            <option value="6"></option>
+            <option value="8"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label for="planifHeureFin">Heure de fin (calculée)</label>
+          <input type="time" id="planifHeureFin" readonly>
+        </div>
+        <div class="field">
+          <label for="planifDateValidation">Date de validation</label>
+          <input type="date" id="planifDateValidation">
+        </div>
+        <div class="field">
+          <label>Validé par</label>
+          <p class="controle-soustitre" id="planifValideParInfo" style="margin:0; padding:10px 0;">—</p>
+        </div>
+        <div class="field field--full">
+          <label class="admin-permission" for="planifCoupureCatenaire" style="font-size:14px;">
+            <input type="checkbox" id="planifCoupureCatenaire">
+            ⚡ Consignation caténaire nécessaire
+          </label>
+        </div>
+        <div class="controle-champs" id="planifCoupureChamps" hidden style="grid-column: 1 / -1;">
+          <div class="field">
+            <label for="planifCoupureDebut">Consignation — début</label>
+            <input type="time" id="planifCoupureDebut">
+          </div>
+          <div class="field">
+            <label for="planifCoupureFin">Consignation — fin</label>
+            <input type="time" id="planifCoupureFin">
+          </div>
+        </div>
+        <div class="field field--full" id="planifRetardInfo"></div>
+      </div>
+
+      <div class="controle-champs controle-champs--texte">
+        <div class="field field--full">
+          <label for="planifImpact">Impact</label>
+          <textarea id="planifImpact" rows="2"></textarea>
+        </div>
+        <div class="field field--full">
+          <label for="planifConsequences">Conséquences</label>
+          <textarea id="planifConsequences" rows="2"></textarea>
+        </div>
+      </div>
+
+      <div class="controle-resultat" id="planifResultat" hidden></div>
+
+      <div class="controle-actions">
+        <button class="btn btn--secondary" id="btnAnnulerPlanification" type="button">Annuler</button>
+        <button class="btn btn--primary" id="btnConfirmerPlanification" type="button">✅ Confirmer la planification</button>
       </div>
     </div>
   </section>

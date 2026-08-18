@@ -91,6 +91,21 @@ function construireJeuDeDemonstrationGmao() {
       dateValidation: "2026-01-05", validePar: "Import PDM 2026", dateRealisation: "",
       commentaires: "",
     },
+    {
+      // Exemple de planification pratique (voir docs/11 §11.8) : date théorique du
+      // plan de maintenance annuel reprogrammée à une date réelle plus tardive,
+      // avec horaires et lieu/conséquences déjà connus de la fiche.
+      materielId: null, materiel: "ADV 5028", posteTechnique: "3HMCM-EFE-ADV-5028",
+      type: "Maintenance signal", priorite: "N",
+      dateDemande: "2026-06-01", demandePar: "Import PDM 2026",
+      dateTheorique: "2026-09-05",
+      dateIntervention: "2026-09-12", dureeHeures: 4, heureDebut: "08:00", heureFin: "12:00",
+      lieu: "LE HAVRE — ADV 5028",
+      impact: "Signal ADV indisponible pendant l'intervention", consequences: "Marche à vue temporaire sur le secteur concerné",
+      intervenant: "Julien Marchand", coupureCatenaire: true, coupureDebut: "08:00", coupureFin: "12:00",
+      dateValidation: "2026-08-15", validePar: "Amandine Roy", dateRealisation: "",
+      commentaires: "Reprogrammée depuis le 05/09 (plan théorique) via l'écran \"Planifier\".",
+    },
   ];
   let idIntervention = 1;
   const interventions = donneesInterventions.map((iv) => {
@@ -120,6 +135,9 @@ function construireJeuDeDemonstrationGmao() {
       validePar: iv.validePar,
       dateRealisation: iv.dateRealisation,
       commentaires: iv.commentaires,
+      dateTheorique: iv.dateTheorique || "",
+      heureDebut: iv.heureDebut || "",
+      heureFin: iv.heureFin || "",
     };
   });
 

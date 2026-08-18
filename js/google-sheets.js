@@ -296,6 +296,9 @@ const GoogleSheetsAPI = (() => {
         validePar: iv.ValidePar || "",
         dateRealisation: normaliserDate(iv.DateRealisation),
         commentaires: iv.Commentaires || "",
+        dateTheorique: normaliserDate(iv.DateTheorique),
+        heureDebut: iv.HeureDebut || "",
+        heureFin: iv.HeureFin || "",
       };
     });
   }
@@ -451,25 +454,36 @@ const GoogleSheetsAPI = (() => {
     await appelJson(url, { method: "POST", body: JSON.stringify({ requests: [{ addSheet: { properties: { title: nom } } }] }) });
   }
 
+  async function ecrireEntetes(nomFeuille, entetes) {
+    const derniereColonne = String.fromCharCode(64 + entetes.length);
+    const plage = `${nomFeuille}!A1:${derniereColonne}1`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
+    await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [entetes] }) });
+  }
+
   const feuillesConfirmees = new Set();
   /**
    * Crée un onglet (avec ses en-têtes) s'il n'existe pas encore dans le
    * classeur, pour qu'un premier écriture n'échoue plus jamais avec
    * "Unable to parse range" faute d'onglet — les onglets Utilisateurs/Journal
    * sont facultatifs à la lecture (voir obtenirValeursOptionnel) mais doivent
-   * exister pour pouvoir y écrire.
+   * exister pour pouvoir y écrire. Si l'onglet existe déjà mais que son
+   * en-tête est plus court que le schéma attendu (ex. colonnes ajoutées à une
+   * version ultérieure de l'appli, comme DateTheorique/HeureDebut/HeureFin —
+   * voir docs/11 §11.8), complète l'en-tête manquant sans jamais toucher aux
+   * lignes de données déjà présentes.
    */
   async function assurerFeuille(nomFeuille, entetes) {
     if (feuillesConfirmees.has(nomFeuille)) return;
     const feuilles = await listerFeuilles();
     if (!feuilles.includes(nomFeuille)) {
       await creerFeuille(nomFeuille);
-      if (entetes && entetes.length) {
-        const derniereColonne = String.fromCharCode(64 + entetes.length);
-        const plage = `${nomFeuille}!A1:${derniereColonne}1`;
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
-        await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [entetes] }) });
-      }
+      if (entetes && entetes.length) await ecrireEntetes(nomFeuille, entetes);
+    } else if (entetes && entetes.length) {
+      const ligneEntetes = await obtenirValeursOptionnel(`${nomFeuille}!1:1`);
+      const entetesActuels = (ligneEntetes[0] || []).map((h) => String(h).trim());
+      const incomplet = entetes.some((h, i) => entetesActuels[i] !== h);
+      if (incomplet) await ecrireEntetes(nomFeuille, entetes);
     }
     feuillesConfirmees.add(nomFeuille);
   }
@@ -637,6 +651,10 @@ const GoogleSheetsAPI = (() => {
     "DateDemande", "DemandePar", "DateIntervention", "DateFinPlanifiee", "DureeHeures", "Lieu",
     "Impact", "Consequences", "Intervenant", "CoupureCatenaire", "CoupureDebut", "CoupureFin",
     "DateValidation", "ValidePar", "DateRealisation", "Commentaires",
+    // Planification pratique (théorique → date réelle programmée, voir docs/11 §11.8) :
+    // DateTheorique conserve la date d'origine du plan de maintenance, capturée
+    // automatiquement lors de la première reprogrammation — jamais réécrite ensuite.
+    "DateTheorique", "HeureDebut", "HeureFin",
   ];
 
   function ligneIntervention(iv) {
@@ -646,6 +664,7 @@ const GoogleSheetsAPI = (() => {
       iv.dureeHeures ?? "", iv.lieu || "", iv.impact || "", iv.consequences || "", iv.intervenant || "",
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut || "", iv.coupureFin || "",
       iv.dateValidation || "", iv.validePar || "", iv.dateRealisation || "", iv.commentaires || "",
+      iv.dateTheorique || "", iv.heureDebut || "", iv.heureFin || "",
     ];
   }
 
@@ -672,6 +691,7 @@ const GoogleSheetsAPI = (() => {
    * même principe que modifierUtilisateur.
    */
   async function mettreAJourIntervention(ligne, iv) {
+    await assurerFeuille(GOOGLE_CONFIG.feuilles.interventions, INTERVENTIONS_ENTETES);
     const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length); // "R"
     const plage = `${GOOGLE_CONFIG.feuilles.interventions}!A${ligne}:${derniereColonne}${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;

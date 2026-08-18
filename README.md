@@ -33,7 +33,7 @@ Déployées via GitHub Pages depuis la branche `main` :
 | Conseils d'amélioration & bonnes pratiques Microsoft | [`docs/06-bonnes-pratiques.md`](docs/06-bonnes-pratiques.md) |
 | Migration pas à pas de vos listes existantes vers le modèle final | [`docs/07-migration-listes-existantes.md`](docs/07-migration-listes-existantes.md) |
 | Rôles, calendrier, ressources, export PDF, personnalisation | [`docs/09-roles-et-fonctionnalites.md`](docs/09-roles-et-fonctionnalites.md) |
-| Programmation GMAO des interventions/réparations (demande, validation, rappel en retard, coupure caténaire) | [`docs/11-programmation-interventions-gmao.md`](docs/11-programmation-interventions-gmao.md) |
+| Programmation GMAO des interventions/réparations (demande, validation, planification pratique théorique → réelle, rappel en retard, coupure caténaire) | [`docs/11-programmation-interventions-gmao.md`](docs/11-programmation-interventions-gmao.md) |
 
 ## Aperçu de l'interface web
 

@@ -84,6 +84,7 @@
       viewCalendrier: document.getElementById("viewCalendrier"),
       viewSemaine: document.getElementById("viewSemaine"),
       viewInterventionForm: document.getElementById("viewInterventionForm"),
+      viewPlanificationForm: document.getElementById("viewPlanificationForm"),
       roleBadge: document.getElementById("roleBadge"),
       btnGoogleConnect: document.getElementById("btnGoogleConnect"),
       btnActualiser: document.getElementById("btnActualiser"),
@@ -109,6 +110,7 @@
       btnExportIntervCsv: document.getElementById("btnExportIntervCsv"),
       btnVoirCalendrier: document.getElementById("btnVoirCalendrier"),
       btnVoirSemaine: document.getElementById("btnVoirSemaine"),
+      btnPlanifierIntervention: document.getElementById("btnPlanifierIntervention"),
       btnNouvelleIntervention: document.getElementById("btnNouvelleIntervention"),
       calendrierGrille: document.getElementById("calendrierGrille"),
       calendrierTitre: document.getElementById("calendrierTitre"),
@@ -144,6 +146,27 @@
       intervResultat: document.getElementById("intervResultat"),
       btnAnnulerIntervention: document.getElementById("btnAnnulerIntervention"),
       btnValiderNouvelleIntervention: document.getElementById("btnValiderNouvelleIntervention"),
+      planifInterventionSelect: document.getElementById("planifInterventionSelect"),
+      planifDateTheoriqueInfo: document.getElementById("planifDateTheoriqueInfo"),
+      planifLieu: document.getElementById("planifLieu"),
+      planifDemandeurSelect: document.getElementById("planifDemandeurSelect"),
+      planifDateDemande: document.getElementById("planifDateDemande"),
+      planifDate: document.getElementById("planifDate"),
+      planifHeureDebut: document.getElementById("planifHeureDebut"),
+      planifDuree: document.getElementById("planifDuree"),
+      planifHeureFin: document.getElementById("planifHeureFin"),
+      planifDateValidation: document.getElementById("planifDateValidation"),
+      planifValideParInfo: document.getElementById("planifValideParInfo"),
+      planifCoupureCatenaire: document.getElementById("planifCoupureCatenaire"),
+      planifCoupureChamps: document.getElementById("planifCoupureChamps"),
+      planifCoupureDebut: document.getElementById("planifCoupureDebut"),
+      planifCoupureFin: document.getElementById("planifCoupureFin"),
+      planifRetardInfo: document.getElementById("planifRetardInfo"),
+      planifImpact: document.getElementById("planifImpact"),
+      planifConsequences: document.getElementById("planifConsequences"),
+      planifResultat: document.getElementById("planifResultat"),
+      btnAnnulerPlanification: document.getElementById("btnAnnulerPlanification"),
+      btnConfirmerPlanification: document.getElementById("btnConfirmerPlanification"),
     });
   }
 
@@ -271,6 +294,7 @@
     els.viewCalendrier.hidden = vue !== "calendrier";
     els.viewSemaine.hidden = vue !== "semaine";
     els.viewInterventionForm.hidden = vue !== "interventionForm";
+    els.viewPlanificationForm.hidden = vue !== "planificationForm";
 
     if (vue === "interventions") {
       els.crumbSep.hidden = true;
@@ -287,6 +311,9 @@
     } else if (vue === "interventionForm") {
       els.crumbSep.hidden = false;
       els.crumbCourant.textContent = "Nouvelle intervention";
+    } else if (vue === "planificationForm") {
+      els.crumbSep.hidden = false;
+      els.crumbCourant.textContent = "Planifier une intervention";
     }
     renderStatsGlobales();
     renderBandeauFlash();
@@ -345,6 +372,17 @@
     els.btnValiderNouvelleIntervention.addEventListener("click", validerNouvelleIntervention);
     els.intervCoupureCatenaire.addEventListener("change", () => {
       els.intervCoupureChamps.hidden = !els.intervCoupureCatenaire.checked;
+    });
+
+    els.btnPlanifierIntervention.addEventListener("click", () => ouvrirEcranPlanification());
+    els.btnAnnulerPlanification.addEventListener("click", () => afficherVue("interventions"));
+    els.btnConfirmerPlanification.addEventListener("click", validerPlanification);
+    els.planifInterventionSelect.addEventListener("change", () => chargerInterventionDansPlanification(els.planifInterventionSelect.value));
+    [els.planifHeureDebut, els.planifDuree].forEach((el) => el.addEventListener("input", calculerHeureFinPlanification));
+    els.planifDate.addEventListener("input", () => mettreAJourRetardInfoDepuisSelection());
+    els.planifCoupureCatenaire.addEventListener("change", () => {
+      els.planifCoupureChamps.hidden = !els.planifCoupureCatenaire.checked;
+      if (els.planifCoupureCatenaire.checked) calculerHeureFinPlanification();
     });
   }
 
@@ -502,6 +540,7 @@
     els.intervEmptyState.hidden = rows.length > 0;
     els.intervResultCount.textContent = `${rows.length} intervention${rows.length > 1 ? "s" : ""}`;
     els.btnNouvelleIntervention.hidden = !aPermission("nouvelleIntervention");
+    els.btnPlanifierIntervention.hidden = !aPermission("validerIntervention");
     els.btnExportIntervCsv.hidden = !aPermission("exporterCsv");
     els.btnVoirCalendrier.hidden = !aPermission("interventions");
 
@@ -509,6 +548,7 @@
       const cle = statutIntervention(iv);
       const info = INTERVENTION_STATUT_LABELS[cle];
       const j = joursRestantsIntervention(iv);
+      const ecart = joursEcartTheorique(iv);
       const periode = iv.dateFinPlanifiee && iv.dateFinPlanifiee !== iv.dateIntervention
         ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
         : formatDate(iv.dateIntervention);
@@ -519,16 +559,19 @@
         <div class="materiel-card__entete">
           <div>
             <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}</p>
+            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}${ecart ? ` · ⏱ ${ecart > 0 ? "+" : ""}${ecart} j vs théorique` : ""}</p>
           </div>
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
         <p class="materiel-card__info">📍 ${escapeHtml(lieuAffiche) || "—"} · 👤 ${escapeHtml(iv.intervenant) || "—"}${cle === "retard" && j !== null ? ` · en retard de ${Math.abs(j)} j` : ""}</p>
         <div class="materiel-card__actions">
           <button class="btn btn--secondary btn--small btn--interv-detail" type="button">Détails</button>
+          ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small btn--interv-planifier" type="button">📌 Planifier</button>' : ""}
         </div>
       `;
       carte.querySelector(".btn--interv-detail").addEventListener("click", () => ouvrirDetailIntervention(iv.id));
+      const btnPlanifier = carte.querySelector(".btn--interv-planifier");
+      if (btnPlanifier) btnPlanifier.addEventListener("click", () => ouvrirEcranPlanification(iv.id));
       els.intervCardsGrid.appendChild(carte);
     });
   }
@@ -540,10 +583,10 @@
 
   function exporterCsvInterventions() {
     const rows = getFilteredInterventions();
-    const headers = ["Matériel", "N° série", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Consignation caténaire", "Début consignation", "Fin consignation", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
+    const headers = ["Matériel", "N° série", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date théorique", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Consignation caténaire", "Début consignation", "Fin consignation", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
     const lines = rows.map((iv) => [
       iv.materiel, iv.numSerie, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateIntervention, iv.dateFinPlanifiee, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
+      iv.dateTheorique, iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
       iv.dateDemande, iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation, iv.commentaires,
     ].map(csvEscape).join(";"));
@@ -566,6 +609,8 @@
     modalActuel = { type: "intervention", id };
     const cle = statutIntervention(iv);
     const info = INTERVENTION_STATUT_LABELS[cle];
+    const ecart = joursEcartTheorique(iv);
+    const ecartTexte = ecart === null ? "" : (ecart > 0 ? `retard de ${ecart} jour${ecart > 1 ? "s" : ""}` : `avance de ${Math.abs(ecart)} jour${Math.abs(ecart) > 1 ? "s" : ""}`);
 
     els.modalTitle.textContent = `🔧 ${iv.materiel || iv.numSerie}`;
     els.modalBody.innerHTML = `
@@ -573,7 +618,8 @@
       <dl class="modal__grid" style="margin-top:16px;">
         <div class="modal__field"><dt>Type</dt><dd>${escapeHtml(iv.type) || "—"}</dd></div>
         ${iv.priorite ? `<div class="modal__field"><dt>Priorité</dt><dd>${escapeHtml(iv.priorite)}</dd></div>` : ""}
-        <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}</dd></div>
+        <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}${iv.heureDebut ? ` · ${escapeHtml(iv.heureDebut)}${iv.heureFin ? " → " + escapeHtml(iv.heureFin) : ""}` : ""}</dd></div>
+        ${iv.dateTheorique && iv.dateTheorique !== iv.dateIntervention ? `<div class="modal__field"><dt>Date théorique du plan</dt><dd>${formatDate(iv.dateTheorique)}${ecartTexte ? " — " + ecartTexte : ""}</dd></div>` : ""}
         <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
         <div class="modal__field"><dt>Lieu</dt><dd>${escapeHtml(iv.lieu) || "—"}</dd></div>
         ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
@@ -588,12 +634,15 @@
       ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p>${formatDate(iv.dateRealisation)}</p></div>` : ""}
       <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
         ${!iv.dateValidation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnValiderInterventionModal" type="button">✅ Valider</button>' : ""}
+        ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnPlanifierInterventionModal" type="button">📌 Planifier</button>' : ""}
         ${iv.dateValidation && !iv.dateRealisation && (aPermission("validerIntervention") || aPermission("nouvelleIntervention")) ? '<button class="btn btn--primary btn--small" id="btnRealiserInterventionModal" type="button">☑️ Marquer réalisée</button>' : ""}
         ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small" id="btnAnnulerInterventionModal" type="button">🗑️ Annuler la demande</button>' : ""}
       </div>
     `;
     const btnValider = els.modalBody.querySelector("#btnValiderInterventionModal");
     if (btnValider) btnValider.addEventListener("click", () => validerInterventionAction(id));
+    const btnPlanifier = els.modalBody.querySelector("#btnPlanifierInterventionModal");
+    if (btnPlanifier) btnPlanifier.addEventListener("click", () => { fermerModal(); ouvrirEcranPlanification(id); });
     const btnRealiser = els.modalBody.querySelector("#btnRealiserInterventionModal");
     if (btnRealiser) btnRealiser.addEventListener("click", () => marquerInterventionRealiseeAction(id));
     const btnAnnuler = els.modalBody.querySelector("#btnAnnulerInterventionModal");
@@ -808,6 +857,198 @@
     }
   }
 
+  // -- Planification pratique : théorique → date réelle (voir docs/11 §11.8) ---
+  /** Écart en jours entre la date théorique du plan et la date réelle programmée (null si sans objet). */
+  function joursEcartTheorique(iv) {
+    if (!iv.dateTheorique || !iv.dateIntervention || iv.dateTheorique === iv.dateIntervention) return null;
+    return Math.round((new Date(iv.dateIntervention) - new Date(iv.dateTheorique)) / 86400000);
+  }
+
+  /** Ajoute une durée (en heures, éventuellement décimale) à une heure "HH:MM" — reste dans la même journée. */
+  function ajouterHeures(heureDebut, dureeHeures) {
+    if (!heureDebut || dureeHeures === null || dureeHeures === undefined || dureeHeures === "" || Number.isNaN(Number(dureeHeures))) return "";
+    const [h, m] = heureDebut.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return "";
+    const totalMinutes = h * 60 + m + Math.round(Number(dureeHeures) * 60);
+    const finMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+    return `${String(Math.floor(finMinutes / 60)).padStart(2, "0")}:${String(finMinutes % 60).padStart(2, "0")}`;
+  }
+
+  /** Recalcule uniquement l'heure de fin affichée (début + durée allouée), sans toucher à la consignation caténaire. */
+  function calculerHeureFin() {
+    els.planifHeureFin.value = ajouterHeures(els.planifHeureDebut.value, els.planifDuree.value);
+  }
+
+  /**
+   * Recalcule l'heure de fin et resynchronise la consignation caténaire sur la
+   * fenêtre de travail, si elle est cochée — appelé uniquement lors d'une saisie
+   * (début/durée modifiés, ou case cochée), jamais au chargement d'une fiche
+   * existante (voir chargerInterventionDansPlanification, qui doit respecter des
+   * horaires de consignation déjà enregistrés et potentiellement différents).
+   */
+  function calculerHeureFinPlanification() {
+    calculerHeureFin();
+    if (els.planifCoupureCatenaire.checked) {
+      els.planifCoupureDebut.value = els.planifHeureDebut.value;
+      els.planifCoupureFin.value = els.planifHeureFin.value;
+    }
+  }
+
+  function interventionEnCoursDePlanification() {
+    const id = els.planifInterventionSelect.value;
+    return id ? state.interventions.find((x) => String(x.id) === String(id)) : null;
+  }
+
+  function mettreAJourRetardInfoDepuisSelection() {
+    const iv = interventionEnCoursDePlanification();
+    const dateTheorique = iv ? (iv.dateTheorique || iv.dateIntervention) : "";
+    const nouvelleDate = els.planifDate.value;
+    if (!dateTheorique || !nouvelleDate) { els.planifRetardInfo.innerHTML = ""; return; }
+    const jours = Math.round((new Date(nouvelleDate) - new Date(dateTheorique)) / 86400000);
+    if (jours > 0) {
+      els.planifRetardInfo.innerHTML = `<span class="badge badge--warn">⚠ Retard de ${jours} jour${jours > 1 ? "s" : ""} sur le plan théorique (${formatDate(dateTheorique)})</span>`;
+    } else if (jours < 0) {
+      els.planifRetardInfo.innerHTML = `<span class="badge badge--ok">✅ ${Math.abs(jours)} jour${Math.abs(jours) > 1 ? "s" : ""} d'avance sur le plan théorique (${formatDate(dateTheorique)})</span>`;
+    } else {
+      els.planifRetardInfo.innerHTML = `<span class="badge badge--ok">✅ Conforme au plan théorique (${formatDate(dateTheorique)})</span>`;
+    }
+  }
+
+  /** Interventions qu'on peut encore programmer/reprogrammer (tout sauf déjà réalisées). */
+  function interventionsPlanifiables() {
+    return state.interventions.filter((iv) => !iv.dateRealisation);
+  }
+
+  function renderSelecteurPlanification(interventionIdPreselectionnee) {
+    const rows = interventionsPlanifiables().sort((a, b) =>
+      (a.dateIntervention || "9999-99-99") < (b.dateIntervention || "9999-99-99") ? -1 : 1
+    );
+    els.planifInterventionSelect.innerHTML = '<option value="">— Sélectionner une intervention —</option>' +
+      rows.map((iv) => `<option value="${iv.id}">${escapeHtml(iv.materiel || iv.numSerie)} — théorique ${formatDate(iv.dateTheorique || iv.dateIntervention)}</option>`).join("");
+    if (interventionIdPreselectionnee) els.planifInterventionSelect.value = interventionIdPreselectionnee;
+  }
+
+  function renderSelecteurDemandeurPlanification() {
+    const nomCourant = (state.utilisateur && state.utilisateur.nom) || "";
+    const liste = state.controleurs && state.controleurs.length ? state.controleurs : state.utilisateurs;
+    if (!liste || liste.length === 0) {
+      els.planifDemandeurSelect.innerHTML = `<option value="${escapeHtml(nomCourant)}">${escapeHtml(nomCourant) || "—"}</option>`;
+      return;
+    }
+    els.planifDemandeurSelect.innerHTML = liste.map((c) => `<option value="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</option>`).join("");
+  }
+
+  function viderFormulairePlanification() {
+    els.planifDateTheoriqueInfo.textContent = "Sélectionnez une intervention ci-dessus pour préremplir sa fiche.";
+    els.planifLieu.value = ""; els.planifConsequences.value = ""; els.planifImpact.value = "";
+    els.planifDateDemande.value = "";
+    els.planifDate.value = ""; els.planifHeureDebut.value = ""; els.planifDuree.value = "";
+    els.planifHeureFin.value = "";
+    els.planifCoupureCatenaire.checked = false; els.planifCoupureChamps.hidden = true;
+    els.planifCoupureDebut.value = ""; els.planifCoupureFin.value = "";
+    els.planifDateValidation.value = new Date().toISOString().slice(0, 10);
+    els.planifValideParInfo.textContent = (state.utilisateur && state.utilisateur.nom) || "—";
+    els.planifRetardInfo.innerHTML = "";
+  }
+
+  /** Précharge la fiche d'une intervention existante dans le formulaire de planification (voir docs/11 §11.8). */
+  function chargerInterventionDansPlanification(id) {
+    const iv = id ? state.interventions.find((x) => String(x.id) === String(id)) : null;
+    if (!iv) { viderFormulairePlanification(); return; }
+    const dateTheorique = iv.dateTheorique || iv.dateIntervention || "";
+    els.planifDateTheoriqueInfo.textContent = `${iv.type || "Intervention"} — date théorique du plan : ${formatDate(dateTheorique)}`;
+    els.planifLieu.value = iv.lieu || "";
+    els.planifConsequences.value = iv.consequences || "";
+    els.planifImpact.value = iv.impact || "";
+    if ([...els.planifDemandeurSelect.options].some((o) => o.value === iv.demandePar)) els.planifDemandeurSelect.value = iv.demandePar;
+    els.planifDateDemande.value = iv.dateDemande || "";
+    els.planifDate.value = iv.dateIntervention || "";
+    els.planifHeureDebut.value = iv.heureDebut || "";
+    els.planifDuree.value = iv.dureeHeures ?? "";
+    els.planifCoupureCatenaire.checked = !!iv.coupureCatenaire;
+    els.planifCoupureChamps.hidden = !iv.coupureCatenaire;
+    els.planifCoupureDebut.value = iv.coupureDebut || "";
+    els.planifCoupureFin.value = iv.coupureFin || "";
+    calculerHeureFin();
+    els.planifDateValidation.value = iv.dateValidation || new Date().toISOString().slice(0, 10);
+    els.planifValideParInfo.textContent = (state.utilisateur && state.utilisateur.nom) || iv.validePar || "—";
+    mettreAJourRetardInfoDepuisSelection();
+  }
+
+  function ouvrirEcranPlanification(interventionIdPreselectionnee) {
+    if (!aPermission("validerIntervention")) {
+      afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de planifier une intervention.", "warn");
+      return;
+    }
+    renderSelecteurPlanification(interventionIdPreselectionnee);
+    renderSelecteurDemandeurPlanification();
+    els.planifResultat.hidden = true;
+    els.btnConfirmerPlanification.disabled = false;
+    els.btnConfirmerPlanification.textContent = "✅ Confirmer la planification";
+    if (interventionIdPreselectionnee) chargerInterventionDansPlanification(interventionIdPreselectionnee);
+    else viderFormulairePlanification();
+    afficherVue("planificationForm");
+  }
+
+  async function validerPlanification() {
+    const id = els.planifInterventionSelect.value;
+    if (!id) { alert("Veuillez sélectionner l'intervention à planifier."); return; }
+    const iv = state.interventions.find((x) => String(x.id) === String(id));
+    if (!iv) return;
+    const dateIntervention = els.planifDate.value;
+    if (!dateIntervention) { alert("Veuillez renseigner la date réelle de l'intervention."); return; }
+    const coupureCatenaire = els.planifCoupureCatenaire.checked;
+    if (coupureCatenaire && (!els.planifCoupureDebut.value || !els.planifCoupureFin.value)) {
+      alert("Veuillez renseigner l'heure de début et de fin de la consignation caténaire.");
+      return;
+    }
+    // La date théorique n'est capturée qu'une seule fois (à la première reprogrammation) :
+    // les planifications suivantes ne doivent jamais l'écraser (voir docs/11 §11.8).
+    const dateTheorique = iv.dateTheorique || iv.dateIntervention || dateIntervention;
+
+    const maj = {
+      ...iv,
+      dateTheorique,
+      lieu: els.planifLieu.value.trim(),
+      consequences: els.planifConsequences.value.trim(),
+      impact: els.planifImpact.value.trim(),
+      demandePar: els.planifDemandeurSelect.value || iv.demandePar,
+      dateDemande: els.planifDateDemande.value || iv.dateDemande,
+      dateIntervention,
+      heureDebut: els.planifHeureDebut.value,
+      heureFin: els.planifHeureFin.value,
+      dureeHeures: els.planifDuree.value ? Number(els.planifDuree.value) : null,
+      coupureCatenaire,
+      coupureDebut: coupureCatenaire ? els.planifCoupureDebut.value : "",
+      coupureFin: coupureCatenaire ? els.planifCoupureFin.value : "",
+      dateValidation: els.planifDateValidation.value || new Date().toISOString().slice(0, 10),
+      validePar: (state.utilisateur && state.utilisateur.nom) || iv.validePar || "",
+    };
+
+    els.btnConfirmerPlanification.disabled = true;
+    els.btnConfirmerPlanification.textContent = "Enregistrement…";
+    try {
+      if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, maj);
+      Object.assign(iv, maj);
+      const ecart = joursEcartTheorique(iv);
+      journaliser(`Intervention planifiée — ${iv.materiel} — ${dateIntervention}${ecart ? ` (${ecart > 0 ? "retard" : "avance"} de ${Math.abs(ecart)} j vs théorique)` : ""}`);
+      els.planifResultat.hidden = false;
+      els.planifResultat.className = "controle-resultat";
+      els.planifResultat.innerHTML = `Intervention planifiée pour le ${formatDate(dateIntervention)}${state.modeDemo ? " (simulation locale)" : ""}.`;
+      els.btnConfirmerPlanification.textContent = "✅ Planification enregistrée";
+      renderStatsGlobales(); renderInterventionsBanniere(); renderBandeauFlash();
+      if (state.vue === "interventions") renderInterventions();
+      setTimeout(() => afficherVue("interventions"), 1200);
+    } catch (e) {
+      console.error(e);
+      els.planifResultat.hidden = false;
+      els.planifResultat.className = "controle-resultat controle-resultat--erreur";
+      els.planifResultat.textContent = "Erreur lors de l'enregistrement : " + e.message;
+      els.btnConfirmerPlanification.disabled = false;
+      els.btnConfirmerPlanification.textContent = "✅ Confirmer la planification";
+    }
+  }
+
   // -- Calendrier ----------------------------------------------------------------
   function renderCalendrier() {
     const mois = state.moisCalendrier;
@@ -837,7 +1078,8 @@
           <span class="calendrier-jour__numero">${jour}</span>
           ${interventionsJour.map((iv) => {
             const info = INTERVENTION_STATUT_LABELS[statutIntervention(iv)];
-            const titre = `🔧 ${iv.materiel || iv.numSerie}`;
+            const ecart = joursEcartTheorique(iv);
+            const titre = `🔧 ${iv.materiel || iv.numSerie}${ecart ? ` (${ecart > 0 ? "+" : ""}${ecart} j)` : ""}`;
             return `<button type="button" class="calendrier-intervention ${info.badge}" title="${escapeHtml(titre)}">${escapeHtml(titre)}</button>`;
           }).join("")}
         </div>`;
