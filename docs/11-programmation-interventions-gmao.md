@@ -215,18 +215,19 @@ n'expose aucun de ces boutons :
   place un poste technique/nom d'équipement libre (import ponctuel, équipement
   d'infrastructure non suivi comme matériel de sécurité).
 
-## 11.7bis Référentiel équipements d'infrastructure (Type de maintenance → Matériel)
+## 11.7bis Référentiel équipements d'infrastructure (Catégorie → Type → Matériel)
 
 Pour reproduire le remplissage assisté de l'ancien formulaire Excel/VBA de l'utilisateur
-(sélection en cascade : type de maintenance → matériel → champs auto-remplis), l'écran
-**"🆕 Nouvelle intervention"** (GMAO uniquement) propose deux menus déroulants
-supplémentaires, alimentés par un second onglet Google Sheets optionnel,
-**`Interventions 2`** — un référentiel d'équipements d'infrastructure (ADV, JGP…),
-distinct de l'onglet `Materiels` (qui reste réservé au matériel de sécurité caténaire
-suivi individuellement : perches, LED, VAT…).
+(sélection en cascade → champs auto-remplis), l'écran **"🆕 Nouvelle intervention"**
+(GMAO uniquement) propose trois menus déroulants en cascade, alimentés par un second
+onglet Google Sheets optionnel, **`Interventions 2`** — un référentiel d'équipements
+d'infrastructure (ADV, JGP…), distinct de l'onglet `Materiels` (qui reste réservé au
+matériel de sécurité caténaire suivi individuellement : perches, LED, VAT…).
 
 **Structure de l'onglet `Interventions 2`** — volontairement **sans ligne d'en-tête**
-(données brutes dès la ligne 1), colonnes A à H :
+(données brutes dès la ligne 1), colonnes A à H (les lettres ci-dessous sont la position
+lue par le code — voir §11.7ter pour la correspondance avec les lettres affichées dans
+Google Sheets) :
 
 | Colonne | Contenu | Exemple |
 |---|---|---|
@@ -237,30 +238,50 @@ suivi individuellement : perches, LED, VAT…).
 | E | Matériel concerné | `ADV 5009` |
 | F | *(inutilisée)* | — |
 | G | ZEP (zone) | `ZEP 5028` |
-| H | Conséquences | `Accès ferroviaire et fluvial interdit côté PARIS` |
+| H | Conséquences (utilisées comme Impact — voir plus bas) | `Accès ferroviaire et fluvial interdit côté PARIS` |
 
 Les colonnes A/B/C suivent la convention "cellule fusionnée" habituelle d'un tableau
 Excel : une cellule vide **hérite de la dernière valeur non vide au-dessus, dans la même
-colonne** — une seule ligne porte le type de maintenance et sa référence, toutes les
-lignes de matériel suivantes en héritent jusqu'à la prochaine valeur explicite. C'est
+colonne** — une seule ligne porte la catégorie/référence/type, toutes les lignes de
+matériel suivantes en héritent jusqu'à la prochaine valeur explicite. C'est
 `referentielInterventionsDepuisLignes()` (`js/google-sheets.js`) qui applique ce report
 à la lecture ; les colonnes D et F ne sont lues par aucune fonctionnalité.
 
-**Comportement du formulaire** :
-1. **Type de maintenance (référentiel équipements)** : liste des valeurs distinctes de
-   la colonne C.
-2. **Matériel concerné (référentiel équipements)** : se repeuple avec les lignes de la
-   colonne E dont la colonne C correspond au type choisi (ex. "Maintenance ADV (commande
-   mécanique)" → ADV 5005, 5009, 5010, 5011, 5028…).
-3. Choisir un matériel remplit automatiquement, à partir de la même ligne du
+**Comportement du formulaire, en cascade à 3 niveaux** :
+1. **Catégorie (référentiel équipements)** : liste des valeurs distinctes de la
+   colonne A (ex. "ADV", "JGP").
+2. **Type (référentiel équipements)** : se repeuple avec les valeurs de la colonne C
+   dont la colonne A correspond à la catégorie choisie (ex. "ADV" → "Maintenance ADV
+   (commande électrique)" / "Maintenance ADV (commande mécanique)" uniquement, pas les
+   types d'une autre catégorie).
+3. **Matériel concerné (référentiel équipements)** : se repeuple avec les lignes de la
+   colonne E dont la catégorie ET le type correspondent aux deux choix précédents (ex.
+   "commande mécanique" → ADV 5005, 5009, 5010, 5011, 5028…).
+4. Choisir un matériel remplit automatiquement, à partir de la même ligne du
    référentiel : **Nature des travaux** (C), **Nom du matériel** (E), **Poste technique**
-   (B), **Lieu / zone** (G, le code ZEP) et **Conséquences** (H). Tous ces champs restent
-   modifiables ensuite — le référentiel ne fait que préremplir, il ne verrouille rien.
+   (B), **Lieu / zone** (G, le code ZEP) et **Impact** (H — pas de champ "Conséquences"
+   distinct sur cet écran, retiré à la demande de l'utilisateur pour éviter la
+   redondance). Tous ces champs restent modifiables ensuite — le référentiel ne fait que
+   préremplir, il ne verrouille rien.
+
+Changer la catégorie réinitialise le type et le matériel choisis ; changer le type
+réinitialise le matériel choisi — pour ne jamais laisser une combinaison incohérente
+(ex. un matériel d'une catégorie affiché après avoir changé de catégorie).
 
 Le référentiel est chargé une seule fois par session (mode connecté), à la première
 ouverture de l'écran "Nouvelle intervention" — pas au démarrage de l'appli, pour ne pas
 ralentir le tableau de bord avec un onglet potentiellement volumineux qui ne sert qu'à
 cet écran.
+
+### 11.7ter Note sur les lettres de colonnes
+
+Les lettres A à H du tableau ci-dessus décrivent la **position** lue par le code
+(1ère, 2ème, 3ème colonne de données, etc.), pas nécessairement la lettre affichée en
+haut de la grille dans Google Sheets chez vous (qui dépend de colonnes vides ou masquées
+avant/entre elles). Si le référentiel ne se peuple pas correctement après une
+modification de l'onglet `Interventions 2`, vérifiez que l'ORDRE relatif des 8 colonnes
+utiles (Catégorie, Référence, Type, *[vide]*, Matériel, *[vide]*, ZEP, Conséquences) reste
+inchangé — c'est cet ordre, pas les lettres, qui compte pour `referentielInterventionsDepuisLignes()`.
 
 ## 11.8 Planification pratique : date théorique → date réelle programmée
 

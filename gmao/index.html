@@ -193,8 +193,12 @@
           <select id="intervMaterielSelect"></select>
         </div>
         <div class="field">
-          <label for="intervReferentielType">Type de maintenance (référentiel équipements)</label>
-          <select id="intervReferentielType"><option value="">— Choisir un type de maintenance —</option></select>
+          <label for="intervReferentielCategorie">Catégorie (référentiel équipements)</label>
+          <select id="intervReferentielCategorie"><option value="">— Choisir une catégorie —</option></select>
+        </div>
+        <div class="field">
+          <label for="intervReferentielType">Type (référentiel équipements)</label>
+          <select id="intervReferentielType"><option value="">— Choisir une catégorie d'abord —</option></select>
         </div>
         <div class="field">
           <label for="intervReferentielMateriel">Matériel concerné (référentiel équipements)</label>
@@ -231,8 +235,8 @@
           <input type="number" id="intervDuree" min="0" step="0.5" placeholder="ex. 2">
         </div>
         <div class="field">
-          <label for="intervLieu">Lieu / zone</label>
-          <input type="text" id="intervLieu" list="listeZones" placeholder="ex. Voie 3 — quai Nord, LE HAVRE…">
+          <label for="intervLieu">Lieu / zone (ZEP)</label>
+          <input type="text" id="intervLieu" list="listeZones" placeholder="ex. Voie 3 — quai Nord, LE HAVRE, ZEP 5041…">
           <datalist id="listeZones"></datalist>
         </div>
         <div class="field">
@@ -260,11 +264,7 @@
       <div class="controle-champs controle-champs--texte">
         <div class="field field--full">
           <label for="intervImpact">Impact</label>
-          <textarea id="intervImpact" rows="2" placeholder="Conséquence opérationnelle immédiate (ex. signalisation indisponible)"></textarea>
-        </div>
-        <div class="field field--full">
-          <label for="intervConsequences">Conséquences</label>
-          <textarea id="intervConsequences" rows="2" placeholder="Mesures compensatoires, report d'activité…"></textarea>
+          <textarea id="intervImpact" rows="2" placeholder="Conséquence opérationnelle immédiate (ex. signalisation indisponible, accès interdit…)"></textarea>
         </div>
         <div class="field field--full">
           <label for="intervCommentaires">Commentaires</label>

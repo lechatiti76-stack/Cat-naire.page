@@ -128,6 +128,7 @@
       intervFormSousTitre: document.getElementById("intervFormSousTitre"),
       intervFormBadgeStatut: document.getElementById("intervFormBadgeStatut"),
       intervMaterielSelect: document.getElementById("intervMaterielSelect"),
+      intervReferentielCategorie: document.getElementById("intervReferentielCategorie"),
       intervReferentielType: document.getElementById("intervReferentielType"),
       intervReferentielMateriel: document.getElementById("intervReferentielMateriel"),
       intervMaterielHorsListe: document.getElementById("intervMaterielHorsListe"),
@@ -144,7 +145,6 @@
       intervCoupureDebut: document.getElementById("intervCoupureDebut"),
       intervCoupureFin: document.getElementById("intervCoupureFin"),
       intervImpact: document.getElementById("intervImpact"),
-      intervConsequences: document.getElementById("intervConsequences"),
       intervCommentaires: document.getElementById("intervCommentaires"),
       intervDemandeInfo: document.getElementById("intervDemandeInfo"),
       intervResultat: document.getElementById("intervResultat"),
@@ -377,8 +377,12 @@
     els.intervCoupureCatenaire.addEventListener("change", () => {
       els.intervCoupureChamps.hidden = !els.intervCoupureCatenaire.checked;
     });
+    els.intervReferentielCategorie.addEventListener("change", () => {
+      renderSelecteurReferentielType(els.intervReferentielCategorie.value);
+      renderSelecteurReferentielMateriel("", "");
+    });
     els.intervReferentielType.addEventListener("change", () => {
-      renderSelecteurReferentielMateriel(els.intervReferentielType.value);
+      renderSelecteurReferentielMateriel(els.intervReferentielCategorie.value, els.intervReferentielType.value);
     });
     els.intervReferentielMateriel.addEventListener("change", appliquerSelectionReferentiel);
 
@@ -748,7 +752,8 @@
     renderSelecteurMaterielIntervention(materielIdPreselectionne);
     renderSelecteurIntervenant();
     await assurerReferentielInterventionsCharge();
-    renderSelecteurReferentielType();
+    renderSelecteurReferentielCategorie();
+    renderSelecteurReferentielType("");
     renderSelecteurReferentielMateriel("");
     els.intervMaterielHorsListe.value = "";
     els.intervPosteTechnique.value = "";
@@ -759,7 +764,6 @@
     els.intervDuree.value = "";
     els.intervLieu.value = "";
     els.intervImpact.value = "";
-    els.intervConsequences.value = "";
     els.intervCommentaires.value = "";
     els.intervCoupureCatenaire.checked = false;
     els.intervCoupureChamps.hidden = true;
@@ -792,7 +796,7 @@
     if (liste.some((c) => c.nom === nomCourant)) els.intervIntervenantSelect.value = nomCourant;
   }
 
-  // -- Référentiel équipements d'infrastructure : Type de maintenance → Matériel (voir docs/11 §11.7bis) --
+  // -- Référentiel équipements d'infrastructure : Catégorie → Type → Matériel (voir docs/11 §11.7bis) --
   let referentielInterventionsCharge = false;
   /** Charge une seule fois (mode connecté) le référentiel de l'onglet "Interventions 2" — non chargé par chargerDonnees() car réservé à cet écran. */
   async function assurerReferentielInterventionsCharge() {
@@ -805,40 +809,55 @@
     referentielInterventionsCharge = true;
   }
 
-  function renderSelecteurReferentielType() {
-    const types = [...new Set(state.referentielInterventions.map((r) => r.typeMaintenance).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
-    els.intervReferentielType.innerHTML = '<option value="">— Choisir un type de maintenance —</option>' +
+  function renderSelecteurReferentielCategorie() {
+    const categories = [...new Set(state.referentielInterventions.map((r) => r.categorie).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+    els.intervReferentielCategorie.innerHTML = '<option value="">— Choisir une catégorie —</option>' +
+      categories.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  }
+
+  function renderSelecteurReferentielType(categorieSelectionnee) {
+    if (!categorieSelectionnee) {
+      els.intervReferentielType.innerHTML = '<option value="">— Choisir une catégorie d\'abord —</option>';
+      return;
+    }
+    const types = [...new Set(
+      state.referentielInterventions.filter((r) => r.categorie === categorieSelectionnee).map((r) => r.typeMaintenance).filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b, "fr"));
+    els.intervReferentielType.innerHTML = '<option value="">— Choisir un type —</option>' +
       types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
   }
 
-  function renderSelecteurReferentielMateriel(typeSelectionne) {
-    if (!typeSelectionne) {
+  function renderSelecteurReferentielMateriel(categorieSelectionnee, typeSelectionne) {
+    if (!categorieSelectionnee || !typeSelectionne) {
       els.intervReferentielMateriel.innerHTML = '<option value="">— Choisir un type d\'abord —</option>';
       return;
     }
-    const rows = state.referentielInterventions.filter((r) => r.typeMaintenance === typeSelectionne);
+    const rows = state.referentielInterventions.filter((r) => r.categorie === categorieSelectionnee && r.typeMaintenance === typeSelectionne);
     els.intervReferentielMateriel.innerHTML = '<option value="">— Choisir un matériel —</option>' +
       rows.map((r) => `<option value="${escapeHtml(r.materiel)}">${escapeHtml(r.materiel)}</option>`).join("");
   }
 
   /**
-   * Préremplit Nature des travaux / Nom du matériel / Poste technique / Lieu /
-   * Conséquences depuis la ligne du référentiel choisie (voir docs/11 §11.7bis) :
-   * Matériel (ex. "ADV 5001") → nom du matériel, Référence (ex. "3HMCM-EFE-ADV")
-   * → poste technique, ZEP → lieu/zone, Conséquences → conséquences. Les champs
-   * restent modifiables ensuite.
+   * Préremplit Nature des travaux / Nom du matériel / Poste technique / Lieu
+   * (ZEP) / Impact depuis la ligne du référentiel choisie (voir docs/11
+   * §11.7bis) : Matériel (ex. "ADV 5001") → nom du matériel, Référence (ex.
+   * "3HMCM-EFE-ADV") → poste technique, ZEP → lieu/zone, Conséquences (colonne
+   * H du référentiel) → Impact. Les champs restent modifiables ensuite.
    */
   function appliquerSelectionReferentiel() {
+    const categorieSelectionnee = els.intervReferentielCategorie.value;
     const typeSelectionne = els.intervReferentielType.value;
     const materielSelectionne = els.intervReferentielMateriel.value;
-    if (!typeSelectionne || !materielSelectionne) return;
-    const ligne = state.referentielInterventions.find((r) => r.typeMaintenance === typeSelectionne && r.materiel === materielSelectionne);
+    if (!categorieSelectionnee || !typeSelectionne || !materielSelectionne) return;
+    const ligne = state.referentielInterventions.find((r) =>
+      r.categorie === categorieSelectionnee && r.typeMaintenance === typeSelectionne && r.materiel === materielSelectionne
+    );
     if (!ligne) return;
     els.intervTypeSelect.value = ligne.typeMaintenance;
     els.intervMaterielHorsListe.value = ligne.materiel;
     els.intervPosteTechnique.value = ligne.reference;
     els.intervLieu.value = ligne.zep;
-    els.intervConsequences.value = ligne.consequences;
+    els.intervImpact.value = ligne.consequences;
   }
 
   async function validerNouvelleIntervention() {
@@ -879,7 +898,7 @@
       dureeHeures: els.intervDuree.value ? Number(els.intervDuree.value) : null,
       lieu: els.intervLieu.value.trim(),
       impact: els.intervImpact.value.trim(),
-      consequences: els.intervConsequences.value.trim(),
+      consequences: "",
       intervenant: els.intervIntervenantSelect.value || nom,
       coupureCatenaire,
       coupureDebut: coupureCatenaire ? els.intervCoupureDebut.value : "",
