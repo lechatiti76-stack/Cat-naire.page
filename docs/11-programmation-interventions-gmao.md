@@ -225,41 +225,40 @@ d'infrastructure (ADV, JGP…), distinct de l'onglet `Materiels` (qui reste rés
 matériel de sécurité caténaire suivi individuellement : perches, LED, VAT…).
 
 **Structure de l'onglet `Interventions 2`** — volontairement **sans ligne d'en-tête**
-(données brutes dès la ligne 1), colonnes A à H (les lettres ci-dessous sont la position
-lue par le code — voir §11.7ter pour la correspondance avec les lettres affichées dans
-Google Sheets) :
+(données brutes dès la ligne 1), colonnes A à H (lettres réelles, confirmées sur le
+classeur de production) :
 
 | Colonne | Contenu | Exemple |
 |---|---|---|
-| A | Catégorie large | `ADV` |
-| B | Référence / poste technique | `3HMCM-EFE-ADV` |
-| C | Type de maintenance | `Maintenance ADV (commande mécanique)` |
-| D | *(inutilisée)* | — |
+| A | Numéro de tri (inutilisé par l'appli — sert seulement à ordonner manuellement les catégories dans le classeur) | `2` |
+| B | Catégorie | `ADV` |
+| C | Référence / numéro d'intervention (poste technique) | `3HMCM-EFE-ADV` |
+| D | Type de maintenance | `Maintenance ADV (commande mécanique)` |
 | E | Matériel concerné | `ADV 5009` |
 | F | *(inutilisée)* | — |
 | G | ZEP (zone) | `ZEP 5028` |
 | H | Conséquences (utilisées comme Impact — voir plus bas) | `Accès ferroviaire et fluvial interdit côté PARIS` |
 
-Les colonnes A/B/C suivent la convention "cellule fusionnée" habituelle d'un tableau
+Les colonnes B/C/D suivent la convention "cellule fusionnée" habituelle d'un tableau
 Excel : une cellule vide **hérite de la dernière valeur non vide au-dessus, dans la même
 colonne** — une seule ligne porte la catégorie/référence/type, toutes les lignes de
 matériel suivantes en héritent jusqu'à la prochaine valeur explicite. C'est
 `referentielInterventionsDepuisLignes()` (`js/google-sheets.js`) qui applique ce report
-à la lecture ; les colonnes D et F ne sont lues par aucune fonctionnalité.
+à la lecture ; les colonnes A et F ne sont lues par aucune fonctionnalité.
 
 **Comportement du formulaire, en cascade à 3 niveaux** :
 1. **Catégorie (référentiel équipements)** : liste des valeurs distinctes de la
-   colonne A (ex. "ADV", "JGP").
-2. **Type (référentiel équipements)** : se repeuple avec les valeurs de la colonne C
-   dont la colonne A correspond à la catégorie choisie (ex. "ADV" → "Maintenance ADV
+   colonne B (ex. "ADV", "JGP").
+2. **Type (référentiel équipements)** : se repeuple avec les valeurs de la colonne D
+   dont la colonne B correspond à la catégorie choisie (ex. "ADV" → "Maintenance ADV
    (commande électrique)" / "Maintenance ADV (commande mécanique)" uniquement, pas les
    types d'une autre catégorie).
 3. **Matériel concerné (référentiel équipements)** : se repeuple avec les lignes de la
    colonne E dont la catégorie ET le type correspondent aux deux choix précédents (ex.
    "commande mécanique" → ADV 5005, 5009, 5010, 5011, 5028…).
 4. Choisir un matériel remplit automatiquement, à partir de la même ligne du
-   référentiel : **Nature des travaux** (C), **Nom du matériel** (E), **Poste technique**
-   (B), **Lieu / zone** (G, le code ZEP) et **Impact** (H — pas de champ "Conséquences"
+   référentiel : **Nature des travaux** (D), **Nom du matériel** (E), **Poste technique**
+   (C), **Lieu / zone** (G, le code ZEP) et **Impact** (H — pas de champ "Conséquences"
    distinct sur cet écran, retiré à la demande de l'utilisateur pour éviter la
    redondance). Tous ces champs restent modifiables ensuite — le référentiel ne fait que
    préremplir, il ne verrouille rien.
@@ -272,16 +271,6 @@ Le référentiel est chargé une seule fois par session (mode connecté), à la 
 ouverture de l'écran "Nouvelle intervention" — pas au démarrage de l'appli, pour ne pas
 ralentir le tableau de bord avec un onglet potentiellement volumineux qui ne sert qu'à
 cet écran.
-
-### 11.7ter Note sur les lettres de colonnes
-
-Les lettres A à H du tableau ci-dessus décrivent la **position** lue par le code
-(1ère, 2ème, 3ème colonne de données, etc.), pas nécessairement la lettre affichée en
-haut de la grille dans Google Sheets chez vous (qui dépend de colonnes vides ou masquées
-avant/entre elles). Si le référentiel ne se peuple pas correctement après une
-modification de l'onglet `Interventions 2`, vérifiez que l'ORDRE relatif des 8 colonnes
-utiles (Catégorie, Référence, Type, *[vide]*, Matériel, *[vide]*, ZEP, Conséquences) reste
-inchangé — c'est cet ordre, pas les lettres, qui compte pour `referentielInterventionsDepuisLignes()`.
 
 ## 11.8 Planification pratique : date théorique → date réelle programmée
 

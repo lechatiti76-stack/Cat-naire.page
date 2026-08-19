@@ -709,29 +709,31 @@ const GoogleSheetsAPI = (() => {
   /**
    * Convertit les lignes brutes de l'onglet "Interventions 2" (référentiel
    * équipements d'infrastructure, GMAO — voir docs/11 §11.7bis) en objets
-   * exploitables. Onglet SANS ligne d'en-tête : colonnes A=Catégorie,
-   * B=Référence/poste technique, C=Type de maintenance, D=(inutilisée),
-   * E=Matériel concerné, F=(inutilisée), G=ZEP (zone), H=Conséquences.
-   * Les colonnes A/B/C suivent une convention de cellule fusionnée : une ligne
+   * exploitables. Onglet SANS ligne d'en-tête : colonne A=numéro de tri
+   * (inutilisée par l'appli, sert seulement à ordonner manuellement les
+   * catégories dans le classeur), B=Catégorie, C=Référence/numéro
+   * d'intervention (poste technique), D=Type de maintenance, E=Matériel
+   * concerné, F=(inutilisée), G=ZEP (zone), H=Conséquences.
+   * Les colonnes B/C/D suivent une convention de cellule fusionnée : une ligne
    * vide y hérite de la dernière valeur non vide au-dessus, dans la même
-   * colonne (confirmé avec l'utilisateur) — les colonnes D/F ne sont pas
+   * colonne (confirmé avec l'utilisateur) — les colonnes A/F ne sont pas
    * utilisées par l'application.
    */
   function referentielInterventionsDepuisLignes(lignes) {
-    let dernierA = "", dernierB = "", dernierC = "";
+    let dernierCategorie = "", dernierReference = "", dernierType = "";
     const resultat = [];
     lignes.forEach((ligne) => {
-      const a = String(ligne[0] || "").trim();
-      const b = String(ligne[1] || "").trim();
-      const c = String(ligne[2] || "").trim();
+      const categorie = String(ligne[1] || "").trim();
+      const reference = String(ligne[2] || "").trim();
+      const typeMaintenance = String(ligne[3] || "").trim();
       const materiel = String(ligne[4] || "").trim();
       const zep = String(ligne[6] || "").trim();
       const consequences = String(ligne[7] || "").trim();
-      if (a) dernierA = a;
-      if (b) dernierB = b;
-      if (c) dernierC = c;
+      if (categorie) dernierCategorie = categorie;
+      if (reference) dernierReference = reference;
+      if (typeMaintenance) dernierType = typeMaintenance;
       if (!materiel) return; // ligne sans matériel concerné : rien à proposer dans la liste
-      resultat.push({ categorie: dernierA, reference: dernierB, typeMaintenance: dernierC, materiel, zep, consequences });
+      resultat.push({ categorie: dernierCategorie, reference: dernierReference, typeMaintenance: dernierType, materiel, zep, consequences });
     });
     return resultat;
   }
