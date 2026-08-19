@@ -140,7 +140,15 @@ données :
   rouge, qui renvoie vers la liste filtrée sur "En retard" d'un clic.
 - **Vue "Interventions"** (liste filtrable : matériel/catégorie, type, statut, plage de
   dates de recherche + texte libre) avec export CSV, triée par urgence (en retard
-  d'abord).
+  d'abord). L'export CSV se concentre sur les champs opérationnels (matériel, poste
+  technique, nature des travaux, priorité, statut, dates théorique/réelle/planifiée,
+  horaires, durée, lieu, impact, consignation caténaire, validation, réalisation) et deux
+  colonnes calculées — **Retard actuel (j)** : jours de retard par rapport à l'échéance
+  pour une intervention pas encore réalisée ; **Écart réalisation (j)** : écart entre la
+  date de réalisation et l'échéance pour une intervention réalisée (positif = réalisée en
+  retard, négatif/nul = à temps ou en avance). N° série, conséquences, intervenant, date
+  de demande et commentaires ne sont plus exportés (redondants avec les autres colonnes
+  ou peu utilisés en pratique).
 - **Calendrier** (propre à GMAO) : les interventions programmées apparaissent sur un
   calendrier mensuel dédié (icône 🔧), sur leur jour prévu.
 - **Vue semaine** (§11.9) : point hebdomadaire imprimable/envoyable par e-mail.
@@ -321,7 +329,12 @@ la même que "Valider" puisque cet écran renseigne aussi la validation) :
 1. **Intervention à planifier** : liste déroulante de toutes les interventions non
    réalisées, avec leur date théorique — la sélectionner précharge automatiquement les
    champs déjà connus de sa fiche : zone/lieu, impact, conséquences, demandeur, date de
-   demande, consignation caténaire.
+   demande, consignation caténaire. La **zone/lieu** est résolue en priorité depuis le
+   référentiel `Interventions 2` (le code ZEP du matériel concerné, voir §11.7bis) plutôt
+   que la valeur `Lieu` brute stockée sur l'intervention — utile pour les interventions
+   importées dont le `Lieu` contenait autre chose qu'un code ZEP (ex. un fragment de
+   texte d'impact hérité de l'import). Si aucune correspondance n'est trouvée dans le
+   référentiel, la valeur `Lieu` d'origine reste utilisée telle quelle.
 2. **Date réelle de l'intervention**, **Heure de début**, **Durée allouée (heures)** :
    seuls champs vraiment nouveaux à saisir. L'**Heure de fin** se calcule automatiquement
    (début + durée) à chaque modification.
@@ -354,10 +367,15 @@ S1-S52 — ISO-8601).
 - **Navigation** : "‹ Semaine précédente" / "Semaine suivante ›", comme le calendrier
   mensuel.
 - **Contenu** : toutes les interventions dont le jour prévu (ou la fenêtre planifiée,
-  voir §11.6) chevauche la semaine affichée, triées par date. Une seconde section
-  **"⚠ Blocages / consignations de la semaine"** isole celles qui ont une consignation
-  caténaire, un impact ou des conséquences renseignés — la réponse directe au besoin
-  d'avoir "les travaux et les blocages éventuels" en un coup d'œil.
+  voir §11.6) chevauche la semaine affichée, triées par date. Pour chaque intervention :
+  catégorie et nature des travaux, nom du matériel, heure de début/fin, zone (ZEP —
+  résolue depuis le référentiel comme en §11.8), consignation caténaire si applicable, et
+  l'impact mis en évidence (gras, en rouge) lorsqu'il est renseigné — le lieu générique et
+  l'intervenant ne sont plus affichés ici (redondants avec la zone ZEP et peu utiles pour
+  ce point hebdomadaire). Une seconde section **"⚠ Blocages / consignations de la
+  semaine"** isole celles qui ont une consignation caténaire, un impact ou des
+  conséquences renseignés — la réponse directe au besoin d'avoir "les travaux et les
+  blocages éventuels" en un coup d'œil.
 - **🖨️ Imprimer la semaine** : génère une vue imprimable (tableau des travaux + détail
   des blocages) et ouvre la boîte d'impression du navigateur, sur le même principe que
   l'export PDF d'un matériel (docs/09 §9.5) — choisir "Enregistrer au format PDF" comme

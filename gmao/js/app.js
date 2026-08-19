@@ -419,6 +419,22 @@
     return "planifiee";
   }
 
+  /** Jours de retard actuel (vs échéance), uniquement pour une intervention pas encore réalisée. Null sinon. */
+  function joursDepassementActuel(iv) {
+    if (iv.dateRealisation) return null;
+    const j = joursRestantsIntervention(iv);
+    if (j === null || j >= 0) return null;
+    return Math.abs(j);
+  }
+
+  /** Écart entre la date de réalisation et l'échéance (positif = réalisée en retard, négatif/nul = à temps), uniquement pour une intervention réalisée. Null sinon. */
+  function joursDepassementRealisation(iv) {
+    if (!iv.dateRealisation) return null;
+    const echeance = dateEcheanceIntervention(iv);
+    if (!echeance) return null;
+    return Math.round((new Date(iv.dateRealisation) - new Date(echeance)) / 86400000);
+  }
+
   function renderStatsGlobales() {
     const counts = { attente_validation: 0, planifiee: 0, imminente: 0, retard: 0, realisee: 0 };
     state.interventions.forEach((iv) => counts[statutIntervention(iv)]++);
@@ -597,12 +613,13 @@
 
   function exporterCsvInterventions() {
     const rows = getFilteredInterventions();
-    const headers = ["Matériel", "N° série", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date théorique", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Conséquences", "Intervenant", "Consignation caténaire", "Début consignation", "Fin consignation", "Date demande", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Commentaires"];
+    const headers = ["Matériel", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date théorique", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Consignation caténaire", "Début consignation", "Fin consignation", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Retard actuel (j)", "Écart réalisation (j)"];
     const lines = rows.map((iv) => [
-      iv.materiel, iv.numSerie, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateTheorique, iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", iv.lieu, iv.impact, iv.consequences, iv.intervenant,
+      iv.materiel, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
+      iv.dateTheorique, iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", iv.lieu, iv.impact,
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
-      iv.dateDemande, iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation, iv.commentaires,
+      iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation,
+      joursDepassementActuel(iv) ?? "", joursDepassementRealisation(iv) ?? "",
     ].map(csvEscape).join(";"));
     const csvContent = "﻿" + [headers.map(csvEscape).join(";"), ...lines].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -821,14 +838,44 @@
    * qu'aucun matériel du référentiel ne s'y termine, la valeur d'origine est
    * renvoyée inchangée.
    */
-  function nomLisibleDepuisReferentiel(brut) {
-    if (!brut) return brut;
-    if (state.referentielInterventions.some((r) => r.materiel === brut)) return brut;
+  /**
+   * Retrouve la ligne du référentiel correspondant à une valeur brute (ex.
+   * "3HMCM-EFE-ADV-5001" ou déjà "ADV 5001") — par correspondance exacte sur
+   * le matériel, sinon par suffixe numérique (voir docs/11 §11.7bis). Sert de
+   * base à nomLisibleDepuisReferentiel/zepAffichable/categorieAffichable.
+   * Best-effort, jamais garanti : renvoie null si rien ne correspond.
+   */
+  function trouverLigneReferentiel(brut) {
+    if (!brut) return null;
+    const parMateriel = state.referentielInterventions.find((r) => r.materiel === brut);
+    if (parMateriel) return parMateriel;
     const correspondance = brut.match(/-(\d{3,})$/);
-    if (!correspondance) return brut;
+    if (!correspondance) return null;
     const numero = correspondance[1];
-    const ligne = state.referentielInterventions.find((r) => r.materiel.endsWith(numero));
+    return state.referentielInterventions.find((r) => r.materiel.endsWith(numero)) || null;
+  }
+
+  /** Ligne du référentiel pour une intervention (tente son nom, puis son poste technique). */
+  function ligneReferentielIntervention(iv) {
+    return trouverLigneReferentiel(iv.materiel) || trouverLigneReferentiel(iv.posteTechnique);
+  }
+
+  function nomLisibleDepuisReferentiel(brut) {
+    const ligne = trouverLigneReferentiel(brut);
     return ligne ? ligne.materiel : brut;
+  }
+
+  /** ZEP du référentiel pour une intervention, sinon son Lieu stocké tel quel. */
+  function zepAffichable(iv) {
+    const ligne = ligneReferentielIntervention(iv);
+    return (ligne && ligne.zep) || iv.lieu || "";
+  }
+
+  /** Catégorie du référentiel pour une intervention (déduite du matériel/poste technique), sinon sa catégorie stockée (liaison Materiels). */
+  function categorieAffichable(iv) {
+    if (iv.categorie) return iv.categorie;
+    const ligne = ligneReferentielIntervention(iv);
+    return ligne ? ligne.categorie : "";
   }
 
   /**
@@ -1074,7 +1121,7 @@
     if (!iv) { viderFormulairePlanification(); return; }
     const dateTheorique = iv.dateTheorique || iv.dateIntervention || "";
     els.planifDateTheoriqueInfo.textContent = `${iv.type || "Intervention"} — date théorique du plan : ${formatDate(dateTheorique)}`;
-    els.planifLieu.value = iv.lieu || "";
+    els.planifLieu.value = zepAffichable(iv);
     els.planifConsequences.value = iv.consequences || "";
     els.planifImpact.value = iv.impact || "";
     if ([...els.planifDemandeurSelect.options].some((o) => o.value === iv.demandePar)) els.planifDemandeurSelect.value = iv.demandePar;
@@ -1275,6 +1322,8 @@
       const cle = statutIntervention(iv);
       const info = INTERVENTION_STATUT_LABELS[cle];
       const jourNom = iv.dateIntervention ? new Date(iv.dateIntervention).toLocaleDateString("fr-FR", { weekday: "long" }) : "";
+      const categorie = categorieAffichable(iv);
+      const zep = zepAffichable(iv);
       return `
         <div class="historique-ligne">
           <div class="historique-ligne__entete" style="cursor:default;">
@@ -1282,10 +1331,12 @@
             <span class="badge ${info.badge}">${info.label}</span>
           </div>
           <div class="historique-ligne__detail">
-            <p><strong>Nature des travaux :</strong> ${escapeHtml(iv.type) || "—"}${iv.priorite ? ` (priorité ${escapeHtml(iv.priorite)})` : ""}</p>
-            <p><strong>Lieu :</strong> ${escapeHtml([iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ")) || "—"} · <strong>Intervenant :</strong> ${escapeHtml(iv.intervenant) || "—"}</p>
+            <p>${categorie ? `<strong>Catégorie :</strong> ${escapeHtml(categorie)} · ` : ""}<strong>Nature des travaux :</strong> ${escapeHtml(iv.type) || "—"}${iv.priorite ? ` (priorité ${escapeHtml(iv.priorite)})` : ""}</p>
+            <p><strong>Matériel :</strong> ${escapeHtml(iv.materiel || iv.numSerie) || "—"}</p>
+            <p><strong>Début :</strong> ${escapeHtml(iv.heureDebut) || "—"} · <strong>Fin :</strong> ${escapeHtml(iv.heureFin) || "—"}</p>
+            <p><strong>Zone (ZEP) :</strong> ${escapeHtml(zep) || "—"}</p>
             ${iv.coupureCatenaire ? `<p><strong>⚡ Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
-            ${iv.impact ? `<p><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
+            ${iv.impact ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
             ${iv.consequences ? `<p><strong>Conséquences / blocages :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
           </div>
         </div>`;
@@ -1311,17 +1362,19 @@
       <tr>
         <td>${formatDate(iv.dateIntervention)}</td>
         <td>${escapeHtml(iv.materiel || iv.numSerie)}</td>
+        <td>${escapeHtml(categorieAffichable(iv)) || "—"}</td>
         <td>${escapeHtml(iv.type) || "—"}</td>
-        <td>${escapeHtml([iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ")) || "—"}</td>
-        <td>${escapeHtml(iv.intervenant) || "—"}</td>
+        <td>${escapeHtml(iv.heureDebut) || "—"}</td>
+        <td>${escapeHtml(iv.heureFin) || "—"}</td>
+        <td>${escapeHtml(zepAffichable(iv)) || "—"}</td>
         <td>${iv.coupureCatenaire ? `⚡ ${escapeHtml(iv.coupureDebut) || "?"}-${escapeHtml(iv.coupureFin) || "?"}` : "—"}</td>
         <td>${escapeHtml(INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label)}</td>
       </tr>`;
     els.zoneImpression.innerHTML = `
       <h1>Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} → ${formatDate(dateISO(samedi))})</h1>
-      <table style="width:100%; border-collapse:collapse; font-size:12px;">
+      <table style="width:100%; border-collapse:collapse; font-size:11px;">
         <thead><tr>
-          ${["Date", "Matériel", "Nature des travaux", "Lieu", "Intervenant", "Consignation", "Statut"].map((h) => `<th style="border:1px solid #ccc; padding:4px 6px; text-align:left;">${h}</th>`).join("")}
+          ${["Date", "Matériel", "Catégorie", "Type", "Début", "Fin", "Zone (ZEP)", "Consignation", "Statut"].map((h) => `<th style="border:1px solid #ccc; padding:4px 6px; text-align:left;">${h}</th>`).join("")}
         </tr></thead>
         <tbody>${interventions.map(genererLigne).join("")}</tbody>
       </table>
@@ -1331,7 +1384,7 @@
           <div class="impression-controle">
             <h3>${formatDate(iv.dateIntervention)} — ${escapeHtml(iv.materiel || iv.numSerie)}</h3>
             ${iv.coupureCatenaire ? `<p><strong>Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
-            ${iv.impact ? `<p><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
+            ${iv.impact ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
             ${iv.consequences ? `<p><strong>Conséquences :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
           </div>
         `).join("")}
@@ -1348,7 +1401,7 @@
   function envoyerEmailSemaine() {
     const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
     const sujet = `Travaux semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
-    const ligneTexte = (iv) => `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} · ${iv.type || "—"} · ${[iv.lieu, iv.posteTechnique].filter(Boolean).join(" / ") || "—"} · ${iv.intervenant || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
+    const ligneTexte = (iv) => `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} · ${categorieAffichable(iv) || "—"} / ${iv.type || "—"} · ${iv.heureDebut || "?"}→${iv.heureFin || "?"} · ${zepAffichable(iv) || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
     let corps = `Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))})\n\n`;
     corps += interventions.length ? interventions.map(ligneTexte).join("\n") : "Aucun travaux prévu cette semaine.";
     if (blocages.length) {
@@ -1356,7 +1409,7 @@
       corps += blocages.map((iv) => {
         const details = [
           iv.coupureCatenaire ? `consignation caténaire ${iv.coupureDebut || "?"}→${iv.coupureFin || "?"}` : "",
-          iv.impact ? `impact : ${iv.impact}` : "",
+          iv.impact ? `IMPACT : ${iv.impact}` : "",
           iv.consequences ? `conséquences : ${iv.consequences}` : "",
         ].filter(Boolean).join(" — ");
         return `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} : ${details}`;
