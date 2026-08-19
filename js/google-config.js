@@ -30,6 +30,10 @@ const GOOGLE_CONFIG = {
     // Onglet de programmation GMAO des interventions/réparations (optionnel,
     // créé automatiquement à la première demande si absent — voir docs/11).
     interventions: "Interventions",
+    // Onglet de référentiel équipements d'infrastructure (Type de maintenance →
+    // Matériel → ZEP/Conséquences), optionnel, sans ligne d'en-tête — utilisé
+    // uniquement par l'écran "Nouvelle intervention" de GMAO (voir docs/11 §11.7bis).
+    referentielInterventions: "Interventions 2",
   },
 
   // Nom du dossier Google Drive où sont envoyées les photos prises depuis l'écran

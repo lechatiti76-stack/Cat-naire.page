@@ -192,6 +192,18 @@
           <label for="intervMaterielSelect">Matériel concerné</label>
           <select id="intervMaterielSelect"></select>
         </div>
+        <div class="field">
+          <label for="intervReferentielType">Type de maintenance (référentiel équipements)</label>
+          <select id="intervReferentielType"><option value="">— Choisir un type de maintenance —</option></select>
+        </div>
+        <div class="field">
+          <label for="intervReferentielMateriel">Matériel concerné (référentiel équipements)</label>
+          <select id="intervReferentielMateriel"><option value="">— Choisir un type d'abord —</option></select>
+        </div>
+        <div class="field field--full">
+          <label for="intervMaterielHorsListe">Nom du matériel (si hors liste, ex. ADV 5001)</label>
+          <input type="text" id="intervMaterielHorsListe" placeholder="ex. ADV 5001 — laisser vide si un matériel est choisi ci-dessus">
+        </div>
         <div class="field field--full">
           <label for="intervPosteTechnique">Poste technique / équipement (si hors liste)</label>
           <input type="text" id="intervPosteTechnique" list="listePostesTechniques" placeholder="ex. 3HMCM-EFE-VDF-VF5, ou nom de l'équipement">

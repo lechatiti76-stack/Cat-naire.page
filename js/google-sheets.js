@@ -706,6 +706,42 @@ const GoogleSheetsAPI = (() => {
     await appelJson(url, { method: "POST" });
   }
 
+  /**
+   * Convertit les lignes brutes de l'onglet "Interventions 2" (référentiel
+   * équipements d'infrastructure, GMAO — voir docs/11 §11.7bis) en objets
+   * exploitables. Onglet SANS ligne d'en-tête : colonnes A=Catégorie,
+   * B=Référence/poste technique, C=Type de maintenance, D=(inutilisée),
+   * E=Matériel concerné, F=(inutilisée), G=ZEP (zone), H=Conséquences.
+   * Les colonnes A/B/C suivent une convention de cellule fusionnée : une ligne
+   * vide y hérite de la dernière valeur non vide au-dessus, dans la même
+   * colonne (confirmé avec l'utilisateur) — les colonnes D/F ne sont pas
+   * utilisées par l'application.
+   */
+  function referentielInterventionsDepuisLignes(lignes) {
+    let dernierA = "", dernierB = "", dernierC = "";
+    const resultat = [];
+    lignes.forEach((ligne) => {
+      const a = String(ligne[0] || "").trim();
+      const b = String(ligne[1] || "").trim();
+      const c = String(ligne[2] || "").trim();
+      const materiel = String(ligne[4] || "").trim();
+      const zep = String(ligne[6] || "").trim();
+      const consequences = String(ligne[7] || "").trim();
+      if (a) dernierA = a;
+      if (b) dernierB = b;
+      if (c) dernierC = c;
+      if (!materiel) return; // ligne sans matériel concerné : rien à proposer dans la liste
+      resultat.push({ categorie: dernierA, reference: dernierB, typeMaintenance: dernierC, materiel, zep, consequences });
+    });
+    return resultat;
+  }
+
+  /** Charge le référentiel équipements d'infrastructure (onglet optionnel "Interventions 2", voir docs/11 §11.7bis). */
+  async function chargerReferentielInterventions() {
+    const lignes = await obtenirValeursOptionnel(GOOGLE_CONFIG.feuilles.referentielInterventions);
+    return referentielInterventionsDepuisLignes(lignes);
+  }
+
   return {
     connecter, connecterSilencieux, estConnecte, deconnecter, utilisateurCourant, chargerDonnees,
     enregistrerControle, determinerRole, trouverUtilisateur,
@@ -713,5 +749,6 @@ const GoogleSheetsAPI = (() => {
     chargerJournal, enregistrerJournal,
     hacherMotDePasse, trouverUtilisateurParIdentifiant, verifierMotDePasse,
     ajouterIntervention, mettreAJourIntervention, supprimerIntervention,
+    chargerReferentielInterventions,
   };
 })();

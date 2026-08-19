@@ -21,6 +21,7 @@
     materiels: [],
     utilisateurs: [],
     interventions: [],
+    referentielInterventions: [],
     controleurs: [],
     role: ROLE_PAR_DEFAUT,
     permissions: [],
@@ -127,6 +128,9 @@
       intervFormSousTitre: document.getElementById("intervFormSousTitre"),
       intervFormBadgeStatut: document.getElementById("intervFormBadgeStatut"),
       intervMaterielSelect: document.getElementById("intervMaterielSelect"),
+      intervReferentielType: document.getElementById("intervReferentielType"),
+      intervReferentielMateriel: document.getElementById("intervReferentielMateriel"),
+      intervMaterielHorsListe: document.getElementById("intervMaterielHorsListe"),
       intervPosteTechnique: document.getElementById("intervPosteTechnique"),
       intervTypeSelect: document.getElementById("intervTypeSelect"),
       intervPriorite: document.getElementById("intervPriorite"),
@@ -373,6 +377,10 @@
     els.intervCoupureCatenaire.addEventListener("change", () => {
       els.intervCoupureChamps.hidden = !els.intervCoupureCatenaire.checked;
     });
+    els.intervReferentielType.addEventListener("change", () => {
+      renderSelecteurReferentielMateriel(els.intervReferentielType.value);
+    });
+    els.intervReferentielMateriel.addEventListener("change", appliquerSelectionReferentiel);
 
     els.btnPlanifierIntervention.addEventListener("click", () => ouvrirEcranPlanification());
     els.btnAnnulerPlanification.addEventListener("click", () => afficherVue("interventions"));
@@ -728,7 +736,7 @@
   // -- Nouvelle intervention -----------------------------------------------------
   const VALEUR_MATERIEL_HORS_LISTE = "";
 
-  function ouvrirEcranNouvelleIntervention(materielIdPreselectionne) {
+  async function ouvrirEcranNouvelleIntervention(materielIdPreselectionne) {
     if (!aPermission("nouvelleIntervention")) {
       afficherBanniere("⛔ Votre rôle (" + state.role + ") ne permet pas de créer une demande d'intervention.", "warn");
       return;
@@ -739,6 +747,10 @@
     els.intervFormBadgeStatut.className = "badge";
     renderSelecteurMaterielIntervention(materielIdPreselectionne);
     renderSelecteurIntervenant();
+    await assurerReferentielInterventionsCharge();
+    renderSelecteurReferentielType();
+    renderSelecteurReferentielMateriel("");
+    els.intervMaterielHorsListe.value = "";
     els.intervPosteTechnique.value = "";
     els.intervTypeSelect.value = "";
     els.intervPriorite.value = "";
@@ -780,12 +792,62 @@
     if (liste.some((c) => c.nom === nomCourant)) els.intervIntervenantSelect.value = nomCourant;
   }
 
+  // -- Référentiel équipements d'infrastructure : Type de maintenance → Matériel (voir docs/11 §11.7bis) --
+  let referentielInterventionsCharge = false;
+  /** Charge une seule fois (mode connecté) le référentiel de l'onglet "Interventions 2" — non chargé par chargerDonnees() car réservé à cet écran. */
+  async function assurerReferentielInterventionsCharge() {
+    if (state.modeDemo || referentielInterventionsCharge) return;
+    try {
+      state.referentielInterventions = await GoogleSheetsAPI.chargerReferentielInterventions();
+    } catch (e) {
+      console.error(e);
+    }
+    referentielInterventionsCharge = true;
+  }
+
+  function renderSelecteurReferentielType() {
+    const types = [...new Set(state.referentielInterventions.map((r) => r.typeMaintenance).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr"));
+    els.intervReferentielType.innerHTML = '<option value="">— Choisir un type de maintenance —</option>' +
+      types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+  }
+
+  function renderSelecteurReferentielMateriel(typeSelectionne) {
+    if (!typeSelectionne) {
+      els.intervReferentielMateriel.innerHTML = '<option value="">— Choisir un type d\'abord —</option>';
+      return;
+    }
+    const rows = state.referentielInterventions.filter((r) => r.typeMaintenance === typeSelectionne);
+    els.intervReferentielMateriel.innerHTML = '<option value="">— Choisir un matériel —</option>' +
+      rows.map((r) => `<option value="${escapeHtml(r.materiel)}">${escapeHtml(r.materiel)}</option>`).join("");
+  }
+
+  /**
+   * Préremplit Nature des travaux / Nom du matériel / Poste technique / Lieu /
+   * Conséquences depuis la ligne du référentiel choisie (voir docs/11 §11.7bis) :
+   * Matériel (ex. "ADV 5001") → nom du matériel, Référence (ex. "3HMCM-EFE-ADV")
+   * → poste technique, ZEP → lieu/zone, Conséquences → conséquences. Les champs
+   * restent modifiables ensuite.
+   */
+  function appliquerSelectionReferentiel() {
+    const typeSelectionne = els.intervReferentielType.value;
+    const materielSelectionne = els.intervReferentielMateriel.value;
+    if (!typeSelectionne || !materielSelectionne) return;
+    const ligne = state.referentielInterventions.find((r) => r.typeMaintenance === typeSelectionne && r.materiel === materielSelectionne);
+    if (!ligne) return;
+    els.intervTypeSelect.value = ligne.typeMaintenance;
+    els.intervMaterielHorsListe.value = ligne.materiel;
+    els.intervPosteTechnique.value = ligne.reference;
+    els.intervLieu.value = ligne.zep;
+    els.intervConsequences.value = ligne.consequences;
+  }
+
   async function validerNouvelleIntervention() {
     const materielId = els.intervMaterielSelect.value ? Number(els.intervMaterielSelect.value) : null;
     const materiel = materielId ? state.materiels.find((m) => m.id === materielId) : null;
     const posteTechnique = els.intervPosteTechnique.value.trim();
-    if (!materiel && !posteTechnique) {
-      alert("Veuillez sélectionner un matériel dans la liste, ou renseigner un poste technique / nom d'équipement.");
+    const materielHorsListe = els.intervMaterielHorsListe.value.trim();
+    if (!materiel && !posteTechnique && !materielHorsListe) {
+      alert("Veuillez sélectionner un matériel dans la liste, ou renseigner un nom de matériel / poste technique.");
       return;
     }
     const dateIntervention = els.intervDate.value;
@@ -805,7 +867,7 @@
     const dateDemande = new Date().toISOString().slice(0, 10);
     const nouvelleIntervention = {
       materielId: materiel ? materiel.id : null,
-      materiel: materiel ? materiel.title : posteTechnique,
+      materiel: materiel ? materiel.title : (materielHorsListe || posteTechnique),
       numSerie: materiel ? materiel.numSerie : "",
       categorie: materiel ? materiel.categorie : "",
       posteTechnique,

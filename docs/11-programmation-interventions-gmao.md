@@ -215,6 +215,53 @@ n'expose aucun de ces boutons :
   place un poste technique/nom d'équipement libre (import ponctuel, équipement
   d'infrastructure non suivi comme matériel de sécurité).
 
+## 11.7bis Référentiel équipements d'infrastructure (Type de maintenance → Matériel)
+
+Pour reproduire le remplissage assisté de l'ancien formulaire Excel/VBA de l'utilisateur
+(sélection en cascade : type de maintenance → matériel → champs auto-remplis), l'écran
+**"🆕 Nouvelle intervention"** (GMAO uniquement) propose deux menus déroulants
+supplémentaires, alimentés par un second onglet Google Sheets optionnel,
+**`Interventions 2`** — un référentiel d'équipements d'infrastructure (ADV, JGP…),
+distinct de l'onglet `Materiels` (qui reste réservé au matériel de sécurité caténaire
+suivi individuellement : perches, LED, VAT…).
+
+**Structure de l'onglet `Interventions 2`** — volontairement **sans ligne d'en-tête**
+(données brutes dès la ligne 1), colonnes A à H :
+
+| Colonne | Contenu | Exemple |
+|---|---|---|
+| A | Catégorie large | `ADV` |
+| B | Référence / poste technique | `3HMCM-EFE-ADV` |
+| C | Type de maintenance | `Maintenance ADV (commande mécanique)` |
+| D | *(inutilisée)* | — |
+| E | Matériel concerné | `ADV 5009` |
+| F | *(inutilisée)* | — |
+| G | ZEP (zone) | `ZEP 5028` |
+| H | Conséquences | `Accès ferroviaire et fluvial interdit côté PARIS` |
+
+Les colonnes A/B/C suivent la convention "cellule fusionnée" habituelle d'un tableau
+Excel : une cellule vide **hérite de la dernière valeur non vide au-dessus, dans la même
+colonne** — une seule ligne porte le type de maintenance et sa référence, toutes les
+lignes de matériel suivantes en héritent jusqu'à la prochaine valeur explicite. C'est
+`referentielInterventionsDepuisLignes()` (`js/google-sheets.js`) qui applique ce report
+à la lecture ; les colonnes D et F ne sont lues par aucune fonctionnalité.
+
+**Comportement du formulaire** :
+1. **Type de maintenance (référentiel équipements)** : liste des valeurs distinctes de
+   la colonne C.
+2. **Matériel concerné (référentiel équipements)** : se repeuple avec les lignes de la
+   colonne E dont la colonne C correspond au type choisi (ex. "Maintenance ADV (commande
+   mécanique)" → ADV 5005, 5009, 5010, 5011, 5028…).
+3. Choisir un matériel remplit automatiquement, à partir de la même ligne du
+   référentiel : **Nature des travaux** (C), **Nom du matériel** (E), **Poste technique**
+   (B), **Lieu / zone** (G, le code ZEP) et **Conséquences** (H). Tous ces champs restent
+   modifiables ensuite — le référentiel ne fait que préremplir, il ne verrouille rien.
+
+Le référentiel est chargé une seule fois par session (mode connecté), à la première
+ouverture de l'écran "Nouvelle intervention" — pas au démarrage de l'appli, pour ne pas
+ralentir le tableau de bord avec un onglet potentiellement volumineux qui ne sert qu'à
+cet écran.
+
 ## 11.8 Planification pratique : date théorique → date réelle programmée
 
 Le plan de maintenance importé (§11.6) ne fournit qu'une **date théorique** —

@@ -141,5 +141,18 @@ function construireJeuDeDemonstrationGmao() {
     };
   });
 
-  return { materiels, utilisateurs, interventions };
+  // Référentiel équipements d'infrastructure (voir docs/11 §11.7bis) : extrait de
+  // l'onglet réel "Interventions 2" de l'utilisateur, pour que le sélecteur en
+  // cascade de "Nouvelle intervention" soit démontrable sans connexion Google.
+  const referentielInterventions = [
+    { categorie: "JGP", reference: "3HMCM", typeMaintenance: "Entretien JGP (dont graissage)", materiel: "JGP", zep: "", consequences: "" },
+    { categorie: "ADV", reference: "3HMCM-EFE-ADV", typeMaintenance: "Maintenance ADV (commande électrique)", materiel: "ADV 5001", zep: "ZEP 5041", consequences: "Accès site interdit" },
+    { categorie: "ADV", reference: "3HMCM-EFE-ADV", typeMaintenance: "Maintenance ADV (commande mécanique)", materiel: "ADV 5005", zep: "ZEP 5039", consequences: "Accès réception interdit côté PARIS" },
+    { categorie: "ADV", reference: "3HMCM-EFE-ADV", typeMaintenance: "Maintenance ADV (commande mécanique)", materiel: "ADV 5009", zep: "ZEP 5028", consequences: "Accès ferroviaire et fluvial interdit côté PARIS" },
+    { categorie: "ADV", reference: "3HMCM-EFE-ADV", typeMaintenance: "Maintenance ADV (commande mécanique)", materiel: "ADV 5010", zep: "ZEP 5038", consequences: "Accès VR5 et VR6 interdit côté PARIS" },
+    { categorie: "ADV", reference: "3HMCM-EFE-ADV", typeMaintenance: "Maintenance ADV (commande mécanique)", materiel: "ADV 5011", zep: "ZEP 5025", consequences: "Accès ferroviaire interdit côté PARIS" },
+    { categorie: "ADV", reference: "3HMCM-EFE-ADV", typeMaintenance: "Maintenance ADV (commande mécanique)", materiel: "ADV 5028", zep: "ZEP 5041", consequences: "Accès site interdit" },
+  ];
+
+  return { materiels, utilisateurs, interventions, referentielInterventions };
 }
