@@ -92,6 +92,20 @@ function construireJeuDeDemonstrationGmao() {
       commentaires: "",
     },
     {
+      // Exemple d'intervention importée avant le câblage du référentiel Interventions 2
+      // (voir docs/11 §11.7bis/§11.7ter) : ni Lieu ni Impact n'ont jamais été saisis,
+      // seul le poste technique brut de l'import est connu — démontre la résolution
+      // best-effort ZEP/Impact depuis le référentiel (zepAffichable/impactAffichable).
+      materielId: null, materiel: "3HMCM-EFE-ADV-5009", posteTechnique: "3HMCM-EFE-ADV-5009",
+      type: "Maintenance ADV (commande mécanique)", priorite: "C",
+      dateDemande: "2026-06-01", demandePar: "Import PDM 2026",
+      dateIntervention: "2026-10-05", dureeHeures: null, lieu: "",
+      impact: "", consequences: "",
+      intervenant: "", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "2026-06-02", validePar: "Import PDM 2026", dateRealisation: "",
+      commentaires: "",
+    },
+    {
       // Exemple de planification pratique (voir docs/11 §11.8) : date théorique du
       // plan de maintenance annuel reprogrammée à une date réelle plus tardive,
       // avec horaires et lieu/conséquences déjà connus de la fiche.

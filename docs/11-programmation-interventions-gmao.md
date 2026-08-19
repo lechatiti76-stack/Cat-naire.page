@@ -293,6 +293,14 @@ appli ; un code sans suffixe numérique identifiable (ex. `3HMCM-EFE-ADV` seul, 
 ambigu pour savoir quel matériel précis il désigne) reste affiché tel quel plutôt que de
 risquer une correspondance incorrecte.
 
+La même logique de repli s'applique, avec les mêmes fonctions de base
+(`ligneReferentielIntervention()`), à deux autres champs jamais renseignés sur les
+interventions créées avant le référentiel : `zepAffichable()` (zone/lieu → code ZEP du
+matériel concerné) et `impactAffichable()` (impact → conséquences du référentiel).
+Utilisées partout où ces champs sont affichés (fiche détaillée, cartes, écran
+"Planifier", vue semaine, export CSV) — toujours en repli sur la valeur saisie/stockée
+si elle existe, jamais en écrasement.
+
 ## 11.8 Planification pratique : date théorique → date réelle programmée
 
 Le plan de maintenance importé (§11.6) ne fournit qu'une **date théorique** —

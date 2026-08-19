@@ -177,6 +177,7 @@
   function chargerDemo() {
     const demo = construireJeuDeDemonstrationGmao();
     Object.assign(state, demo);
+    appliquerNomsLisibles();
     state.modeDemo = true;
     state.role = "Administrateur";
     state.permissions = ROLES_CONFIG["Administrateur"].permissions.slice();
@@ -582,7 +583,7 @@
       const periode = iv.dateFinPlanifiee && iv.dateFinPlanifiee !== iv.dateIntervention
         ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
         : formatDate(iv.dateIntervention);
-      const lieuAffiche = [iv.lieu, iv.posteTechnique].filter(Boolean).join(" · ");
+      const lieuAffiche = zepAffichable(iv) || iv.posteTechnique;
       const carte = document.createElement("div");
       carte.className = "materiel-card";
       carte.innerHTML = `
@@ -616,7 +617,7 @@
     const headers = ["Matériel", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date théorique", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Consignation caténaire", "Début consignation", "Fin consignation", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Retard actuel (j)", "Écart réalisation (j)"];
     const lines = rows.map((iv) => [
       iv.materiel, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateTheorique, iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", iv.lieu, iv.impact,
+      iv.dateTheorique, iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", zepAffichable(iv), impactAffichable(iv),
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
       iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation,
       joursDepassementActuel(iv) ?? "", joursDepassementRealisation(iv) ?? "",
@@ -652,14 +653,14 @@
         <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}${iv.heureDebut ? ` · ${escapeHtml(iv.heureDebut)}${iv.heureFin ? " → " + escapeHtml(iv.heureFin) : ""}` : ""}</dd></div>
         ${iv.dateTheorique && iv.dateTheorique !== iv.dateIntervention ? `<div class="modal__field"><dt>Date théorique du plan</dt><dd>${formatDate(iv.dateTheorique)}${ecartTexte ? " — " + ecartTexte : ""}</dd></div>` : ""}
         <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
-        <div class="modal__field"><dt>Lieu</dt><dd>${escapeHtml(iv.lieu) || "—"}</dd></div>
+        <div class="modal__field"><dt>Lieu / ZEP</dt><dd>${escapeHtml(zepAffichable(iv)) || "—"}</dd></div>
         ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
         <div class="modal__field"><dt>Intervenant</dt><dd>${escapeHtml(iv.intervenant) || "—"}</dd></div>
         <div class="modal__field"><dt>Consignation caténaire</dt><dd>${iv.coupureCatenaire ? `⚡ Oui (${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"})` : "Non"}</dd></div>
         <div class="modal__field"><dt>Demande</dt><dd>${formatDate(iv.dateDemande)}${iv.demandePar ? " · " + escapeHtml(iv.demandePar) : ""}</dd></div>
         <div class="modal__field"><dt>Validation</dt><dd>${iv.dateValidation ? formatDate(iv.dateValidation) + (iv.validePar ? " · " + escapeHtml(iv.validePar) : "") : "En attente"}</dd></div>
       </dl>
-      <div class="modal__section"><h3>Impact</h3><p>${escapeHtml(iv.impact) || "—"}</p></div>
+      <div class="modal__section"><h3>Impact</h3><p>${escapeHtml(impactAffichable(iv)) || "—"}</p></div>
       <div class="modal__section"><h3>Conséquences</h3><p>${escapeHtml(iv.consequences) || "—"}</p></div>
       ${iv.commentaires ? `<div class="modal__section"><h3>Commentaires</h3><p>${escapeHtml(iv.commentaires)}</p></div>` : ""}
       ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p>${formatDate(iv.dateRealisation)}</p></div>` : ""}
@@ -876,6 +877,19 @@
     if (iv.categorie) return iv.categorie;
     const ligne = ligneReferentielIntervention(iv);
     return ligne ? ligne.categorie : "";
+  }
+
+  /**
+   * Impact d'une intervention : celui saisi/stocké s'il existe, sinon celui du
+   * référentiel (colonne Conséquences du référentiel — voir docs/11 §11.7bis).
+   * Les interventions créées avant le câblage du référentiel (ou importées du
+   * plan externe) n'ont jamais eu ce champ rempli ; ce repli permet de quand
+   * même afficher l'impact connu du matériel concerné.
+   */
+  function impactAffichable(iv) {
+    if (iv.impact) return iv.impact;
+    const ligne = ligneReferentielIntervention(iv);
+    return ligne ? ligne.consequences : "";
   }
 
   /**
@@ -1123,7 +1137,7 @@
     els.planifDateTheoriqueInfo.textContent = `${iv.type || "Intervention"} — date théorique du plan : ${formatDate(dateTheorique)}`;
     els.planifLieu.value = zepAffichable(iv);
     els.planifConsequences.value = iv.consequences || "";
-    els.planifImpact.value = iv.impact || "";
+    els.planifImpact.value = impactAffichable(iv);
     if ([...els.planifDemandeurSelect.options].some((o) => o.value === iv.demandePar)) els.planifDemandeurSelect.value = iv.demandePar;
     els.planifDateDemande.value = iv.dateDemande || "";
     els.planifDate.value = iv.dateIntervention || "";
@@ -1304,7 +1318,7 @@
       })
       .sort((a, b) => (a.dateIntervention < b.dateIntervention ? -1 : 1));
 
-    const blocages = interventions.filter((iv) => iv.coupureCatenaire || iv.impact || iv.consequences);
+    const blocages = interventions.filter((iv) => iv.coupureCatenaire || impactAffichable(iv) || iv.consequences);
 
     return { lundi, samedi, numeroSemaine: numeroSemaineISO(lundi), interventions, blocages };
   }
@@ -1336,7 +1350,7 @@
             <p><strong>Début :</strong> ${escapeHtml(iv.heureDebut) || "—"} · <strong>Fin :</strong> ${escapeHtml(iv.heureFin) || "—"}</p>
             <p><strong>Zone (ZEP) :</strong> ${escapeHtml(zep) || "—"}</p>
             ${iv.coupureCatenaire ? `<p><strong>⚡ Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
-            ${iv.impact ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
+            ${impactAffichable(iv) ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(impactAffichable(iv))}</p>` : ""}
             ${iv.consequences ? `<p><strong>Conséquences / blocages :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
           </div>
         </div>`;
@@ -1384,7 +1398,7 @@
           <div class="impression-controle">
             <h3>${formatDate(iv.dateIntervention)} — ${escapeHtml(iv.materiel || iv.numSerie)}</h3>
             ${iv.coupureCatenaire ? `<p><strong>Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
-            ${iv.impact ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(iv.impact)}</p>` : ""}
+            ${impactAffichable(iv) ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(impactAffichable(iv))}</p>` : ""}
             ${iv.consequences ? `<p><strong>Conséquences :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
           </div>
         `).join("")}
@@ -1409,7 +1423,7 @@
       corps += blocages.map((iv) => {
         const details = [
           iv.coupureCatenaire ? `consignation caténaire ${iv.coupureDebut || "?"}→${iv.coupureFin || "?"}` : "",
-          iv.impact ? `IMPACT : ${iv.impact}` : "",
+          impactAffichable(iv) ? `IMPACT : ${impactAffichable(iv)}` : "",
           iv.consequences ? `conséquences : ${iv.consequences}` : "",
         ].filter(Boolean).join(" — ");
         return `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} : ${details}`;
