@@ -214,6 +214,7 @@
       state.modeDemo = false;
       state.utilisateur = utilisateur;
       appliquerDonnees(donnees);
+      try { await assurerReferentielInterventionsCharge(); appliquerNomsLisibles(); } catch (e) { console.error(e); }
       localStorage.setItem(CLE_DEJA_CONNECTE, "1");
       afficherVue(state.vue);
       els.headerSubtitle.textContent = `Connecté à Google Sheets — ${state.utilisateur.nom}`;
@@ -263,6 +264,7 @@
     try {
       const donnees = await GoogleSheetsAPI.chargerDonnees();
       appliquerDonnees(donnees);
+      try { await assurerReferentielInterventionsCharge(); appliquerNomsLisibles(); } catch (e) { console.error(e); }
       afficherVue(state.vue);
       rafraichirModalOuvert();
       try { peuplerFiltresInterventions(); } catch (e) { console.error(e); }
@@ -807,6 +809,40 @@
       console.error(e);
     }
     referentielInterventionsCharge = true;
+  }
+
+  /**
+   * Résout un nom lisible depuis le référentiel (ex. "ADV 5001") pour une
+   * valeur brute qui est en fait un code de référence/poste technique (ex.
+   * "3HMCM-EFE-ADV-5001") — cas des interventions créées avant la correction
+   * du mapping de colonnes (voir docs/11 §11.7bis). Purement pour
+   * l'affichage : ne modifie jamais les données stockées dans Google Sheets.
+   * Best-effort : si le code n'a pas de suffixe numérique identifiable, ou
+   * qu'aucun matériel du référentiel ne s'y termine, la valeur d'origine est
+   * renvoyée inchangée.
+   */
+  function nomLisibleDepuisReferentiel(brut) {
+    if (!brut) return brut;
+    if (state.referentielInterventions.some((r) => r.materiel === brut)) return brut;
+    const correspondance = brut.match(/-(\d{3,})$/);
+    if (!correspondance) return brut;
+    const numero = correspondance[1];
+    const ligne = state.referentielInterventions.find((r) => r.materiel.endsWith(numero));
+    return ligne ? ligne.materiel : brut;
+  }
+
+  /**
+   * Corrige l'affichage des interventions déjà existantes dont le nom est un
+   * code brut du référentiel plutôt qu'un nom lisible (voir
+   * nomLisibleDepuisReferentiel) — appelé après chaque chargement des
+   * données. Ne réécrit jamais Google Sheets, seulement l'objet en mémoire
+   * côté appli.
+   */
+  function appliquerNomsLisibles() {
+    if (!state.referentielInterventions.length) return;
+    state.interventions.forEach((iv) => {
+      iv.materiel = nomLisibleDepuisReferentiel(iv.materiel);
+    });
   }
 
   function renderSelecteurReferentielCategorie() {

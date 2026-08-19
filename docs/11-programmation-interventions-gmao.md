@@ -267,10 +267,23 @@ Changer la catégorie réinitialise le type et le matériel choisis ; changer le
 réinitialise le matériel choisi — pour ne jamais laisser une combinaison incohérente
 (ex. un matériel d'une catégorie affiché après avoir changé de catégorie).
 
-Le référentiel est chargé une seule fois par session (mode connecté), à la première
-ouverture de l'écran "Nouvelle intervention" — pas au démarrage de l'appli, pour ne pas
-ralentir le tableau de bord avec un onglet potentiellement volumineux qui ne sert qu'à
-cet écran.
+Le référentiel est chargé une seule fois par session (mode connecté), à la connexion et à
+chaque actualisation des données — pas seulement à l'ouverture de "Nouvelle
+intervention", pour que la correction de noms ci-dessous s'applique dès l'affichage du
+tableau de bord.
+
+**Correction d'affichage des interventions déjà créées** : les interventions créées avant
+la correction du mapping de colonnes (ou importées avec un nom de poste technique brut,
+ex. `3HMCM-EFE-ADV-5001`) affichaient un code plutôt qu'un nom lisible. Une fois le
+référentiel chargé, `appliquerNomsLisibles()` (`gmao/js/app.js`) résout automatiquement un
+nom lisible pour ces interventions en repérant un matériel du référentiel qui se termine
+par le même suffixe numérique (`3HMCM-EFE-ADV-5001` → `ADV 5001`, car le référentiel
+contient `ADV 5001`) — partout où l'intervention est affichée (cartes, bandeau,
+calendrier, écran "Planifier"…). **Affichage uniquement** : cette correction ne réécrit
+jamais l'onglet `Interventions` du classeur, seulement l'objet chargé en mémoire côté
+appli ; un code sans suffixe numérique identifiable (ex. `3HMCM-EFE-ADV` seul, trop
+ambigu pour savoir quel matériel précis il désigne) reste affiché tel quel plutôt que de
+risquer une correspondance incorrecte.
 
 ## 11.8 Planification pratique : date théorique → date réelle programmée
 
