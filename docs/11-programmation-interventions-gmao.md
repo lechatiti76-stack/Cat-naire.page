@@ -145,8 +145,8 @@ données :
 - **Vue "Interventions"** (liste filtrable : matériel/catégorie, type, statut, plage de
   dates de recherche + texte libre) avec export CSV, triée par urgence (en retard
   d'abord). L'export CSV se concentre sur les champs opérationnels (matériel, poste
-  technique, nature des travaux, priorité, statut, dates théorique/réelle/planifiée,
-  horaires, durée, lieu, impact, consignation caténaire, validation, réalisation) et deux
+  technique, nature des travaux, priorité, statut, fenêtre planifiée, horaires, durée,
+  lieu, impact, consignation caténaire, validation, réalisation) et deux
   colonnes calculées — **Retard actuel (j)** : jours de retard par rapport à l'échéance
   pour une intervention pas encore réalisée ; **Écart réalisation (j)** : écart entre la
   date de réalisation et l'échéance pour une intervention réalisée (positif = réalisée en
@@ -312,13 +312,18 @@ Utilisées partout où ces champs sont affichés (fiche détaillée, cartes, éc
 "Planifier", vue semaine, export CSV) — toujours en repli sur la valeur saisie/stockée
 si elle existe, jamais en écrasement.
 
-## 11.8 Planification pratique : date théorique → date réelle programmée
+## 11.8 Planification pratique : détails d'exécution d'une intervention déjà programmée
 
-Le plan de maintenance importé (§11.6) ne fournit qu'une **date théorique** —
-`DateIntervention` telle qu'apportée par l'import. Dans la réalité, cette date glisse
-souvent (disponibilité caténaire, aléas de chantier…) : l'écran **"📌 Planifier"** sert à
-transformer cette date théorique en date réelle programmée, avec ses horaires, sans
-ressaisir ce qui est déjà connu de la fiche.
+`DateIntervention`/`DateFinPlanifiee` forment la **fenêtre planifiée** d'une
+intervention — posée une fois (import du plan, §11.6, ou saisie manuelle) et **fixe
+ensuite** : aucun écran de l'appli, y compris "📌 Planifier", ne la modifie. C'est la
+**date de réalisation** (`DateRealisation`, renseignée par "☑️ Marquer réalisée",
+§11.2) qui porte la date réelle à laquelle le travail a effectivement eu lieu — la
+fenêtre planifiée et la réalisation sont deux informations distinctes, chacune dans sa
+colonne.
+
+L'écran **"📌 Planifier"** sert à renseigner les **détails pratiques d'exécution** d'une
+intervention déjà programmée dans sa fenêtre, sans jamais déplacer cette fenêtre :
 
 **Trois colonnes supplémentaires** dans l'onglet `Interventions` (ajoutées en fin de
 tableau pour ne jamais décaler les colonnes existantes ni les lignes déjà importées) :
@@ -327,13 +332,11 @@ tableau pour ne jamais décaler les colonnes existantes ni les lignes déjà imp
 … DateRealisation | Commentaires | DateTheorique | HeureDebut | HeureFin
 ```
 
-- `DateTheorique` : capturée **automatiquement, une seule fois**, à la première
-  reprogrammation d'une intervention (elle recopie alors l'ancienne valeur de
-  `DateIntervention` avant de la remplacer) — jamais réécrite ensuite, même si
-  l'intervention est reprogrammée plusieurs fois. C'est la référence stable du plan
-  d'origine.
-- `HeureDebut`/`HeureFin` : horaires de la fenêtre de travail réelle ; `HeureFin` est
-  toujours calculée (`HeureDebut` + durée allouée), jamais saisie à la main.
+- `HeureDebut`/`HeureFin` : horaires de la fenêtre de travail ; `HeureFin` est toujours
+  calculée (`HeureDebut` + durée allouée), jamais saisie à la main.
+- `DateTheorique` : colonne historique d'une précédente version de cet écran (qui
+  déplaçait alors `DateIntervention`) — n'est plus écrite par l'appli, conservée dans le
+  schéma uniquement pour ne pas perdre les valeurs déjà présentes sur d'anciennes lignes.
 
 Si l'onglet `Interventions` existe déjà dans votre classeur (créé par une version
 antérieure de l'appli, avant ces 3 colonnes), son en-tête est complété automatiquement à
@@ -346,17 +349,17 @@ chaque carte non réalisée, et dans la fiche détaillée — permission `valide
 la même que "Valider" puisque cet écran renseigne aussi la validation) :
 
 1. **Intervention à planifier** : liste déroulante de toutes les interventions non
-   réalisées, avec leur date théorique — la sélectionner précharge automatiquement les
-   champs déjà connus de sa fiche : zone/lieu, impact, conséquences, demandeur, date de
-   demande, consignation caténaire. La **zone/lieu** est résolue en priorité depuis le
-   référentiel `Interventions 2` (le code ZEP du matériel concerné, voir §11.7bis) plutôt
-   que la valeur `Lieu` brute stockée sur l'intervention — utile pour les interventions
-   importées dont le `Lieu` contenait autre chose qu'un code ZEP (ex. un fragment de
-   texte d'impact hérité de l'import). Si aucune correspondance n'est trouvée dans le
-   référentiel, la valeur `Lieu` d'origine reste utilisée telle quelle.
-2. **Date réelle de l'intervention**, **Heure de début**, **Durée allouée (heures)** :
-   seuls champs vraiment nouveaux à saisir. L'**Heure de fin** se calcule automatiquement
-   (début + durée) à chaque modification.
+   réalisées, avec leur date planifiée — la sélectionner précharge automatiquement les
+   champs déjà connus de sa fiche (zone/lieu, impact, demandeur, date de demande,
+   consignation caténaire) et affiche sa fenêtre planifiée en lecture seule. La
+   **zone/lieu** est résolue en priorité depuis le référentiel `Interventions 2` (le code
+   ZEP du matériel concerné, voir §11.7bis) plutôt que la valeur `Lieu` brute stockée sur
+   l'intervention — utile pour les interventions importées dont le `Lieu` contenait autre
+   chose qu'un code ZEP (ex. un fragment de texte d'impact hérité de l'import). Si aucune
+   correspondance n'est trouvée dans le référentiel, la valeur `Lieu` d'origine reste
+   utilisée telle quelle.
+2. **Heure de début**, **Durée allouée (heures)** : l'**Heure de fin** se calcule
+   automatiquement (début + durée) à chaque modification.
 3. **Consignation caténaire nécessaire** (case à cocher) : si cochée, les heures de
    début/fin de consignation se resynchronisent automatiquement sur la fenêtre de travail
    à chaque modification de l'heure de début ou de la durée — reste modifiable
@@ -365,15 +368,15 @@ la même que "Valider" puisque cet écran renseigne aussi la validation) :
 4. **Date de validation** (préremplie à aujourd'hui) et **Validé par** (le nom de la
    personne connectée, en lecture seule) : cet écran vaut validation, cohérent avec le
    circuit à deux étapes (§11.2).
-5. Un **indicateur d'écart** ("⚠ Retard de X jours sur le plan théorique" ou "✅ Conforme
-   au plan théorique") se met à jour en direct pendant la saisie de la date réelle.
+5. Un **indicateur de retard actuel** ("⚠ En retard de X jours (échéance dépassée)")
+   s'affiche, en lecture seule, si l'intervention chargée a déjà dépassé son échéance
+   (`DateFinPlanifiee`/`DateIntervention`) par rapport à aujourd'hui — c'est le même calcul
+   que le badge "🔴 En retard" affiché ailleurs dans l'appli (§11.4), pas une comparaison
+   propre à cet écran.
 
-**Répercussions automatiques** : la date réelle devient la `DateIntervention` de
-référence pour tout le reste de l'appli — calendrier, vue semaine, statuts, rappels —
-sans action supplémentaire. Partout où l'intervention est affichée (carte, calendrier,
-fiche détaillée), un repère "⏱ +X j vs théorique" rappelle l'écart par rapport au plan
-d'origine dès qu'il existe, distinct du statut "🔴 En retard" (qui compare la date réelle
-à *aujourd'hui*, pas au plan théorique).
+Le retard réel d'une intervention se lit une fois le travail terminé en comparant
+`DateFinPlanifiee`/`DateIntervention` (l'échéance) à `DateRealisation` — colonne "Écart
+réalisation (j)" de l'export CSV (§11.5).
 
 ## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
 

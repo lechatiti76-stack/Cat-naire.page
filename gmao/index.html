@@ -287,13 +287,13 @@
     </div>
   </section>
 
-  <!-- ============ VUE FORMULAIRE : PLANIFICATION PRATIQUE (théorique → date réelle, voir docs/11 §11.8) ============ -->
+  <!-- ============ VUE FORMULAIRE : PLANIFICATION PRATIQUE (détails d'exécution, voir docs/11 §11.8) ============ -->
   <section id="viewPlanificationForm" class="controle-view" hidden>
     <div class="controle-card">
       <div class="controle-header">
         <div>
           <h2>📌 Planifier une intervention</h2>
-          <p class="controle-soustitre">Fait passer une intervention du plan théorique à une date réelle programmée, avec ses horaires.</p>
+          <p class="controle-soustitre">Renseigne les détails pratiques d'une intervention déjà programmée (horaires, consignation, validation) — sans modifier sa fenêtre planifiée.</p>
         </div>
       </div>
 
@@ -303,7 +303,7 @@
           <select id="planifInterventionSelect"></select>
         </div>
         <div class="field field--full">
-          <p class="controle-soustitre" id="planifDateTheoriqueInfo" style="margin:0;">Sélectionnez une intervention ci-dessus pour préremplir sa fiche.</p>
+          <p class="controle-soustitre" id="planifInfoIntervention" style="margin:0;">Sélectionnez une intervention ci-dessus pour préremplir sa fiche.</p>
         </div>
       </div>
 
@@ -319,10 +319,6 @@
         <div class="field">
           <label for="planifDateDemande">Date de demande</label>
           <input type="date" id="planifDateDemande">
-        </div>
-        <div class="field">
-          <label for="planifDate">Date réelle de l'intervention</label>
-          <input type="date" id="planifDate">
         </div>
         <div class="field">
           <label for="planifHeureDebut">Heure de début</label>

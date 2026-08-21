@@ -155,11 +155,10 @@
       btnAnnulerIntervention: document.getElementById("btnAnnulerIntervention"),
       btnValiderNouvelleIntervention: document.getElementById("btnValiderNouvelleIntervention"),
       planifInterventionSelect: document.getElementById("planifInterventionSelect"),
-      planifDateTheoriqueInfo: document.getElementById("planifDateTheoriqueInfo"),
+      planifInfoIntervention: document.getElementById("planifInfoIntervention"),
       planifLieu: document.getElementById("planifLieu"),
       planifDemandeurSelect: document.getElementById("planifDemandeurSelect"),
       planifDateDemande: document.getElementById("planifDateDemande"),
-      planifDate: document.getElementById("planifDate"),
       planifHeureDebut: document.getElementById("planifHeureDebut"),
       planifDuree: document.getElementById("planifDuree"),
       planifHeureFin: document.getElementById("planifHeureFin"),
@@ -398,7 +397,6 @@
     els.btnConfirmerPlanification.addEventListener("click", validerPlanification);
     els.planifInterventionSelect.addEventListener("change", () => chargerInterventionDansPlanification(els.planifInterventionSelect.value));
     [els.planifHeureDebut, els.planifDuree].forEach((el) => el.addEventListener("input", calculerHeureFinPlanification));
-    els.planifDate.addEventListener("input", () => mettreAJourRetardInfoDepuisSelection());
     els.planifCoupureCatenaire.addEventListener("change", () => {
       els.planifCoupureChamps.hidden = !els.planifCoupureCatenaire.checked;
       if (els.planifCoupureCatenaire.checked) calculerHeureFinPlanification();
@@ -583,7 +581,6 @@
       const cle = statutIntervention(iv);
       const info = INTERVENTION_STATUT_LABELS[cle];
       const j = joursRestantsIntervention(iv);
-      const ecart = joursEcartTheorique(iv);
       const periode = iv.dateFinPlanifiee && iv.dateFinPlanifiee !== iv.dateIntervention
         ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
         : formatDate(iv.dateIntervention);
@@ -594,7 +591,7 @@
         <div class="materiel-card__entete">
           <div>
             <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}${ecart ? ` · ⏱ ${ecart > 0 ? "+" : ""}${ecart} j vs théorique` : ""}</p>
+            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}</p>
           </div>
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
@@ -621,10 +618,10 @@
 
   function exporterCsvInterventions() {
     const rows = getFilteredInterventions();
-    const headers = ["Matériel", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date théorique", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Consignation caténaire", "Début consignation", "Fin consignation", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Retard actuel (j)", "Écart réalisation (j)"];
+    const headers = ["Matériel", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Consignation caténaire", "Début consignation", "Fin consignation", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Retard actuel (j)", "Écart réalisation (j)"];
     const lines = rows.map((iv) => [
       iv.materiel, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateTheorique, iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", zepAffichable(iv), impactAffichable(iv),
+      iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", zepAffichable(iv), impactAffichable(iv),
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
       iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation,
       joursDepassementActuel(iv) ?? "", joursDepassementRealisation(iv) ?? "",
@@ -648,8 +645,6 @@
     modalActuel = { type: "intervention", id };
     const cle = statutIntervention(iv);
     const info = INTERVENTION_STATUT_LABELS[cle];
-    const ecart = joursEcartTheorique(iv);
-    const ecartTexte = ecart === null ? "" : (ecart > 0 ? `retard de ${ecart} jour${ecart > 1 ? "s" : ""}` : `avance de ${Math.abs(ecart)} jour${Math.abs(ecart) > 1 ? "s" : ""}`);
 
     els.modalTitle.textContent = `🔧 ${iv.materiel || iv.numSerie}`;
     els.modalBody.innerHTML = `
@@ -658,7 +653,6 @@
         <div class="modal__field"><dt>Type</dt><dd>${escapeHtml(iv.type) || "—"}</dd></div>
         ${iv.priorite ? `<div class="modal__field"><dt>Priorité</dt><dd>${escapeHtml(iv.priorite)}</dd></div>` : ""}
         <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}${iv.heureDebut ? ` · ${escapeHtml(iv.heureDebut)}${iv.heureFin ? " → " + escapeHtml(iv.heureFin) : ""}` : ""}</dd></div>
-        ${iv.dateTheorique && iv.dateTheorique !== iv.dateIntervention ? `<div class="modal__field"><dt>Date théorique du plan</dt><dd>${formatDate(iv.dateTheorique)}${ecartTexte ? " — " + ecartTexte : ""}</dd></div>` : ""}
         <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
         <div class="modal__field"><dt>Lieu / ZEP</dt><dd>${escapeHtml(zepAffichable(iv)) || "—"}</dd></div>
         ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
@@ -1077,13 +1071,7 @@
     }
   }
 
-  // -- Planification pratique : théorique → date réelle (voir docs/11 §11.8) ---
-  /** Écart en jours entre la date théorique du plan et la date réelle programmée (null si sans objet). */
-  function joursEcartTheorique(iv) {
-    if (!iv.dateTheorique || !iv.dateIntervention || iv.dateTheorique === iv.dateIntervention) return null;
-    return Math.round((new Date(iv.dateIntervention) - new Date(iv.dateTheorique)) / 86400000);
-  }
-
+  // -- Planification pratique : détails d'exécution d'une intervention déjà programmée (voir docs/11 §11.8) ---
   /** Ajoute une durée (en heures, éventuellement décimale) à une heure "HH:MM" — reste dans la même journée. */
   function ajouterHeures(heureDebut, dureeHeures) {
     if (!heureDebut || dureeHeures === null || dureeHeures === undefined || dureeHeures === "" || Number.isNaN(Number(dureeHeures))) return "";
@@ -1114,26 +1102,6 @@
     }
   }
 
-  function interventionEnCoursDePlanification() {
-    const id = els.planifInterventionSelect.value;
-    return id ? state.interventions.find((x) => String(x.id) === String(id)) : null;
-  }
-
-  function mettreAJourRetardInfoDepuisSelection() {
-    const iv = interventionEnCoursDePlanification();
-    const dateTheorique = iv ? (iv.dateTheorique || iv.dateIntervention) : "";
-    const nouvelleDate = els.planifDate.value;
-    if (!dateTheorique || !nouvelleDate) { els.planifRetardInfo.innerHTML = ""; return; }
-    const jours = Math.round((new Date(nouvelleDate) - new Date(dateTheorique)) / 86400000);
-    if (jours > 0) {
-      els.planifRetardInfo.innerHTML = `<span class="badge badge--warn">⚠ Retard de ${jours} jour${jours > 1 ? "s" : ""} sur le plan théorique (${formatDate(dateTheorique)})</span>`;
-    } else if (jours < 0) {
-      els.planifRetardInfo.innerHTML = `<span class="badge badge--ok">✅ ${Math.abs(jours)} jour${Math.abs(jours) > 1 ? "s" : ""} d'avance sur le plan théorique (${formatDate(dateTheorique)})</span>`;
-    } else {
-      els.planifRetardInfo.innerHTML = `<span class="badge badge--ok">✅ Conforme au plan théorique (${formatDate(dateTheorique)})</span>`;
-    }
-  }
-
   /** Interventions qu'on peut encore programmer/reprogrammer (tout sauf déjà réalisées). */
   function interventionsPlanifiables() {
     return state.interventions.filter((iv) => !iv.dateRealisation);
@@ -1144,7 +1112,7 @@
       (a.dateIntervention || "9999-99-99") < (b.dateIntervention || "9999-99-99") ? -1 : 1
     );
     els.planifInterventionSelect.innerHTML = '<option value="">— Sélectionner une intervention —</option>' +
-      rows.map((iv) => `<option value="${iv.id}">${escapeHtml(iv.materiel || iv.numSerie)} — théorique ${formatDate(iv.dateTheorique || iv.dateIntervention)}</option>`).join("");
+      rows.map((iv) => `<option value="${iv.id}">${escapeHtml(iv.materiel || iv.numSerie)} — ${formatDate(iv.dateIntervention)}</option>`).join("");
     if (interventionIdPreselectionnee) els.planifInterventionSelect.value = interventionIdPreselectionnee;
   }
 
@@ -1155,11 +1123,11 @@
   }
 
   function viderFormulairePlanification() {
-    els.planifDateTheoriqueInfo.textContent = "Sélectionnez une intervention ci-dessus pour préremplir sa fiche.";
+    els.planifInfoIntervention.textContent = "Sélectionnez une intervention ci-dessus pour préremplir sa fiche.";
     els.planifLieu.value = ""; els.planifConsequences.value = ""; els.planifImpact.value = "";
     els.planifDemandeurSelect.value = DEMANDEUR_PAR_DEFAUT;
     els.planifDateDemande.value = "";
-    els.planifDate.value = ""; els.planifHeureDebut.value = ""; els.planifDuree.value = "";
+    els.planifHeureDebut.value = ""; els.planifDuree.value = "";
     els.planifHeureFin.value = "";
     els.planifCoupureCatenaire.checked = false; els.planifCoupureChamps.hidden = true;
     els.planifCoupureDebut.value = ""; els.planifCoupureFin.value = "";
@@ -1168,18 +1136,19 @@
     els.planifRetardInfo.innerHTML = "";
   }
 
-  /** Précharge la fiche d'une intervention existante dans le formulaire de planification (voir docs/11 §11.8). */
+  /** Précharge la fiche d'une intervention existante dans le formulaire de planification (voir docs/11 §11.8) — la fenêtre planifiée (DateIntervention/DateFinPlanifiee) n'est qu'affichée ici, jamais modifiée. */
   function chargerInterventionDansPlanification(id) {
     const iv = id ? state.interventions.find((x) => String(x.id) === String(id)) : null;
     if (!iv) { viderFormulairePlanification(); return; }
-    const dateTheorique = iv.dateTheorique || iv.dateIntervention || "";
-    els.planifDateTheoriqueInfo.textContent = `${iv.type || "Intervention"} — date théorique du plan : ${formatDate(dateTheorique)}`;
+    const fenetre = iv.dateFinPlanifiee && iv.dateFinPlanifiee !== iv.dateIntervention
+      ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
+      : formatDate(iv.dateIntervention);
+    els.planifInfoIntervention.textContent = `${iv.type || "Intervention"} — fenêtre planifiée : ${fenetre}`;
     els.planifLieu.value = zepAffichable(iv);
     els.planifConsequences.value = iv.consequences || "";
     els.planifImpact.value = impactAffichable(iv);
     els.planifDemandeurSelect.value = [...els.planifDemandeurSelect.options].some((o) => o.value === iv.demandePar) ? iv.demandePar : DEMANDEUR_PAR_DEFAUT;
     els.planifDateDemande.value = iv.dateDemande || "";
-    els.planifDate.value = iv.dateIntervention || "";
     els.planifHeureDebut.value = iv.heureDebut || "";
     els.planifDuree.value = iv.dureeHeures ?? "";
     els.planifCoupureCatenaire.checked = !!iv.coupureCatenaire;
@@ -1189,7 +1158,10 @@
     calculerHeureFin();
     els.planifDateValidation.value = iv.dateValidation || new Date().toISOString().slice(0, 10);
     els.planifValideParInfo.textContent = (state.utilisateur && state.utilisateur.nom) || iv.validePar || "—";
-    mettreAJourRetardInfoDepuisSelection();
+    const retard = joursDepassementActuel(iv);
+    els.planifRetardInfo.innerHTML = retard
+      ? `<span class="badge badge--danger">⚠ En retard de ${retard} jour${retard > 1 ? "s" : ""} (échéance dépassée)</span>`
+      : "";
   }
 
   function ouvrirEcranPlanification(interventionIdPreselectionnee) {
@@ -1212,26 +1184,22 @@
     if (!id) { alert("Veuillez sélectionner l'intervention à planifier."); return; }
     const iv = state.interventions.find((x) => String(x.id) === String(id));
     if (!iv) return;
-    const dateIntervention = els.planifDate.value;
-    if (!dateIntervention) { alert("Veuillez renseigner la date réelle de l'intervention."); return; }
     const coupureCatenaire = els.planifCoupureCatenaire.checked;
     if (coupureCatenaire && (!els.planifCoupureDebut.value || !els.planifCoupureFin.value)) {
       alert("Veuillez renseigner l'heure de début et de fin de la consignation caténaire.");
       return;
     }
-    // La date théorique n'est capturée qu'une seule fois (à la première reprogrammation) :
-    // les planifications suivantes ne doivent jamais l'écraser (voir docs/11 §11.8).
-    const dateTheorique = iv.dateTheorique || iv.dateIntervention || dateIntervention;
 
+    // DateIntervention/DateFinPlanifiee ne sont jamais modifiées ici : c'est la
+    // fenêtre planifiée, fixée une fois pour toutes (voir docs/11 §11.8). Seuls
+    // les détails pratiques d'exécution sont renseignés par cet écran.
     const maj = {
       ...iv,
-      dateTheorique,
       lieu: els.planifLieu.value.trim(),
       consequences: els.planifConsequences.value.trim(),
       impact: els.planifImpact.value.trim(),
       demandePar: els.planifDemandeurSelect.value || iv.demandePar,
       dateDemande: els.planifDateDemande.value || iv.dateDemande,
-      dateIntervention,
       heureDebut: els.planifHeureDebut.value,
       heureFin: els.planifHeureFin.value,
       dureeHeures: els.planifDuree.value ? Number(els.planifDuree.value) : null,
@@ -1247,11 +1215,10 @@
     try {
       if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, maj);
       Object.assign(iv, maj);
-      const ecart = joursEcartTheorique(iv);
-      journaliser(`Intervention planifiée — ${iv.materiel} — ${dateIntervention}${ecart ? ` (${ecart > 0 ? "retard" : "avance"} de ${Math.abs(ecart)} j vs théorique)` : ""}`);
+      journaliser(`Intervention planifiée — ${iv.materiel} (${formatDate(iv.dateIntervention)})`);
       els.planifResultat.hidden = false;
       els.planifResultat.className = "controle-resultat";
-      els.planifResultat.innerHTML = `Intervention planifiée pour le ${formatDate(dateIntervention)}${state.modeDemo ? " (simulation locale)" : ""}.`;
+      els.planifResultat.innerHTML = `Détails d'intervention enregistrés${state.modeDemo ? " (simulation locale)" : ""}.`;
       els.btnConfirmerPlanification.textContent = "✅ Planification enregistrée";
       renderStatsGlobales(); renderInterventionsBanniere(); renderBandeauFlash();
       if (state.vue === "interventions") renderInterventions();
@@ -1295,8 +1262,7 @@
           <span class="calendrier-jour__numero">${jour}</span>
           ${interventionsJour.map((iv) => {
             const info = INTERVENTION_STATUT_LABELS[statutIntervention(iv)];
-            const ecart = joursEcartTheorique(iv);
-            const titre = `🔧 ${iv.materiel || iv.numSerie}${ecart ? ` (${ecart > 0 ? "+" : ""}${ecart} j)` : ""}`;
+            const titre = `🔧 ${iv.materiel || iv.numSerie}`;
             return `<button type="button" class="calendrier-intervention ${info.badge}" title="${escapeHtml(titre)}">${escapeHtml(titre)}</button>`;
           }).join("")}
         </div>`;
