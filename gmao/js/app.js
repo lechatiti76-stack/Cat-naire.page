@@ -17,6 +17,9 @@
     realisee:           { label: "Réalisée",                  badge: "badge--neutral" },
   };
 
+  /** Demandeur par défaut des opérations (validation restant à la personne connectée). */
+  const DEMANDEUR_PAR_DEFAUT = "DESERT JULIEN";
+
   const state = {
     materiels: [],
     utilisateurs: [],
@@ -140,6 +143,7 @@
       intervDuree: document.getElementById("intervDuree"),
       intervLieu: document.getElementById("intervLieu"),
       intervIntervenantSelect: document.getElementById("intervIntervenantSelect"),
+      intervDemandeurSelect: document.getElementById("intervDemandeurSelect"),
       intervCoupureCatenaire: document.getElementById("intervCoupureCatenaire"),
       intervCoupureChamps: document.getElementById("intervCoupureChamps"),
       intervCoupureDebut: document.getElementById("intervCoupureDebut"),
@@ -598,11 +602,14 @@
         <div class="materiel-card__actions">
           <button class="btn btn--secondary btn--small btn--interv-detail" type="button">Détails</button>
           ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small btn--interv-planifier" type="button">📌 Planifier</button>' : ""}
+          ${iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small btn--interv-annuler-realisation" type="button">↩️ Annuler la réalisation</button>' : ""}
         </div>
       `;
       carte.querySelector(".btn--interv-detail").addEventListener("click", () => ouvrirDetailIntervention(iv.id));
       const btnPlanifier = carte.querySelector(".btn--interv-planifier");
       if (btnPlanifier) btnPlanifier.addEventListener("click", () => ouvrirEcranPlanification(iv.id));
+      const btnAnnulerRealisation = carte.querySelector(".btn--interv-annuler-realisation");
+      if (btnAnnulerRealisation) btnAnnulerRealisation.addEventListener("click", () => annulerRealisationAction(iv.id));
       els.intervCardsGrid.appendChild(carte);
     });
   }
@@ -655,19 +662,18 @@
         <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
         <div class="modal__field"><dt>Lieu / ZEP</dt><dd>${escapeHtml(zepAffichable(iv)) || "—"}</dd></div>
         ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
-        <div class="modal__field"><dt>Intervenant</dt><dd>${escapeHtml(iv.intervenant) || "—"}</dd></div>
         <div class="modal__field"><dt>Consignation caténaire</dt><dd>${iv.coupureCatenaire ? `⚡ Oui (${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"})` : "Non"}</dd></div>
         <div class="modal__field"><dt>Demande</dt><dd>${formatDate(iv.dateDemande)}${iv.demandePar ? " · " + escapeHtml(iv.demandePar) : ""}</dd></div>
         <div class="modal__field"><dt>Validation</dt><dd>${iv.dateValidation ? formatDate(iv.dateValidation) + (iv.validePar ? " · " + escapeHtml(iv.validePar) : "") : "En attente"}</dd></div>
       </dl>
-      <div class="modal__section"><h3>Impact</h3><p>${escapeHtml(impactAffichable(iv)) || "—"}</p></div>
-      <div class="modal__section"><h3>Conséquences</h3><p>${escapeHtml(iv.consequences) || "—"}</p></div>
+      <div class="modal__section"><h3>Impact</h3><p style="color:var(--color-danger); font-weight:700;">${escapeHtml(impactAffichable(iv)) || "—"}</p></div>
       ${iv.commentaires ? `<div class="modal__section"><h3>Commentaires</h3><p>${escapeHtml(iv.commentaires)}</p></div>` : ""}
-      ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p>${formatDate(iv.dateRealisation)}</p></div>` : ""}
+      ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p style="font-weight:700;">${formatDate(iv.dateRealisation)}</p></div>` : ""}
       <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
         ${!iv.dateValidation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnValiderInterventionModal" type="button">✅ Valider</button>' : ""}
         ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnPlanifierInterventionModal" type="button">📌 Planifier</button>' : ""}
         ${iv.dateValidation && !iv.dateRealisation && (aPermission("validerIntervention") || aPermission("nouvelleIntervention")) ? '<button class="btn btn--primary btn--small" id="btnRealiserInterventionModal" type="button">☑️ Marquer réalisée</button>' : ""}
+        ${iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small" id="btnAnnulerRealisationModal" type="button">↩️ Remettre à l\'état non réalisé</button>' : ""}
         ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small" id="btnAnnulerInterventionModal" type="button">🗑️ Annuler la demande</button>' : ""}
       </div>
     `;
@@ -677,6 +683,8 @@
     if (btnPlanifier) btnPlanifier.addEventListener("click", () => { fermerModal(); ouvrirEcranPlanification(id); });
     const btnRealiser = els.modalBody.querySelector("#btnRealiserInterventionModal");
     if (btnRealiser) btnRealiser.addEventListener("click", () => marquerInterventionRealiseeAction(id));
+    const btnAnnulerRealisation = els.modalBody.querySelector("#btnAnnulerRealisationModal");
+    if (btnAnnulerRealisation) btnAnnulerRealisation.addEventListener("click", () => annulerRealisationAction(id));
     const btnAnnuler = els.modalBody.querySelector("#btnAnnulerInterventionModal");
     if (btnAnnuler) btnAnnuler.addEventListener("click", () => annulerInterventionAction(id));
     els.modalOverlay.hidden = false;
@@ -735,6 +743,25 @@
     }
   }
 
+  /** Annule un "Marquer réalisée" fait par erreur — remet l'intervention à son état précédent (efface la date de réalisation, sans toucher à la validation). */
+  async function annulerRealisationAction(id) {
+    const iv = state.interventions.find((x) => x.id === id);
+    if (!iv) return;
+    if (!confirm(`Remettre "${iv.materiel}" à l'état non réalisé ?`)) return;
+    try {
+      if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateRealisation: "" });
+      iv.dateRealisation = "";
+      journaliser(`Réalisation annulée — ${iv.materiel} (${formatDate(iv.dateIntervention)})`);
+      afficherBanniere("✅ Intervention remise à l'état non réalisé" + (state.modeDemo ? " (simulation locale)." : "."), "info");
+      ouvrirDetailIntervention(id);
+      renderStatsGlobales(); renderInterventionsBanniere(); renderBandeauFlash();
+      if (state.vue === "interventions") renderInterventions();
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur : " + e.message, "warn");
+    }
+  }
+
   async function annulerInterventionAction(id) {
     if (!aPermission("validerIntervention")) {
       afficherBanniere("⛔ Vous n'avez pas la permission d'annuler une demande d'intervention.", "warn");
@@ -771,6 +798,7 @@
     els.intervFormBadgeStatut.className = "badge";
     renderSelecteurMaterielIntervention(materielIdPreselectionne);
     renderSelecteurIntervenant();
+    renderSelecteurDemandeur();
     await assurerReferentielInterventionsCharge();
     renderSelecteurReferentielCategorie();
     renderSelecteurReferentielType("");
@@ -789,8 +817,7 @@
     els.intervCoupureChamps.hidden = true;
     els.intervCoupureDebut.value = "";
     els.intervCoupureFin.value = "";
-    const nom = (state.utilisateur && state.utilisateur.nom) || "";
-    els.intervDemandeInfo.textContent = `Demande créée par ${nom || "—"} le ${formatDate(new Date().toISOString().slice(0, 10))} — nécessitera la validation d'un administrateur.`;
+    els.intervDemandeInfo.textContent = `Date de demande : ${formatDate(new Date().toISOString().slice(0, 10))} — nécessitera la validation d'un administrateur.`;
     els.intervResultat.hidden = true;
     els.btnValiderNouvelleIntervention.disabled = false;
     els.btnValiderNouvelleIntervention.textContent = "📩 Enregistrer la demande";
@@ -814,6 +841,21 @@
     }
     els.intervIntervenantSelect.innerHTML = liste.map((c) => `<option value="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</option>`).join("");
     if (liste.some((c) => c.nom === nomCourant)) els.intervIntervenantSelect.value = nomCourant;
+  }
+
+  /** Noms proposés pour le champ Demandeur — inclut toujours DEMANDEUR_PAR_DEFAUT même s'il n'est pas dans Utilisateurs/Contrôleurs. */
+  function nomsDemandeurs() {
+    const liste = state.controleurs && state.controleurs.length ? state.controleurs : state.utilisateurs;
+    const noms = (liste || []).map((c) => c.nom).filter(Boolean);
+    if (!noms.includes(DEMANDEUR_PAR_DEFAUT)) noms.unshift(DEMANDEUR_PAR_DEFAUT);
+    return noms;
+  }
+
+  /** Peuple le sélecteur Demandeur de "Nouvelle intervention", présélectionné sur DEMANDEUR_PAR_DEFAUT — la validation reste liée à la personne connectée. */
+  function renderSelecteurDemandeur() {
+    const noms = nomsDemandeurs();
+    els.intervDemandeurSelect.innerHTML = noms.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+    els.intervDemandeurSelect.value = DEMANDEUR_PAR_DEFAUT;
   }
 
   // -- Référentiel équipements d'infrastructure : Catégorie → Type → Matériel (voir docs/11 §11.7bis) --
@@ -989,7 +1031,7 @@
       posteTechnique,
       type: els.intervTypeSelect.value,
       priorite: els.intervPriorite.value.trim(),
-      dateDemande, demandePar: nom,
+      dateDemande, demandePar: els.intervDemandeurSelect.value || nom,
       dateIntervention,
       dateFinPlanifiee,
       dureeHeures: els.intervDuree.value ? Number(els.intervDuree.value) : null,
@@ -1106,19 +1148,16 @@
     if (interventionIdPreselectionnee) els.planifInterventionSelect.value = interventionIdPreselectionnee;
   }
 
+  /** Peuple le sélecteur Demandeur de "Planifier" — la présélection (DEMANDEUR_PAR_DEFAUT pour une planification vierge, ou le demandeur déjà enregistré) est faite par l'appelant. */
   function renderSelecteurDemandeurPlanification() {
-    const nomCourant = (state.utilisateur && state.utilisateur.nom) || "";
-    const liste = state.controleurs && state.controleurs.length ? state.controleurs : state.utilisateurs;
-    if (!liste || liste.length === 0) {
-      els.planifDemandeurSelect.innerHTML = `<option value="${escapeHtml(nomCourant)}">${escapeHtml(nomCourant) || "—"}</option>`;
-      return;
-    }
-    els.planifDemandeurSelect.innerHTML = liste.map((c) => `<option value="${escapeHtml(c.nom)}">${escapeHtml(c.nom)}</option>`).join("");
+    const noms = nomsDemandeurs();
+    els.planifDemandeurSelect.innerHTML = noms.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
   }
 
   function viderFormulairePlanification() {
     els.planifDateTheoriqueInfo.textContent = "Sélectionnez une intervention ci-dessus pour préremplir sa fiche.";
     els.planifLieu.value = ""; els.planifConsequences.value = ""; els.planifImpact.value = "";
+    els.planifDemandeurSelect.value = DEMANDEUR_PAR_DEFAUT;
     els.planifDateDemande.value = "";
     els.planifDate.value = ""; els.planifHeureDebut.value = ""; els.planifDuree.value = "";
     els.planifHeureFin.value = "";
@@ -1138,7 +1177,7 @@
     els.planifLieu.value = zepAffichable(iv);
     els.planifConsequences.value = iv.consequences || "";
     els.planifImpact.value = impactAffichable(iv);
-    if ([...els.planifDemandeurSelect.options].some((o) => o.value === iv.demandePar)) els.planifDemandeurSelect.value = iv.demandePar;
+    els.planifDemandeurSelect.value = [...els.planifDemandeurSelect.options].some((o) => o.value === iv.demandePar) ? iv.demandePar : DEMANDEUR_PAR_DEFAUT;
     els.planifDateDemande.value = iv.dateDemande || "";
     els.planifDate.value = iv.dateIntervention || "";
     els.planifHeureDebut.value = iv.heureDebut || "";

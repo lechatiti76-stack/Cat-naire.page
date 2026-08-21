@@ -76,20 +76,24 @@ en place (docs/09) :
 
 1. **Demande** — un Contrôleur (ou un Administrateur) remplit le formulaire "Nouvelle
    intervention" matériel par matériel : jour de l'intervention, durée, lieu, impact,
-   conséquences, intervenant, coupure caténaire éventuelle, commentaires. `DateDemande`
-   et `DemandePar` sont renseignés automatiquement (date du jour, personne connectée).
+   intervenant, coupure caténaire éventuelle, commentaires. `DateDemande` est renseignée
+   automatiquement (date du jour) ; `DemandePar` se choisit dans un menu déroulant,
+   préréglé sur le demandeur par défaut des opérations (voir §11.7bis) mais modifiable.
    L'intervention apparaît alors avec le statut **🔵 En attente de validation**.
 2. **Validation** — seul un **Administrateur** peut valider (bouton "✅ Valider" dans la
-   fiche détaillée de l'intervention), ce qui renseigne `DateValidation`/`ValidePar` et
-   fait passer l'intervention en 🟢 **Planifiée** (ou 🟠 **Imminente** / 🔴 **En retard**
-   selon la proximité de la date prévue).
+   fiche détaillée de l'intervention), ce qui renseigne `DateValidation`/`ValidePar` (la
+   personne connectée) et fait passer l'intervention en 🟢 **Planifiée** (ou 🟠
+   **Imminente** / 🔴 **En retard** selon la proximité de la date prévue).
 3. **Réalisation** — une fois le travail effectué, la personne qui l'a réalisé (ou un
    Administrateur) clique "☑️ Marquer réalisée", ce qui renseigne `DateRealisation` et
    fait passer l'intervention au statut ⚪ **Réalisée**. C'est ce clic qui **met à jour
    la base automatiquement** (écriture Google Sheets réelle une fois connecté ; simulation
    locale en mode démonstration) — aucune ressaisie séparée n'est nécessaire.
 
-Un Administrateur peut aussi annuler une demande non réalisée ("🗑️ Annuler la demande").
+Un Administrateur peut aussi annuler une demande non réalisée ("🗑️ Annuler la demande"),
+ou, sur une intervention déjà réalisée, revenir en arrière avec "↩️ Remettre à l'état non
+réalisé" (efface uniquement `DateRealisation` — la validation n'est pas remise en cause)
+si le bouton "Marquer réalisée" a été cliqué par erreur.
 
 ## 11.3 Permissions
 
@@ -274,6 +278,13 @@ matériel suivantes en héritent jusqu'à la prochaine valeur explicite. C'est
 Changer la catégorie réinitialise le type et le matériel choisis ; changer le type
 réinitialise le matériel choisi — pour ne jamais laisser une combinaison incohérente
 (ex. un matériel d'une catégorie affiché après avoir changé de catégorie).
+
+**Demandeur par défaut** : le champ Demandeur ("Nouvelle intervention" et "Planifier")
+est préréglé sur `DEMANDEUR_PAR_DEFAUT` (`gmao/js/app.js`, actuellement "DESERT JULIEN")
+— la personne qui demande en pratique la plupart de ces opérations d'infrastructure —
+tout en restant un menu déroulant modifiable si un autre demandeur doit être enregistré.
+Ce préréglage n'affecte jamais `ValidePar`, qui reste toujours la personne connectée au
+moment de la validation.
 
 Le référentiel est chargé une seule fois par session (mode connecté), à la connexion et à
 chaque actualisation des données — pas seulement à l'ouverture de "Nouvelle
