@@ -42,6 +42,9 @@ function construireJeuDeDemonstration() {
   ];
 
   const donneesControles = [
+    // Deux contrôles espacés de plus que la périodicité (6 mois) — exemple pour
+    // le calcul d'espacement entre contrôles consécutifs (voir docs/09).
+    { materielId: 1,  dateControle: "2025-01-10", controleur: "Julien Marchand", conforme: true,  observations: "Isolant en bon état, essai diélectrique conforme.", actionsCorrectives: "", commentaires: "" },
     { materielId: 1,  dateControle: "2026-01-22", controleur: "Julien Marchand", conforme: true,  observations: "Isolant en bon état, essai diélectrique conforme.", actionsCorrectives: "", commentaires: "" },
     { materielId: 2,  dateControle: "2026-02-18", controleur: "Julien Marchand", conforme: true,  observations: "RAS, étiquette de validité à jour.", actionsCorrectives: "", commentaires: "" },
     { materielId: 3,  dateControle: "2026-06-25", controleur: "Sophie Nguyen",   conforme: true,  observations: "Essai diélectrique OK.", actionsCorrectives: "", commentaires: "Contrôle rapproché — renouvellement semestriel." },

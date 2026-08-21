@@ -69,6 +69,29 @@ Depuis la fiche d'un matériel (bouton **🖨️ Exporter en PDF**), l'applicati
 
 Ce choix (impression navigateur plutôt que génération directe) évite d'ajouter une bibliothèque JavaScript supplémentaire au projet ; il fonctionne dans tous les navigateurs modernes sans configuration.
 
+## 9.5bis Espacement entre deux contrôles consécutifs
+
+Chaque matériel a une **périodicité** (`periodiciteMois`, colonne `PeriodiciteMois` de
+l'onglet `Materiels` — 6 ou 12 mois selon les exemples de démonstration). Jusqu'ici,
+cette périodicité ne servait qu'à comparer le **dernier** contrôle connu à *aujourd'hui*
+(échéances, bandeau de rappel, statut "à vérifier prochainement"/"en retard").
+
+La fiche d'un matériel calcule désormais aussi l'**écart réel entre deux contrôles
+consécutifs de son historique**, indépendamment de la date du jour : pour chaque paire de
+contrôles successifs, la date à laquelle le contrôle suivant était dû (contrôle le plus
+ancien des deux + périodicité) est comparée à la date à laquelle il a *réellement* eu
+lieu. Si cette date réelle dépasse la date due, le nombre de jours de dépassement est
+affiché :
+
+- Un résumé en haut de la fiche ("⚠ N dépassement(s) de périodicité dans l'historique")
+  dès qu'au moins une paire de contrôles dépasse la périodicité.
+- Le détail, ligne par ligne, dans chaque entrée de l'historique concernée ("⚠
+  Périodicité dépassée de X jours — précédent contrôle le JJ/MM/AAAA, périodicité de N
+  mois"), aussi bien à l'écran qu'à l'export PDF (§9.5).
+
+Un matériel avec un seul contrôle enregistré, ou dont tous les contrôles se sont enchaînés
+dans les délais, n'affiche aucun avertissement.
+
 ## 9.6 Logo et pied de page
 
 - Le logo en haut à gauche est actuellement un badge texte **"LHTE"** (`index.html`, classe `.icon--logo-lhte`), en attendant le fichier image du vrai logo. Pour l'intégrer : remplacez le `<span>` par une balise `<img src="assets/logo-lhte.png" alt="LHTE">` et déposez le fichier dans un dossier `assets/`.

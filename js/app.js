@@ -1018,6 +1018,9 @@
     els.modalTitle.textContent = materiel.title;
     const dernier = historique[0];
     const statutInfo = dernier ? STATUT_LABELS[statutDeControle(dernier)] : null;
+    const depassements = historique
+      .map((c, i) => (historique[i + 1] ? joursDepassementPeriodicite(c.dateControle, historique[i + 1].dateControle, materiel.periodiciteMois) : null))
+      .filter((j) => j !== null);
 
     els.modalBody.innerHTML = `
       ${statutInfo ? `<span class="badge ${statutInfo.badge}">${statutInfo.label}</span>` : ""}
@@ -1026,6 +1029,7 @@
         <div class="modal__field"><dt>Référence</dt><dd>${escapeHtml(materiel.reference)}</dd></div>
         <div class="modal__field"><dt>Catégorie</dt><dd>${escapeHtml(materiel.categorie)}</dd></div>
         <div class="modal__field"><dt>État</dt><dd>${escapeHtml(materiel.etat)}</dd></div>
+        <div class="modal__field"><dt>Périodicité</dt><dd>Tous les ${materiel.periodiciteMois} mois</dd></div>
       </dl>
       <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
         ${peutControler() ? '<button class="btn btn--primary btn--small" id="btnNouveauControleModal" type="button">🆕 Nouveau contrôle</button>' : ""}
@@ -1033,9 +1037,10 @@
         <button class="btn btn--secondary btn--small" id="btnQrCode" type="button">🔗 QR code</button>
       </div>
       <div id="qrPanel" class="qr-panel" hidden></div>
+      ${depassements.length ? `<p><span class="badge badge--danger">⚠ ${depassements.length} dépassement${depassements.length > 1 ? "s" : ""} de périodicité dans l'historique</span> — détail sur les lignes concernées ci-dessous.</p>` : ""}
       <div class="modal__section">
         <h3>Historique des contrôles (${historique.length})</h3>
-        ${historique.length ? historique.map((c, i) => renderLigneHistorique(c, i)).join("") : "<p>Aucun contrôle enregistré pour ce matériel.</p>"}
+        ${historique.length ? historique.map((c, i) => renderLigneHistorique(c, i, historique, materiel)).join("") : "<p>Aucun contrôle enregistré pour ce matériel.</p>"}
       </div>
     `;
     const btnNouveauModal = els.modalBody.querySelector("#btnNouveauControleModal");
@@ -1078,8 +1083,27 @@
     els.modalOverlay.hidden = false;
   }
 
-  function renderLigneHistorique(c, index) {
+  /**
+   * Jours de dépassement entre deux contrôles consécutifs du même matériel par
+   * rapport à sa périodicité (ex. 6 mois) — compare la date du contrôle le plus
+   * récent des deux à la date à laquelle le contrôle suivant était dû d'après le
+   * plus ancien (même logique que dateProchainControle, mais appliquée à deux
+   * contrôles réellement effectués plutôt qu'à "aujourd'hui"). Renvoie null si
+   * dans les temps ou si une donnée manque.
+   */
+  function joursDepassementPeriodicite(dateRecent, dateAncien, periodiciteMois) {
+    if (!dateRecent || !dateAncien || !periodiciteMois) return null;
+    const dateDue = ajouterMoisISO(dateAncien, periodiciteMois);
+    const jours = Math.round((new Date(dateRecent) - new Date(dateDue)) / 86400000);
+    return jours > 0 ? jours : null;
+  }
+
+  function renderLigneHistorique(c, index, historique, materiel) {
     const info = STATUT_LABELS[statutDeControle(c)];
+    const controlePrecedent = historique && historique[index + 1];
+    const depassement = controlePrecedent && materiel
+      ? joursDepassementPeriodicite(c.dateControle, controlePrecedent.dateControle, materiel.periodiciteMois)
+      : null;
     return `
       <div class="historique-ligne">
         <div class="historique-ligne__entete">
@@ -1087,6 +1111,7 @@
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
         <div class="historique-ligne__detail" ${index === 0 ? "" : "hidden"}>
+          ${depassement ? `<p><span class="badge badge--danger">⚠ Périodicité dépassée de ${depassement} jour${depassement > 1 ? "s" : ""}</span> — précédent contrôle le ${formatDate(controlePrecedent.dateControle)}, périodicité de ${materiel.periodiciteMois} mois.</p>` : ""}
           <p><strong>Observations :</strong> ${escapeHtml(c.observations) || "—"}</p>
           <p><strong>Actions correctives :</strong> ${escapeHtml(c.actionsCorrectives) || "—"}</p>
           <p><strong>Commentaires :</strong> ${escapeHtml(c.commentaires) || "—"}</p>
@@ -1862,16 +1887,21 @@
         ${genererLigne("État", materiel.etat)}
       </dl>
       <h2>Historique des contrôles (${historique.length})</h2>
-      ${historique.map((c) => `
+      ${historique.map((c, i) => {
+        const controlePrecedent = historique[i + 1];
+        const depassement = controlePrecedent ? joursDepassementPeriodicite(c.dateControle, controlePrecedent.dateControle, materiel.periodiciteMois) : null;
+        return `
         <div class="impression-controle">
           <h3>${formatDate(c.dateControle)} — ${escapeHtml(c.controleur)} — ${escapeHtml(c.statut)}</h3>
+          ${depassement ? `<p><strong>⚠ Périodicité dépassée de ${depassement} jour${depassement > 1 ? "s" : ""}</strong> — précédent contrôle le ${formatDate(controlePrecedent.dateControle)}, périodicité de ${materiel.periodiciteMois} mois.</p>` : ""}
           <p><strong>Observations :</strong> ${escapeHtml(c.observations) || "—"}</p>
           <p><strong>Actions correctives :</strong> ${escapeHtml(c.actionsCorrectives) || "—"}</p>
           <p><strong>Commentaires :</strong> ${escapeHtml(c.commentaires) || "—"}</p>
           ${renderPhotosControle(c.photos)}
           ${renderPointsControle(c.pointsControle)}
         </div>
-      `).join("")}
+      `;
+      }).join("")}
     `;
     window.print();
   }
