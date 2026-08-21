@@ -154,8 +154,11 @@ données :
   de demande et commentaires ne sont plus exportés (redondants avec les autres colonnes
   ou peu utilisés en pratique).
 - **Calendrier** (propre à GMAO) : les interventions programmées apparaissent sur un
-  calendrier mensuel dédié (icône 🔧), sur leur jour prévu.
-- **Vue semaine** (§11.9) : point hebdomadaire imprimable/envoyable par e-mail.
+  calendrier mensuel dédié (icône 🔧), sur leur jour prévu — `DateIntervention` tant
+  qu'elles ne sont pas réalisées, puis leur date réelle (`DateRealisation`) une fois
+  qu'elles le sont (voir §11.8).
+- **Vue semaine** (§11.9) : point hebdomadaire imprimable/envoyable par e-mail, avec la
+  même bascule sur la date réelle une fois l'intervention réalisée.
 - **Fiche détaillée** (clic sur une intervention, où qu'elle apparaisse) : tous les
   champs de la demande, plus les actions de circuit (Valider / Marquer réalisée /
   Annuler) selon la permission de la personne connectée.
@@ -378,6 +381,26 @@ Le retard réel d'une intervention se lit une fois le travail terminé en compar
 `DateFinPlanifiee`/`DateIntervention` (l'échéance) à `DateRealisation` — colonne "Écart
 réalisation (j)" de l'export CSV (§11.5).
 
+### Calendrier et vue semaine : bascule sur la date réelle une fois réalisée
+
+`DateIntervention` étant désormais figée (ci-dessus), le **calendrier** (§11.5) et la
+**vue semaine** (§11.9) doivent malgré tout continuer à refléter *où* le travail a
+réellement eu lieu une fois qu'il l'est. La fonction `dateAffichageIntervention(iv)`
+(`gmao/js/app.js`) centralise ce choix d'affichage :
+
+- Intervention **pas encore réalisée** (`DateRealisation` vide) : positionnée sur sa
+  fenêtre planifiée (`DateIntervention`/`DateFinPlanifiee`), comme avant.
+- Intervention **réalisée** (`DateRealisation` renseignée) : positionnée sur ce jour-là,
+  qu'il tombe avant, après ou pendant sa fenêtre planifiée d'origine — elle disparaît du
+  jour/semaine où elle était initialement prévue et apparaît sur le jour réel. Si "☑️
+  Marquer réalisée" est annulé par erreur (bouton "↩️ Remettre à l'état non réalisé",
+  §11.2), elle revient automatiquement s'afficher sur sa fenêtre planifiée d'origine —
+  aucune donnée n'est perdue, seul l'affichage suit `DateRealisation`.
+
+Cette bascule ne modifie ni n'écrit rien dans `Interventions` : c'est un choix
+d'affichage au même titre que la résolution du référentiel (§11.7bis), jamais une
+réécriture de `DateIntervention`.
+
 ## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
 
 Bouton **"🗓️ Vue semaine"** (à côté de "Calendrier") — pensé pour reproduire, sans la
@@ -389,7 +412,9 @@ S1-S52 — ISO-8601).
 - **Navigation** : "‹ Semaine précédente" / "Semaine suivante ›", comme le calendrier
   mensuel.
 - **Contenu** : toutes les interventions dont le jour prévu (ou la fenêtre planifiée,
-  voir §11.6) chevauche la semaine affichée, triées par date. Pour chaque intervention :
+  voir §11.6) chevauche la semaine affichée — ou, une fois réalisées, dont la date réelle
+  tombe dans la semaine (voir "Calendrier et vue semaine" en §11.8) — triées par date.
+  Pour chaque intervention :
   catégorie et nature des travaux, nom du matériel, heure de début/fin, zone (ZEP —
   résolue depuis le référentiel comme en §11.8), consignation caténaire si applicable, et
   l'impact mis en évidence (gras, en rouge) lorsqu'il est renseigné — le lieu générique et

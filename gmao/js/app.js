@@ -407,6 +407,16 @@
   function dateEcheanceIntervention(iv) {
     return iv.dateFinPlanifiee || iv.dateIntervention;
   }
+
+  /**
+   * Date à utiliser pour positionner/afficher une intervention dans le calendrier et
+   * la vue semaine : la fenêtre planifiée (DateIntervention) tant que l'intervention
+   * n'est pas réalisée, puis la date réelle (DateRealisation) une fois qu'elle l'est
+   * — DateIntervention elle-même n'est jamais modifiée (voir docs/11 §11.8).
+   */
+  function dateAffichageIntervention(iv) {
+    return iv.dateRealisation || iv.dateIntervention;
+  }
   function joursRestantsIntervention(iv) {
     const echeance = dateEcheanceIntervention(iv);
     if (!echeance) return null;
@@ -1240,7 +1250,7 @@
     const moisIndex = mois.getMonth();
     els.calendrierTitre.textContent = mois.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
-    const echeancesInterventions = state.interventions.filter((iv) => iv.dateIntervention);
+    const echeancesInterventions = state.interventions.filter((iv) => dateAffichageIntervention(iv));
 
     const premierJourMois = new Date(annee, moisIndex, 1);
     const decalage = (premierJourMois.getDay() + 6) % 7;
@@ -1255,7 +1265,7 @@
     for (let i = 0; i < decalage; i++) html += `<div class="calendrier-jour calendrier-jour--vide"></div>`;
     for (let jour = 1; jour <= nbJours; jour++) {
       const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
-      const interventionsJour = echeancesInterventions.filter((iv) => iv.dateIntervention === dateJour);
+      const interventionsJour = echeancesInterventions.filter((iv) => dateAffichageIntervention(iv) === dateJour);
       const estAujourdhui = dateJour === new Date().toISOString().slice(0, 10);
       html += `
         <div class="calendrier-jour ${estAujourdhui ? "calendrier-jour--aujourdhui" : ""}">
@@ -1273,7 +1283,7 @@
     let indexInterv = 0;
     for (let jour = 1; jour <= nbJours; jour++) {
       const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
-      const interventionsJour = echeancesInterventions.filter((iv) => iv.dateIntervention === dateJour);
+      const interventionsJour = echeancesInterventions.filter((iv) => dateAffichageIntervention(iv) === dateJour);
       interventionsJour.forEach((iv) => {
         const btn = els.calendrierGrille.querySelectorAll(".calendrier-intervention")[indexInterv];
         if (btn) btn.addEventListener("click", () => ouvrirDetailIntervention(iv.id));
@@ -1314,14 +1324,17 @@
     // Une intervention appartient à la semaine si son jour prévu y tombe, ou si sa
     // fenêtre planifiée (import d'un plan externe, voir docs/11 §11.6) chevauche la
     // semaine — pour ne rien oublier d'actif pendant la période imprimée/envoyée.
+    // Une fois réalisée, c'est la date réelle (DateRealisation) qui fait foi : on la
+    // traite comme un point isolé ce jour-là plutôt que la fenêtre planifiée d'origine.
     const interventions = state.interventions
       .filter((iv) => {
+        if (iv.dateRealisation) return iv.dateRealisation <= samediIso && iv.dateRealisation >= lundiIso;
         if (!iv.dateIntervention) return false;
         const debut = iv.dateIntervention;
         const fin = iv.dateFinPlanifiee || iv.dateIntervention;
         return debut <= samediIso && fin >= lundiIso;
       })
-      .sort((a, b) => (a.dateIntervention < b.dateIntervention ? -1 : 1));
+      .sort((a, b) => (dateAffichageIntervention(a) < dateAffichageIntervention(b) ? -1 : 1));
 
     const blocages = interventions.filter((iv) => iv.coupureCatenaire || impactAffichable(iv) || iv.consequences);
 
@@ -1340,13 +1353,14 @@
     const ligne = (iv) => {
       const cle = statutIntervention(iv);
       const info = INTERVENTION_STATUT_LABELS[cle];
-      const jourNom = iv.dateIntervention ? new Date(iv.dateIntervention).toLocaleDateString("fr-FR", { weekday: "long" }) : "";
+      const dateAffichage = dateAffichageIntervention(iv);
+      const jourNom = dateAffichage ? new Date(dateAffichage).toLocaleDateString("fr-FR", { weekday: "long" }) : "";
       const categorie = categorieAffichable(iv);
       const zep = zepAffichable(iv);
       return `
         <div class="historique-ligne">
           <div class="historique-ligne__entete" style="cursor:default;">
-            <span>${jourNom ? jourNom.charAt(0).toUpperCase() + jourNom.slice(1) + " " : ""}${formatDate(iv.dateIntervention)} — ${escapeHtml(iv.materiel || iv.numSerie)}</span>
+            <span>${jourNom ? jourNom.charAt(0).toUpperCase() + jourNom.slice(1) + " " : ""}${formatDate(dateAffichage)}${iv.dateRealisation ? " (réalisée)" : ""} — ${escapeHtml(iv.materiel || iv.numSerie)}</span>
             <span class="badge ${info.badge}">${info.label}</span>
           </div>
           <div class="historique-ligne__detail">
@@ -1379,7 +1393,7 @@
     const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
     const genererLigne = (iv) => `
       <tr>
-        <td>${formatDate(iv.dateIntervention)}</td>
+        <td>${formatDate(dateAffichageIntervention(iv))}${iv.dateRealisation ? " (réalisée)" : ""}</td>
         <td>${escapeHtml(iv.materiel || iv.numSerie)}</td>
         <td>${escapeHtml(categorieAffichable(iv)) || "—"}</td>
         <td>${escapeHtml(iv.type) || "—"}</td>
@@ -1401,7 +1415,7 @@
         <h2>⚠ Blocages / consignations à surveiller</h2>
         ${blocages.map((iv) => `
           <div class="impression-controle">
-            <h3>${formatDate(iv.dateIntervention)} — ${escapeHtml(iv.materiel || iv.numSerie)}</h3>
+            <h3>${formatDate(dateAffichageIntervention(iv))} — ${escapeHtml(iv.materiel || iv.numSerie)}</h3>
             ${iv.coupureCatenaire ? `<p><strong>Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
             ${impactAffichable(iv) ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(impactAffichable(iv))}</p>` : ""}
             ${iv.consequences ? `<p><strong>Conséquences :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
@@ -1420,7 +1434,7 @@
   function envoyerEmailSemaine() {
     const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
     const sujet = `Travaux semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
-    const ligneTexte = (iv) => `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} · ${categorieAffichable(iv) || "—"} / ${iv.type || "—"} · ${iv.heureDebut || "?"}→${iv.heureFin || "?"} · ${zepAffichable(iv) || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
+    const ligneTexte = (iv) => `- ${formatDate(dateAffichageIntervention(iv))}${iv.dateRealisation ? " (réalisée)" : ""} · ${iv.materiel || iv.numSerie} · ${categorieAffichable(iv) || "—"} / ${iv.type || "—"} · ${iv.heureDebut || "?"}→${iv.heureFin || "?"} · ${zepAffichable(iv) || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
     let corps = `Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))})\n\n`;
     corps += interventions.length ? interventions.map(ligneTexte).join("\n") : "Aucun travaux prévu cette semaine.";
     if (blocages.length) {
@@ -1431,7 +1445,7 @@
           impactAffichable(iv) ? `IMPACT : ${impactAffichable(iv)}` : "",
           iv.consequences ? `conséquences : ${iv.consequences}` : "",
         ].filter(Boolean).join(" — ");
-        return `- ${formatDate(iv.dateIntervention)} · ${iv.materiel || iv.numSerie} : ${details}`;
+        return `- ${formatDate(dateAffichageIntervention(iv))} · ${iv.materiel || iv.numSerie} : ${details}`;
       }).join("\n");
     }
     const lien = `mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
