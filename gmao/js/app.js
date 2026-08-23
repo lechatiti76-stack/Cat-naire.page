@@ -156,6 +156,8 @@
       btnValiderNouvelleIntervention: document.getElementById("btnValiderNouvelleIntervention"),
       planifInterventionSelect: document.getElementById("planifInterventionSelect"),
       planifInfoIntervention: document.getElementById("planifInfoIntervention"),
+      planifDateInterventionChamp: document.getElementById("planifDateInterventionChamp"),
+      planifDateIntervention: document.getElementById("planifDateIntervention"),
       planifLieu: document.getElementById("planifLieu"),
       planifDemandeurSelect: document.getElementById("planifDemandeurSelect"),
       planifDateDemande: document.getElementById("planifDateDemande"),
@@ -673,10 +675,16 @@
       <div class="modal__section"><h3>Impact</h3><p style="color:var(--color-danger); font-weight:700;">${escapeHtml(impactAffichable(iv)) || "—"}</p></div>
       ${iv.commentaires ? `<div class="modal__section"><h3>Commentaires</h3><p>${escapeHtml(iv.commentaires)}</p></div>` : ""}
       ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p style="font-weight:700;">${formatDate(iv.dateRealisation)}</p></div>` : ""}
-      <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap;">
+      <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; align-items:flex-end;">
         ${!iv.dateValidation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnValiderInterventionModal" type="button">✅ Valider</button>' : ""}
         ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnPlanifierInterventionModal" type="button">📌 Planifier</button>' : ""}
-        ${iv.dateValidation && !iv.dateRealisation && (aPermission("validerIntervention") || aPermission("nouvelleIntervention")) ? '<button class="btn btn--primary btn--small" id="btnRealiserInterventionModal" type="button">☑️ Marquer réalisée</button>' : ""}
+        ${iv.dateValidation && !iv.dateRealisation && (aPermission("validerIntervention") || aPermission("nouvelleIntervention")) ? `
+          <div class="field" style="margin:0;">
+            <label for="realisationDateInput">Date de réalisation</label>
+            <input type="date" id="realisationDateInput" value="${new Date().toISOString().slice(0, 10)}">
+          </div>
+          <button class="btn btn--primary btn--small" id="btnRealiserInterventionModal" type="button">☑️ Marquer réalisée</button>
+        ` : ""}
         ${iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small" id="btnAnnulerRealisationModal" type="button">↩️ Remettre à l\'état non réalisé</button>' : ""}
         ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--secondary btn--small" id="btnAnnulerInterventionModal" type="button">🗑️ Annuler la demande</button>' : ""}
       </div>
@@ -686,7 +694,10 @@
     const btnPlanifier = els.modalBody.querySelector("#btnPlanifierInterventionModal");
     if (btnPlanifier) btnPlanifier.addEventListener("click", () => { fermerModal(); ouvrirEcranPlanification(id); });
     const btnRealiser = els.modalBody.querySelector("#btnRealiserInterventionModal");
-    if (btnRealiser) btnRealiser.addEventListener("click", () => marquerInterventionRealiseeAction(id));
+    if (btnRealiser) btnRealiser.addEventListener("click", () => {
+      const dateInput = els.modalBody.querySelector("#realisationDateInput");
+      marquerInterventionRealiseeAction(id, dateInput ? dateInput.value : "");
+    });
     const btnAnnulerRealisation = els.modalBody.querySelector("#btnAnnulerRealisationModal");
     if (btnAnnulerRealisation) btnAnnulerRealisation.addEventListener("click", () => annulerRealisationAction(id));
     const btnAnnuler = els.modalBody.querySelector("#btnAnnulerInterventionModal");
@@ -729,10 +740,17 @@
     }
   }
 
-  async function marquerInterventionRealiseeAction(id) {
+  /**
+   * Marque une intervention réalisée. `dateRealisationChoisie` est la date réelle à
+   * laquelle le travail a eu lieu — saisie dans la fiche détaillée, par défaut
+   * aujourd'hui mais modifiable — pour ne pas coller la date à laquelle on *déclare*
+   * l'intervention réalisée dans l'appli (souvent plus tardive) sur le calendrier et la
+   * vue semaine (voir docs/11 §11.8).
+   */
+  async function marquerInterventionRealiseeAction(id, dateRealisationChoisie) {
     const iv = state.interventions.find((x) => x.id === id);
     if (!iv) return;
-    const dateRealisation = new Date().toISOString().slice(0, 10);
+    const dateRealisation = dateRealisationChoisie || new Date().toISOString().slice(0, 10);
     try {
       if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateRealisation });
       iv.dateRealisation = dateRealisation;
@@ -1134,6 +1152,8 @@
 
   function viderFormulairePlanification() {
     els.planifInfoIntervention.textContent = "Sélectionnez une intervention ci-dessus pour préremplir sa fiche.";
+    els.planifDateInterventionChamp.hidden = true;
+    els.planifDateIntervention.value = "";
     els.planifLieu.value = ""; els.planifConsequences.value = ""; els.planifImpact.value = "";
     els.planifDemandeurSelect.value = DEMANDEUR_PAR_DEFAUT;
     els.planifDateDemande.value = "";
@@ -1154,6 +1174,10 @@
       ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
       : formatDate(iv.dateIntervention);
     els.planifInfoIntervention.textContent = `${iv.type || "Intervention"} — fenêtre planifiée : ${fenetre}`;
+    // Cas des lignes importées sans date ferme (voir docs/11 §11.6) : DateIntervention reste
+    // modifiable tant qu'elle n'a jamais été renseignée — une fois posée, elle redevient fixe.
+    els.planifDateInterventionChamp.hidden = !!iv.dateIntervention;
+    els.planifDateIntervention.value = "";
     els.planifLieu.value = zepAffichable(iv);
     els.planifConsequences.value = iv.consequences || "";
     els.planifImpact.value = impactAffichable(iv);
@@ -1199,12 +1223,21 @@
       alert("Veuillez renseigner l'heure de début et de fin de la consignation caténaire.");
       return;
     }
+    // DateIntervention n'est modifiable ici que si elle n'a jamais été renseignée
+    // (ligne importée sans date ferme, voir docs/11 §11.6) — une fois posée, elle
+    // reste fixe pour toujours, cet écran ne peut plus la changer.
+    const dateInterventionSaisie = !iv.dateIntervention ? els.planifDateIntervention.value : "";
+    if (!iv.dateIntervention && dateInterventionSaisie && iv.dateFinPlanifiee && dateInterventionSaisie > iv.dateFinPlanifiee) {
+      alert("La date de programmation ne peut pas être après la fin planifiée.");
+      return;
+    }
 
-    // DateIntervention/DateFinPlanifiee ne sont jamais modifiées ici : c'est la
-    // fenêtre planifiée, fixée une fois pour toutes (voir docs/11 §11.8). Seuls
-    // les détails pratiques d'exécution sont renseignés par cet écran.
+    // DateIntervention (une fois posée) et DateFinPlanifiee ne sont jamais modifiées
+    // ici : c'est la fenêtre planifiée, fixée une fois pour toutes (voir docs/11
+    // §11.8). Seuls les détails pratiques d'exécution sont renseignés par cet écran.
     const maj = {
       ...iv,
+      dateIntervention: dateInterventionSaisie || iv.dateIntervention,
       lieu: els.planifLieu.value.trim(),
       consequences: els.planifConsequences.value.trim(),
       impact: els.planifImpact.value.trim(),

@@ -88,7 +88,12 @@ en place (docs/09) :
    Administrateur) clique "☑️ Marquer réalisée", ce qui renseigne `DateRealisation` et
    fait passer l'intervention au statut ⚪ **Réalisée**. C'est ce clic qui **met à jour
    la base automatiquement** (écriture Google Sheets réelle une fois connecté ; simulation
-   locale en mode démonstration) — aucune ressaisie séparée n'est nécessaire.
+   locale en mode démonstration) — aucune ressaisie séparée n'est nécessaire. Un champ
+   **Date de réalisation** accompagne le bouton, préréglé sur aujourd'hui mais
+   **modifiable** : si le clic dans l'appli intervient plus tard que le travail réel (ex.
+   contrôles faits sur le terrain la semaine 26, saisis dans l'appli seulement la semaine
+   34), corrigez cette date avant de valider pour que `DateRealisation` — et donc le
+   calendrier/la vue semaine (§11.8) — reflète le jour réel, pas le jour de la saisie.
 
 Un Administrateur peut aussi annuler une demande non réalisée ("🗑️ Annuler la demande"),
 ou, sur une intervention déjà réalisée, revenir en arrière avec "↩️ Remettre à l'état non
@@ -319,11 +324,18 @@ si elle existe, jamais en écrasement.
 
 `DateIntervention`/`DateFinPlanifiee` forment la **fenêtre planifiée** d'une
 intervention — posée une fois (import du plan, §11.6, ou saisie manuelle) et **fixe
-ensuite** : aucun écran de l'appli, y compris "📌 Planifier", ne la modifie. C'est la
-**date de réalisation** (`DateRealisation`, renseignée par "☑️ Marquer réalisée",
-§11.2) qui porte la date réelle à laquelle le travail a effectivement eu lieu — la
-fenêtre planifiée et la réalisation sont deux informations distinctes, chacune dans sa
-colonne.
+ensuite** : aucun écran de l'appli, y compris "📌 Planifier", ne la modifie *une fois
+qu'elle est renseignée*. C'est la **date de réalisation** (`DateRealisation`, renseignée
+par "☑️ Marquer réalisée", §11.2) qui porte la date réelle à laquelle le travail a
+effectivement eu lieu — la fenêtre planifiée et la réalisation sont deux informations
+distinctes, chacune dans sa colonne.
+
+Exception : une ligne importée (§11.6) peut arriver avec `DateFinPlanifiee` connue mais
+`DateIntervention` **vide** (aucune date de début ferme au moment de l'import). Dans ce
+cas précis, "📌 Planifier" affiche un champ **"Date de programmation"** permettant de la
+renseigner — une fois posée (par ce champ ou toute autre saisie), elle redevient fixe
+comme n'importe quelle `DateIntervention` et le champ disparaît des planifications
+suivantes de cette intervention.
 
 L'écran **"📌 Planifier"** sert à renseigner les **détails pratiques d'exécution** d'une
 intervention déjà programmée dans sa fenêtre, sans jamais déplacer cette fenêtre :

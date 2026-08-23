@@ -120,6 +120,20 @@ function construireJeuDeDemonstrationGmao() {
       dateValidation: "2026-08-15", validePar: "Amandine Roy", dateRealisation: "",
       commentaires: "Reprogrammée depuis le 05/09 (plan théorique) via l'écran \"Planifier\".",
     },
+    {
+      // Exemple de ligne importée (voir docs/11 §11.6) sans date ferme, seule
+      // l'échéance (DateFinPlanifiee) est connue à l'import — démontre le champ "Date
+      // de programmation" de l'écran "Planifier" (docs/11 §11.8), qui ne devient
+      // modifiable que tant que DateIntervention n'a jamais été renseignée.
+      materielId: null, materiel: "Circuit de voie 5041", posteTechnique: "3HMCM-EFE-CDV-5041",
+      type: "Maintenance Circuit de Voie", priorite: "N",
+      dateDemande: "2026-01-05", demandePar: "Import PDM 2026",
+      dateIntervention: "", dateFinPlanifiee: "2026-03-16", dureeHeures: null, lieu: "",
+      impact: "", consequences: "",
+      intervenant: "", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
+      dateValidation: "", validePar: "", dateRealisation: "",
+      commentaires: "",
+    },
   ];
   let idIntervention = 1;
   const interventions = donneesInterventions.map((iv) => {
