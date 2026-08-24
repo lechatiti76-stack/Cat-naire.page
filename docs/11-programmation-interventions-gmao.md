@@ -150,8 +150,8 @@ données :
 - **Vue "Interventions"** (liste filtrable : matériel/catégorie, type, statut, plage de
   dates de recherche + texte libre) avec export CSV, triée par urgence (en retard
   d'abord). L'export CSV se concentre sur les champs opérationnels (matériel, poste
-  technique, nature des travaux, priorité, statut, fenêtre planifiée, horaires, durée,
-  lieu, impact, consignation caténaire, validation, réalisation) et deux
+  technique, nature des travaux, priorité, statut, fenêtre planifiée, date programmée,
+  horaires, durée, lieu, impact, consignation caténaire, validation, réalisation) et deux
   colonnes calculées — **Retard actuel (j)** : jours de retard par rapport à l'échéance
   pour une intervention pas encore réalisée ; **Écart réalisation (j)** : écart entre la
   date de réalisation et l'échéance pour une intervention réalisée (positif = réalisée en
@@ -159,11 +159,11 @@ données :
   de demande et commentaires ne sont plus exportés (redondants avec les autres colonnes
   ou peu utilisés en pratique).
 - **Calendrier** (propre à GMAO) : les interventions programmées apparaissent sur un
-  calendrier mensuel dédié (icône 🔧), sur leur jour prévu — `DateIntervention` tant
-  qu'elles ne sont pas réalisées, puis leur date réelle (`DateRealisation`) une fois
-  qu'elles le sont (voir §11.8).
+  calendrier mensuel dédié (icône 🔧), sur leur jour prévu — `DateProgrammee` une fois
+  programmée via "📌 Planifier", sinon `DateIntervention` (fenêtre théorique), puis leur
+  date réelle (`DateRealisation`) une fois réalisées (voir §11.8).
 - **Vue semaine** (§11.9) : point hebdomadaire imprimable/envoyable par e-mail, avec la
-  même bascule sur la date réelle une fois l'intervention réalisée.
+  même logique de positionnement.
 - **Fiche détaillée** (clic sur une intervention, où qu'elle apparaisse) : tous les
   champs de la demande, plus les actions de circuit (Valider / Marquer réalisée /
   Annuler) selon la permission de la personne connectée.
@@ -322,29 +322,32 @@ si elle existe, jamais en écrasement.
 
 ## 11.8 Planification pratique : détails d'exécution d'une intervention déjà programmée
 
-`DateIntervention`/`DateFinPlanifiee` forment la **fenêtre planifiée** d'une
-intervention — posée une fois (import du plan, §11.6, ou saisie manuelle) et **fixe
-ensuite** : aucun écran de l'appli, y compris "📌 Planifier", ne la modifie *une fois
-qu'elle est renseignée*. C'est la **date de réalisation** (`DateRealisation`, renseignée
-par "☑️ Marquer réalisée", §11.2) qui porte la date réelle à laquelle le travail a
-effectivement eu lieu — la fenêtre planifiée et la réalisation sont deux informations
-distinctes, chacune dans sa colonne.
+Trois dates, trois rôles bien distincts (chacune dans sa colonne, chacune modifiée par
+un seul écran) :
 
-Exception : une ligne importée (§11.6) peut arriver avec `DateFinPlanifiee` connue mais
-`DateIntervention` **vide** (aucune date de début ferme au moment de l'import). Dans ce
-cas précis, "📌 Planifier" affiche un champ **"Date de programmation"** permettant de la
-renseigner — une fois posée (par ce champ ou toute autre saisie), elle redevient fixe
-comme n'importe quelle `DateIntervention` et le champ disparaît des planifications
-suivantes de cette intervention.
+- **`DateIntervention`/`DateFinPlanifiee`** — la **fenêtre théorique** du plan de
+  maintenance : posée une fois (import du plan, §11.6, ou saisie manuelle) et **fixe pour
+  toujours**, aucun écran de l'appli ne la modifie ensuite. Elle sert de référence pour le
+  retard ("échéance dépassée", §11.4) — c'est la date à laquelle le travail *devait*
+  arriver selon le plan annuel.
+- **`DateProgrammee`** — le jour où le travail est **concrètement prévu**, décidé au fil
+  de l'eau et renseigné/modifié librement depuis l'écran "📌 Planifier" (ci-dessous) —
+  peut être avant ou après la fenêtre théorique (ex. une maintenance du plan annuel prévue
+  en octobre, mais concrètement casée le mois précédent parce qu'une équipe est
+  disponible). C'est cette date, une fois renseignée, qui positionne l'intervention dans
+  le **calendrier et la vue semaine** tant qu'elle n'est pas réalisée.
+- **`DateRealisation`** — le jour où le travail a **effectivement eu lieu**, renseignée
+  par "☑️ Marquer réalisée" (§11.2) — prend le pas sur `DateProgrammee` une fois réalisée.
 
 L'écran **"📌 Planifier"** sert à renseigner les **détails pratiques d'exécution** d'une
-intervention déjà programmée dans sa fenêtre, sans jamais déplacer cette fenêtre :
+intervention déjà demandée — date de travail concrète, horaires, consignation,
+validation — sans jamais déplacer la fenêtre théorique `DateIntervention`/`DateFinPlanifiee` :
 
-**Trois colonnes supplémentaires** dans l'onglet `Interventions` (ajoutées en fin de
+**Quatre colonnes supplémentaires** dans l'onglet `Interventions` (ajoutées en fin de
 tableau pour ne jamais décaler les colonnes existantes ni les lignes déjà importées) :
 
 ```
-… DateRealisation | Commentaires | DateTheorique | HeureDebut | HeureFin
+… DateRealisation | Commentaires | DateTheorique | HeureDebut | HeureFin | DateProgrammee
 ```
 
 - `HeureDebut`/`HeureFin` : horaires de la fenêtre de travail ; `HeureFin` est toujours
@@ -354,7 +357,7 @@ tableau pour ne jamais décaler les colonnes existantes ni les lignes déjà imp
   schéma uniquement pour ne pas perdre les valeurs déjà présentes sur d'anciennes lignes.
 
 Si l'onglet `Interventions` existe déjà dans votre classeur (créé par une version
-antérieure de l'appli, avant ces 3 colonnes), son en-tête est complété automatiquement à
+antérieure de l'appli, avant ces 4 colonnes), son en-tête est complété automatiquement à
 la prochaine écriture — `assurerFeuille` (`js/google-sheets.js`) compare l'en-tête réel de
 la ligne 1 au schéma attendu et ajoute les colonnes manquantes, sans jamais toucher aux
 lignes de données déjà présentes.
@@ -365,53 +368,67 @@ la même que "Valider" puisque cet écran renseigne aussi la validation) :
 
 1. **Intervention à planifier** : liste déroulante de toutes les interventions non
    réalisées, avec leur date planifiée — la sélectionner précharge automatiquement les
-   champs déjà connus de sa fiche (zone/lieu, impact, demandeur, date de demande,
-   consignation caténaire) et affiche sa fenêtre planifiée en lecture seule. La
+   champs déjà connus de sa fiche (date programmée, zone/lieu, impact, demandeur, date de
+   demande, consignation caténaire) et affiche sa fenêtre théorique en lecture seule. La
    **zone/lieu** est résolue en priorité depuis le référentiel `Interventions 2` (le code
    ZEP du matériel concerné, voir §11.7bis) plutôt que la valeur `Lieu` brute stockée sur
    l'intervention — utile pour les interventions importées dont le `Lieu` contenait autre
    chose qu'un code ZEP (ex. un fragment de texte d'impact hérité de l'import). Si aucune
    correspondance n'est trouvée dans le référentiel, la valeur `Lieu` d'origine reste
    utilisée telle quelle.
-2. **Heure de début**, **Durée allouée (heures)** : l'**Heure de fin** se calcule
+2. **Date programmée** (`DateProgrammee`) : librement modifiable à chaque passage sur cet
+   écran — c'est le champ qui répond à "quand est-ce que je fais concrètement ce
+   travail ?", indépendamment de la fenêtre théorique.
+3. **Heure de début**, **Durée allouée (heures)** : l'**Heure de fin** se calcule
    automatiquement (début + durée) à chaque modification.
-3. **Consignation caténaire nécessaire** (case à cocher) : si cochée, les heures de
+4. **Consignation caténaire nécessaire** (case à cocher) : si cochée, les heures de
    début/fin de consignation se resynchronisent automatiquement sur la fenêtre de travail
    à chaque modification de l'heure de début ou de la durée — reste modifiable
    manuellement juste avant l'enregistrement si la consignation doit différer (ex. coupure
    commencée plus tôt par sécurité).
-4. **Date de validation** (préremplie à aujourd'hui) et **Validé par** (le nom de la
+5. **Date de validation** (préremplie à aujourd'hui) et **Validé par** (le nom de la
    personne connectée, en lecture seule) : cet écran vaut validation, cohérent avec le
    circuit à deux étapes (§11.2).
-5. Un **indicateur de retard actuel** ("⚠ En retard de X jours (échéance dépassée)")
+6. Un **indicateur de retard actuel** ("⚠ En retard de X jours (échéance dépassée)")
    s'affiche, en lecture seule, si l'intervention chargée a déjà dépassé son échéance
    (`DateFinPlanifiee`/`DateIntervention`) par rapport à aujourd'hui — c'est le même calcul
    que le badge "🔴 En retard" affiché ailleurs dans l'appli (§11.4), pas une comparaison
-   propre à cet écran.
+   propre à cet écran ; il compare toujours à la fenêtre théorique, jamais à
+   `DateProgrammee`.
+
+Une intervention programmée (mais pas encore réalisée) porte un repère **"📌 Programmée
+le JJ/MM/AAAA"** — en bleu, sur sa carte dans la vue Interventions et dans sa fiche
+détaillée — pour la distinguer d'une intervention simplement validée sans exécution
+concrète encore décidée.
 
 Le retard réel d'une intervention se lit une fois le travail terminé en comparant
-`DateFinPlanifiee`/`DateIntervention` (l'échéance) à `DateRealisation` — colonne "Écart
-réalisation (j)" de l'export CSV (§11.5).
+`DateFinPlanifiee`/`DateIntervention` (l'échéance théorique) à `DateRealisation` —
+colonne "Écart réalisation (j)" de l'export CSV (§11.5).
 
-### Calendrier et vue semaine : bascule sur la date réelle une fois réalisée
+### Calendrier et vue semaine : quelle date positionne l'intervention ?
 
-`DateIntervention` étant désormais figée (ci-dessus), le **calendrier** (§11.5) et la
-**vue semaine** (§11.9) doivent malgré tout continuer à refléter *où* le travail a
-réellement eu lieu une fois qu'il l'est. La fonction `dateAffichageIntervention(iv)`
-(`gmao/js/app.js`) centralise ce choix d'affichage :
+`DateIntervention` étant figée (ci-dessus), le **calendrier** (§11.5) et la **vue
+semaine** (§11.9) doivent malgré tout refléter *où* le travail va concrètement avoir
+lieu, ou a réellement eu lieu. La fonction `dateAffichageIntervention(iv)`
+(`gmao/js/app.js`) centralise ce choix d'affichage, par ordre de priorité :
 
-- Intervention **pas encore réalisée** (`DateRealisation` vide) : positionnée sur sa
-  fenêtre planifiée (`DateIntervention`/`DateFinPlanifiee`), comme avant.
-- Intervention **réalisée** (`DateRealisation` renseignée) : positionnée sur ce jour-là,
-  qu'il tombe avant, après ou pendant sa fenêtre planifiée d'origine — elle disparaît du
-  jour/semaine où elle était initialement prévue et apparaît sur le jour réel. Si "☑️
-  Marquer réalisée" est annulé par erreur (bouton "↩️ Remettre à l'état non réalisé",
-  §11.2), elle revient automatiquement s'afficher sur sa fenêtre planifiée d'origine —
-  aucune donnée n'est perdue, seul l'affichage suit `DateRealisation`.
+1. **`DateRealisation`** si l'intervention est réalisée — le jour réel, qu'il tombe
+   avant, après ou pendant la fenêtre théorique ou la date programmée.
+2. Sinon **`DateProgrammee`** si elle a été programmée via "📌 Planifier" — le jour
+   concrètement prévu, même très différent de la fenêtre théorique (ex. avancée de
+   plusieurs mois par rapport au plan annuel).
+3. Sinon **`DateIntervention`/`DateFinPlanifiee`** — la fenêtre théorique, en dernier
+   recours pour une intervention ni programmée ni réalisée.
 
-Cette bascule ne modifie ni n'écrit rien dans `Interventions` : c'est un choix
-d'affichage au même titre que la résolution du référentiel (§11.7bis), jamais une
-réécriture de `DateIntervention`.
+Chaque étiquette (jour/e-mail/impression) précise entre parenthèses d'où vient la date
+affichée — "(programmée)" ou "(réalisée)" — sauf quand elle vient simplement de la
+fenêtre théorique. Si "☑️ Marquer réalisée" est annulé par erreur (bouton "↩️ Remettre à
+l'état non réalisé", §11.2), l'affichage revient automatiquement à `DateProgrammee` (ou,
+à défaut, à la fenêtre théorique) — aucune donnée n'est perdue, seul l'affichage suit la
+priorité ci-dessus.
+
+Cette bascule ne modifie ni n'écrit rien dans `DateIntervention`/`DateFinPlanifiee` :
+c'est un choix d'affichage au même titre que la résolution du référentiel (§11.7bis).
 
 ## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
 

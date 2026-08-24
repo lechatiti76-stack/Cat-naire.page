@@ -293,7 +293,7 @@
       <div class="controle-header">
         <div>
           <h2>📌 Planifier une intervention</h2>
-          <p class="controle-soustitre">Renseigne les détails pratiques d'une intervention déjà programmée (horaires, consignation, validation) — sans modifier sa fenêtre planifiée.</p>
+          <p class="controle-soustitre">Renseigne les détails pratiques d'une intervention déjà programmée (date, horaires, consignation, validation) — sans modifier sa fenêtre planifiée théorique.</p>
         </div>
       </div>
 
@@ -305,13 +305,13 @@
         <div class="field field--full">
           <p class="controle-soustitre" id="planifInfoIntervention" style="margin:0;">Sélectionnez une intervention ci-dessus pour préremplir sa fiche.</p>
         </div>
-        <div class="field" id="planifDateInterventionChamp" hidden>
-          <label for="planifDateIntervention">Date de programmation (non renseignée à l'import)</label>
-          <input type="date" id="planifDateIntervention">
-        </div>
       </div>
 
       <div class="controle-champs">
+        <div class="field">
+          <label for="planifDateProgrammee">Date programmée</label>
+          <input type="date" id="planifDateProgrammee">
+        </div>
         <div class="field">
           <label for="planifLieu">Zone / lieu</label>
           <input type="text" id="planifLieu" list="listeZones" placeholder="ex. LE HAVRE, Voie 3 — quai Nord…">

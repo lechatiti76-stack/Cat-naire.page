@@ -106,29 +106,31 @@ function construireJeuDeDemonstrationGmao() {
       commentaires: "",
     },
     {
-      // Exemple de planification pratique (voir docs/11 §11.8) : date théorique du
-      // plan de maintenance annuel reprogrammée à une date réelle plus tardive,
-      // avec horaires et lieu/conséquences déjà connus de la fiche.
+      // Exemple de planification pratique (voir docs/11 §11.8) : fenêtre théorique du
+      // plan de maintenance annuel (fixe) avancée à une date concrètement programmée
+      // bien plus tôt via l'écran "Planifier" — DateProgrammee, pas DateIntervention.
       materielId: null, materiel: "ADV 5028", posteTechnique: "3HMCM-EFE-ADV-5028",
       type: "Maintenance signal", priorite: "N",
       dateDemande: "2026-06-01", demandePar: "Import PDM 2026",
-      dateTheorique: "2026-09-05",
       dateIntervention: "2026-09-12", dureeHeures: 4, heureDebut: "08:00", heureFin: "12:00",
+      dateProgrammee: "2026-08-31",
       lieu: "LE HAVRE — ADV 5028",
       impact: "Signal ADV indisponible pendant l'intervention", consequences: "Marche à vue temporaire sur le secteur concerné",
       intervenant: "Julien Marchand", coupureCatenaire: true, coupureDebut: "08:00", coupureFin: "12:00",
       dateValidation: "2026-08-15", validePar: "Amandine Roy", dateRealisation: "",
-      commentaires: "Reprogrammée depuis le 05/09 (plan théorique) via l'écran \"Planifier\".",
+      commentaires: "Programmée en avance sur la fenêtre théorique via l'écran \"Planifier\".",
     },
     {
       // Exemple de ligne importée (voir docs/11 §11.6) sans date ferme, seule
-      // l'échéance (DateFinPlanifiee) est connue à l'import — démontre le champ "Date
-      // de programmation" de l'écran "Planifier" (docs/11 §11.8), qui ne devient
-      // modifiable que tant que DateIntervention n'a jamais été renseignée.
+      // l'échéance (DateFinPlanifiee) est connue à l'import — démontre que
+      // DateProgrammee (renseignée via "Planifier") sert alors seule au
+      // positionnement calendrier/semaine, sans jamais avoir besoin de renseigner
+      // DateIntervention.
       materielId: null, materiel: "Circuit de voie 5041", posteTechnique: "3HMCM-EFE-CDV-5041",
       type: "Maintenance Circuit de Voie", priorite: "N",
       dateDemande: "2026-01-05", demandePar: "Import PDM 2026",
       dateIntervention: "", dateFinPlanifiee: "2026-03-16", dureeHeures: null, lieu: "",
+      dateProgrammee: "2026-02-10",
       impact: "", consequences: "",
       intervenant: "", coupureCatenaire: false, coupureDebut: "", coupureFin: "",
       dateValidation: "", validePar: "", dateRealisation: "",
@@ -166,6 +168,7 @@ function construireJeuDeDemonstrationGmao() {
       dateTheorique: iv.dateTheorique || "",
       heureDebut: iv.heureDebut || "",
       heureFin: iv.heureFin || "",
+      dateProgrammee: iv.dateProgrammee || "",
     };
   });
 

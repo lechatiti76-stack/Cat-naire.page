@@ -156,8 +156,7 @@
       btnValiderNouvelleIntervention: document.getElementById("btnValiderNouvelleIntervention"),
       planifInterventionSelect: document.getElementById("planifInterventionSelect"),
       planifInfoIntervention: document.getElementById("planifInfoIntervention"),
-      planifDateInterventionChamp: document.getElementById("planifDateInterventionChamp"),
-      planifDateIntervention: document.getElementById("planifDateIntervention"),
+      planifDateProgrammee: document.getElementById("planifDateProgrammee"),
       planifLieu: document.getElementById("planifLieu"),
       planifDemandeurSelect: document.getElementById("planifDemandeurSelect"),
       planifDateDemande: document.getElementById("planifDateDemande"),
@@ -412,12 +411,21 @@
 
   /**
    * Date à utiliser pour positionner/afficher une intervention dans le calendrier et
-   * la vue semaine : la fenêtre planifiée (DateIntervention) tant que l'intervention
-   * n'est pas réalisée, puis la date réelle (DateRealisation) une fois qu'elle l'est
-   * — DateIntervention elle-même n'est jamais modifiée (voir docs/11 §11.8).
+   * la vue semaine, par ordre de priorité : la date réelle une fois réalisée
+   * (DateRealisation), sinon le jour concrètement programmé via "Planifier"
+   * (DateProgrammee — peut être avant OU après la fenêtre théorique), sinon la
+   * fenêtre théorique du plan (DateIntervention). DateIntervention elle-même n'est
+   * jamais modifiée par l'appli (voir docs/11 §11.8).
    */
   function dateAffichageIntervention(iv) {
-    return iv.dateRealisation || iv.dateIntervention;
+    return iv.dateRealisation || iv.dateProgrammee || iv.dateIntervention;
+  }
+
+  /** Précise, en vue semaine/impression/e-mail, d'où vient la date affichée par dateAffichageIntervention(). */
+  function suffixeDateAffichage(iv) {
+    if (iv.dateRealisation) return " (réalisée)";
+    if (iv.dateProgrammee) return " (programmée)";
+    return "";
   }
   function joursRestantsIntervention(iv) {
     const echeance = dateEcheanceIntervention(iv);
@@ -603,7 +611,7 @@
         <div class="materiel-card__entete">
           <div>
             <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}</p>
+            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}${iv.dateProgrammee && !iv.dateRealisation ? ` · <span style="color:var(--color-primary); font-weight:600;">📌 Programmée le ${formatDate(iv.dateProgrammee)}</span>` : ""}</p>
           </div>
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
@@ -630,10 +638,10 @@
 
   function exporterCsvInterventions() {
     const rows = getFilteredInterventions();
-    const headers = ["Matériel", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Consignation caténaire", "Début consignation", "Fin consignation", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Retard actuel (j)", "Écart réalisation (j)"];
+    const headers = ["Matériel", "Poste technique", "Nature des travaux", "Priorité", "Statut", "Date intervention", "Fin planifiée", "Date programmée", "Heure début", "Heure fin", "Durée (h)", "Lieu", "Impact", "Consignation caténaire", "Début consignation", "Fin consignation", "Demandé par", "Date validation", "Validé par", "Date réalisation", "Retard actuel (j)", "Écart réalisation (j)"];
     const lines = rows.map((iv) => [
       iv.materiel, iv.posteTechnique, iv.type, iv.priorite, INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label,
-      iv.dateIntervention, iv.dateFinPlanifiee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", zepAffichable(iv), impactAffichable(iv),
+      iv.dateIntervention, iv.dateFinPlanifiee, iv.dateProgrammee, iv.heureDebut, iv.heureFin, iv.dureeHeures ?? "", zepAffichable(iv), impactAffichable(iv),
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut, iv.coupureFin,
       iv.demandePar, iv.dateValidation, iv.validePar, iv.dateRealisation,
       joursDepassementActuel(iv) ?? "", joursDepassementRealisation(iv) ?? "",
@@ -665,6 +673,7 @@
         <div class="modal__field"><dt>Type</dt><dd>${escapeHtml(iv.type) || "—"}</dd></div>
         ${iv.priorite ? `<div class="modal__field"><dt>Priorité</dt><dd>${escapeHtml(iv.priorite)}</dd></div>` : ""}
         <div class="modal__field"><dt>${iv.dateFinPlanifiee ? "Fenêtre planifiée" : "Jour de l'intervention"}</dt><dd>${iv.dateFinPlanifiee ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}` : formatDate(iv.dateIntervention)}${iv.heureDebut ? ` · ${escapeHtml(iv.heureDebut)}${iv.heureFin ? " → " + escapeHtml(iv.heureFin) : ""}` : ""}</dd></div>
+        ${iv.dateProgrammee && !iv.dateRealisation ? `<div class="modal__field"><dt>Programmée le</dt><dd style="font-weight:700; color:var(--color-primary);">📌 ${formatDate(iv.dateProgrammee)}</dd></div>` : ""}
         <div class="modal__field"><dt>Durée prévue</dt><dd>${iv.dureeHeures ? escapeHtml(String(iv.dureeHeures)) + " h" : "—"}</dd></div>
         <div class="modal__field"><dt>Lieu / ZEP</dt><dd>${escapeHtml(zepAffichable(iv)) || "—"}</dd></div>
         ${iv.posteTechnique ? `<div class="modal__field"><dt>Poste technique</dt><dd>${escapeHtml(iv.posteTechnique)}</dd></div>` : ""}
@@ -1152,8 +1161,7 @@
 
   function viderFormulairePlanification() {
     els.planifInfoIntervention.textContent = "Sélectionnez une intervention ci-dessus pour préremplir sa fiche.";
-    els.planifDateInterventionChamp.hidden = true;
-    els.planifDateIntervention.value = "";
+    els.planifDateProgrammee.value = "";
     els.planifLieu.value = ""; els.planifConsequences.value = ""; els.planifImpact.value = "";
     els.planifDemandeurSelect.value = DEMANDEUR_PAR_DEFAUT;
     els.planifDateDemande.value = "";
@@ -1174,10 +1182,7 @@
       ? `${formatDate(iv.dateIntervention)} → ${formatDate(iv.dateFinPlanifiee)}`
       : formatDate(iv.dateIntervention);
     els.planifInfoIntervention.textContent = `${iv.type || "Intervention"} — fenêtre planifiée : ${fenetre}`;
-    // Cas des lignes importées sans date ferme (voir docs/11 §11.6) : DateIntervention reste
-    // modifiable tant qu'elle n'a jamais été renseignée — une fois posée, elle redevient fixe.
-    els.planifDateInterventionChamp.hidden = !!iv.dateIntervention;
-    els.planifDateIntervention.value = "";
+    els.planifDateProgrammee.value = iv.dateProgrammee || "";
     els.planifLieu.value = zepAffichable(iv);
     els.planifConsequences.value = iv.consequences || "";
     els.planifImpact.value = impactAffichable(iv);
@@ -1223,21 +1228,13 @@
       alert("Veuillez renseigner l'heure de début et de fin de la consignation caténaire.");
       return;
     }
-    // DateIntervention n'est modifiable ici que si elle n'a jamais été renseignée
-    // (ligne importée sans date ferme, voir docs/11 §11.6) — une fois posée, elle
-    // reste fixe pour toujours, cet écran ne peut plus la changer.
-    const dateInterventionSaisie = !iv.dateIntervention ? els.planifDateIntervention.value : "";
-    if (!iv.dateIntervention && dateInterventionSaisie && iv.dateFinPlanifiee && dateInterventionSaisie > iv.dateFinPlanifiee) {
-      alert("La date de programmation ne peut pas être après la fin planifiée.");
-      return;
-    }
-
-    // DateIntervention (une fois posée) et DateFinPlanifiee ne sont jamais modifiées
-    // ici : c'est la fenêtre planifiée, fixée une fois pour toutes (voir docs/11
-    // §11.8). Seuls les détails pratiques d'exécution sont renseignés par cet écran.
+    // DateIntervention/DateFinPlanifiee (fenêtre théorique du plan) ne sont jamais
+    // modifiées ici — seule DateProgrammee (jour concrètement prévu, librement
+    // modifiable, avant ou après la fenêtre théorique) est écrite par cet écran (voir
+    // docs/11 §11.8).
     const maj = {
       ...iv,
-      dateIntervention: dateInterventionSaisie || iv.dateIntervention,
+      dateProgrammee: els.planifDateProgrammee.value || "",
       lieu: els.planifLieu.value.trim(),
       consequences: els.planifConsequences.value.trim(),
       impact: els.planifImpact.value.trim(),
@@ -1354,14 +1351,16 @@
     const lundiIso = dateISO(lundi);
     const samediIso = dateISO(samedi);
 
-    // Une intervention appartient à la semaine si son jour prévu y tombe, ou si sa
-    // fenêtre planifiée (import d'un plan externe, voir docs/11 §11.6) chevauche la
-    // semaine — pour ne rien oublier d'actif pendant la période imprimée/envoyée.
-    // Une fois réalisée, c'est la date réelle (DateRealisation) qui fait foi : on la
-    // traite comme un point isolé ce jour-là plutôt que la fenêtre planifiée d'origine.
+    // Une intervention appartient à la semaine si sa date d'affichage (DateRealisation
+    // une fois réalisée, sinon DateProgrammee une fois programmée via "Planifier",
+    // sinon son jour prévu) y tombe — traitée comme un point isolé ce jour-là. Seule une
+    // intervention ni réalisée ni programmée retombe sur le chevauchement de sa fenêtre
+    // planifiée théorique (import d'un plan externe, voir docs/11 §11.6), pour ne rien
+    // oublier d'actif pendant la période imprimée/envoyée.
     const interventions = state.interventions
       .filter((iv) => {
         if (iv.dateRealisation) return iv.dateRealisation <= samediIso && iv.dateRealisation >= lundiIso;
+        if (iv.dateProgrammee) return iv.dateProgrammee <= samediIso && iv.dateProgrammee >= lundiIso;
         if (!iv.dateIntervention) return false;
         const debut = iv.dateIntervention;
         const fin = iv.dateFinPlanifiee || iv.dateIntervention;
@@ -1393,7 +1392,7 @@
       return `
         <div class="historique-ligne">
           <div class="historique-ligne__entete" style="cursor:default;">
-            <span>${jourNom ? jourNom.charAt(0).toUpperCase() + jourNom.slice(1) + " " : ""}${formatDate(dateAffichage)}${iv.dateRealisation ? " (réalisée)" : ""} — ${escapeHtml(iv.materiel || iv.numSerie)}</span>
+            <span>${jourNom ? jourNom.charAt(0).toUpperCase() + jourNom.slice(1) + " " : ""}${formatDate(dateAffichage)}${suffixeDateAffichage(iv)} — ${escapeHtml(iv.materiel || iv.numSerie)}</span>
             <span class="badge ${info.badge}">${info.label}</span>
           </div>
           <div class="historique-ligne__detail">
@@ -1426,7 +1425,7 @@
     const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
     const genererLigne = (iv) => `
       <tr>
-        <td>${formatDate(dateAffichageIntervention(iv))}${iv.dateRealisation ? " (réalisée)" : ""}</td>
+        <td>${formatDate(dateAffichageIntervention(iv))}${suffixeDateAffichage(iv)}</td>
         <td>${escapeHtml(iv.materiel || iv.numSerie)}</td>
         <td>${escapeHtml(categorieAffichable(iv)) || "—"}</td>
         <td>${escapeHtml(iv.type) || "—"}</td>
@@ -1467,7 +1466,7 @@
   function envoyerEmailSemaine() {
     const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
     const sujet = `Travaux semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
-    const ligneTexte = (iv) => `- ${formatDate(dateAffichageIntervention(iv))}${iv.dateRealisation ? " (réalisée)" : ""} · ${iv.materiel || iv.numSerie} · ${categorieAffichable(iv) || "—"} / ${iv.type || "—"} · ${iv.heureDebut || "?"}→${iv.heureFin || "?"} · ${zepAffichable(iv) || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
+    const ligneTexte = (iv) => `- ${formatDate(dateAffichageIntervention(iv))}${suffixeDateAffichage(iv)} · ${iv.materiel || iv.numSerie} · ${categorieAffichable(iv) || "—"} / ${iv.type || "—"} · ${iv.heureDebut || "?"}→${iv.heureFin || "?"} · ${zepAffichable(iv) || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
     let corps = `Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))})\n\n`;
     corps += interventions.length ? interventions.map(ligneTexte).join("\n") : "Aucun travaux prévu cette semaine.";
     if (blocages.length) {

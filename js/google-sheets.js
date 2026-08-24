@@ -17,10 +17,12 @@
  *     PosteTechnique | TypeIntervention | Priorite | DateDemande | DemandePar | DateIntervention |
  *     DateFinPlanifiee | DureeHeures | Lieu | Impact | Consequences | Intervenant |
  *     CoupureCatenaire | CoupureDebut | CoupureFin | DateValidation | ValidePar | DateRealisation |
- *     Commentaires
+ *     Commentaires | DateTheorique | HeureDebut | HeureFin | DateProgrammee
  *     (Materiel/PosteTechnique/Priorite/DateFinPlanifiee : import d'un plan de maintenance externe
  *     type SAP — équipement hors du référentiel Materiels, fenêtre planifiée plutôt qu'un jour
- *     unique. NumSerie reste vide dans ce cas ; Materiel sert alors de titre d'affichage.)
+ *     unique. NumSerie reste vide dans ce cas ; Materiel sert alors de titre d'affichage.
+ *     DateProgrammee : jour concrètement prévu pour le travail, distinct de la fenêtre
+ *     théorique DateIntervention/DateFinPlanifiee — voir docs/11 §11.8.)
  *
  * Des colonnes supplémentaires (ex. "Item Type", "Path" laissées par un export
  * SharePoint) peuvent exister sans problème : seules les colonnes ci-dessus
@@ -299,6 +301,7 @@ const GoogleSheetsAPI = (() => {
         dateTheorique: normaliserDate(iv.DateTheorique),
         heureDebut: iv.HeureDebut || "",
         heureFin: iv.HeureFin || "",
+        dateProgrammee: normaliserDate(iv.DateProgrammee),
       };
     });
   }
@@ -655,6 +658,11 @@ const GoogleSheetsAPI = (() => {
     // DateTheorique conserve la date d'origine du plan de maintenance, capturée
     // automatiquement lors de la première reprogrammation — jamais réécrite ensuite.
     "DateTheorique", "HeureDebut", "HeureFin",
+    // DateProgrammee : jour où le travail est concrètement prévu, renseigné/modifié
+    // librement depuis l'écran "Planifier" — distincte de DateIntervention (fenêtre
+    // théorique du plan, jamais modifiée) et de DateRealisation (jour réel une fois le
+    // travail fait). Voir docs/11 §11.8.
+    "DateProgrammee",
   ];
 
   function ligneIntervention(iv) {
@@ -665,6 +673,7 @@ const GoogleSheetsAPI = (() => {
       iv.coupureCatenaire ? "Oui" : "Non", iv.coupureDebut || "", iv.coupureFin || "",
       iv.dateValidation || "", iv.validePar || "", iv.dateRealisation || "", iv.commentaires || "",
       iv.dateTheorique || "", iv.heureDebut || "", iv.heureFin || "",
+      iv.dateProgrammee || "",
     ];
   }
 
@@ -692,7 +701,7 @@ const GoogleSheetsAPI = (() => {
    */
   async function mettreAJourIntervention(ligne, iv) {
     await assurerFeuille(GOOGLE_CONFIG.feuilles.interventions, INTERVENTIONS_ENTETES);
-    const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length); // "R"
+    const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length);
     const plage = `${GOOGLE_CONFIG.feuilles.interventions}!A${ligne}:${derniereColonne}${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}?valueInputOption=USER_ENTERED`;
     await appelJson(url, { method: "PUT", body: JSON.stringify({ values: [ligneIntervention(iv)] }) });
@@ -700,7 +709,7 @@ const GoogleSheetsAPI = (() => {
 
   /** Annule une demande d'intervention (vide sa ligne — les lignes vides sont ignorées à la lecture, comme supprimerUtilisateur). */
   async function supprimerIntervention(ligne) {
-    const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length); // "R"
+    const derniereColonne = String.fromCharCode(64 + INTERVENTIONS_ENTETES.length);
     const plage = `${GOOGLE_CONFIG.feuilles.interventions}!A${ligne}:${derniereColonne}${ligne}`;
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}/values/${encodeURIComponent(plage)}:clear`;
     await appelJson(url, { method: "POST" });
