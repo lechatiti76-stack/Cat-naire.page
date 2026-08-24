@@ -715,6 +715,58 @@ const GoogleSheetsAPI = (() => {
     await appelJson(url, { method: "POST" });
   }
 
+  // -- Archivage annuel des interventions (voir docs/11 §11.11) ---------------
+  /** Renomme un onglet existant (nécessite son ID interne, retrouvé via son titre actuel). */
+  async function renommerFeuille(ancienNom, nouveauNom) {
+    const urlMeta = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}?fields=sheets.properties`;
+    const meta = await appelJson(urlMeta);
+    const feuille = (meta.sheets || []).find((s) => s.properties.title === ancienNom);
+    if (!feuille) throw new Error(`Onglet "${ancienNom}" introuvable.`);
+    const urlMaj = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_CONFIG.spreadsheetId}:batchUpdate`;
+    await appelJson(urlMaj, {
+      method: "POST",
+      body: JSON.stringify({
+        requests: [{ updateSheetProperties: { properties: { sheetId: feuille.properties.sheetId, title: nouveauNom }, fields: "title" } }],
+      }),
+    });
+    feuillesConfirmees.delete(ancienNom);
+  }
+
+  /**
+   * Archive l'onglet Interventions actif sous le nom "Interventions {anneeArchivee}"
+   * (lecture seule ensuite dans l'appli, voir docs/11 §11.11) puis recrée un onglet
+   * "Interventions" vierge avec le même schéma d'en-tête, prêt à recevoir les
+   * nouvelles opérations. L'onglet actif garde toujours le même nom ("Interventions") :
+   * aucune autre partie de l'appli n'a besoin de connaître l'année en cours.
+   */
+  async function archiverInterventions(anneeArchivee) {
+    const nomArchive = `Interventions ${anneeArchivee}`;
+    const feuilles = await listerFeuilles();
+    if (feuilles.includes(nomArchive)) throw new Error(`Un onglet "${nomArchive}" existe déjà.`);
+    if (!feuilles.includes(GOOGLE_CONFIG.feuilles.interventions)) throw new Error(`Onglet "${GOOGLE_CONFIG.feuilles.interventions}" introuvable.`);
+    await renommerFeuille(GOOGLE_CONFIG.feuilles.interventions, nomArchive);
+    await creerFeuille(GOOGLE_CONFIG.feuilles.interventions);
+    await ecrireEntetes(GOOGLE_CONFIG.feuilles.interventions, INTERVENTIONS_ENTETES);
+    feuillesConfirmees.add(GOOGLE_CONFIG.feuilles.interventions);
+    return nomArchive;
+  }
+
+  /** Liste les onglets d'archive Interventions (ex. "Interventions 2026"), année décroissante. */
+  async function listerAnneesArchiveesInterventions() {
+    const feuilles = await listerFeuilles();
+    const re = /^Interventions (\d{4})$/;
+    return feuilles
+      .map((f) => { const m = f.match(re); return m ? { nom: f, annee: Number(m[1]) } : null; })
+      .filter(Boolean)
+      .sort((a, b) => b.annee - a.annee);
+  }
+
+  /** Charge les interventions d'un onglet d'archive (lecture seule dans l'appli, voir docs/11 §11.11). */
+  async function chargerInterventionsArchivees(nomFeuille, materiels) {
+    const lignes = await obtenirValeursOptionnel(nomFeuille);
+    return interventionsDepuisLignes(lignes, materiels);
+  }
+
   /**
    * Convertit les lignes brutes de l'onglet "Interventions 2" (référentiel
    * équipements d'infrastructure, GMAO — voir docs/11 §11.7bis) en objets
@@ -761,5 +813,6 @@ const GoogleSheetsAPI = (() => {
     hacherMotDePasse, trouverUtilisateurParIdentifiant, verifierMotDePasse,
     ajouterIntervention, mettreAJourIntervention, supprimerIntervention,
     chargerReferentielInterventions,
+    archiverInterventions, listerAnneesArchiveesInterventions, chargerInterventionsArchivees,
   };
 })();

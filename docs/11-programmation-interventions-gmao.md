@@ -482,3 +482,48 @@ S1-S52 — ISO-8601).
   (§11.6bis, §11.9) sont figés dans le code au moment de leur rédaction : une évolution
   du classeur source (nouvelle nature de travaux, nouveau poste ZEP, etc.) ne se
   répercute pas automatiquement dans GMAO.
+
+## 11.11 Archivage annuel des interventions
+
+L'onglet `Interventions` couvre en pratique une seule année d'opérations à la fois
+(import du plan annuel, §11.6). Pour repartir sur une base propre chaque année sans
+perdre l'historique, l'écran Interventions propose, dans sa barre d'outils — visibles
+uniquement en mode connecté (pas en démonstration) et avec la permission
+`validerIntervention` :
+
+- Un **sélecteur d'année** (masqué s'il n'existe encore aucune archive) : "Année active"
+  par défaut, puis une entrée par année déjà archivée (ex. "2026 (archive)").
+- Un bouton **"🗄️ Archiver l'année"**.
+
+**Comment ça marche** : l'onglet actif garde toujours le même nom, `Interventions` — ce
+n'est jamais lui qui change de nom d'une année sur l'autre, c'est son **contenu** qui est
+mis de côté :
+
+1. Cliquer **"🗄️ Archiver l'année"** demande l'année à archiver (préremplie avec la
+   dernière année archivée + 1, ou l'année en cours si aucune archive n'existe encore),
+   puis une confirmation explicite — c'est une action rare et structurante (elle modifie
+   directement la structure du classeur), volontairement pas accessible en un clic.
+2. Une fois confirmée, l'appli **renomme** l'onglet `Interventions` actuel en
+   `Interventions {année}` (ex. `Interventions 2026`) via l'API Google Sheets, puis
+   **recrée** un onglet `Interventions` vierge avec le même schéma d'en-tête que
+   l'ancien (§11.1/§11.8) — prêt à recevoir les nouvelles opérations de l'année
+   suivante, que vous alimentez comme d'habitude (saisie manuelle ou import PDM, §11.6).
+3. Aucune donnée n'est supprimée : l'ancien contenu est intégralement conservé sous son
+   nouveau nom d'onglet.
+
+**Consulter une année archivée** : la sélectionner dans le sélecteur d'année charge ses
+interventions à la place de l'année active, dans **toutes** les vues (liste, calendrier,
+vue semaine, export CSV) — mais en **lecture seule totale** : aucun bouton d'action
+(Nouvelle intervention, Valider, Planifier, Marquer réalisée, Corriger la date, Annuler…)
+n'est disponible tant qu'une archive est affichée, quel que soit le rôle de la personne
+connectée — `aPermission()` (`gmao/js/app.js`) refuse systématiquement
+`nouvelleIntervention`/`validerIntervention` dans ce mode. Un bandeau "📁 Consultation de
+l'archive {année} — lecture seule" le rappelle, et l'actualisation automatique/manuelle
+des données est suspendue tant qu'une archive est affichée (elle ne concerne que l'onglet
+actif). Revenir à "Année active" dans le sélecteur recharge normalement l'onglet actif.
+
+Si vous créez vous-même, directement dans le classeur, un futur onglet nommé
+`Interventions {année}` (ex. en préparation d'une année à venir), il apparaîtra
+automatiquement dans le sélecteur d'année au prochain chargement — aucune configuration
+supplémentaire n'est nécessaire côté application, le sélecteur découvre les archives par
+leur nom d'onglet (`Interventions ` suivi de 4 chiffres).

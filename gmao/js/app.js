@@ -33,12 +33,20 @@
     vue: "interventions",
     moisCalendrier: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     semaineCourante: lundiDeLaSemaine(new Date()),
+    // Onglet Interventions consulté : null = onglet actif (lecture/écriture normale),
+    // sinon { nom, annee } d'une archive (ex. "Interventions 2026") — voir docs/11
+    // §11.11. Une archive est toujours en lecture seule dans l'appli.
+    anneeConsultee: null,
   };
 
   let modalActuel = null;
   const els = {};
 
   function aPermission(cle) {
+    // Une archive (voir §11.11) est toujours en lecture seule : aucune action
+    // d'écriture n'y est jamais possible, quel que soit le rôle de la personne
+    // connectée — seul l'onglet Interventions actif peut être modifié.
+    if (state.anneeConsultee && (cle === "nouvelleIntervention" || cle === "validerIntervention")) return false;
     return state.permissions.includes(cle);
   }
 
@@ -111,6 +119,8 @@
       intervFilterDateFrom: document.getElementById("intervFilterDateFrom"),
       intervFilterDateTo: document.getElementById("intervFilterDateTo"),
       btnResetIntervFilters: document.getElementById("btnResetIntervFilters"),
+      selecteurAnneeInterventions: document.getElementById("selecteurAnneeInterventions"),
+      btnArchiverAnnee: document.getElementById("btnArchiverAnnee"),
       btnExportIntervCsv: document.getElementById("btnExportIntervCsv"),
       btnVoirCalendrier: document.getElementById("btnVoirCalendrier"),
       btnVoirSemaine: document.getElementById("btnVoirSemaine"),
@@ -227,6 +237,7 @@
       afficherBanniere("✅ Connecté à Google Sheets — les données affichées sont réelles.", "info");
       try { afficherRoleBadge(); } catch (e) { console.error(e); }
       try { peuplerFiltresInterventions(); } catch (e) { console.error(e); }
+      try { await peuplerSelecteurAnnees(); } catch (e) { console.error(e); }
       try { journaliser("Connexion (GMAO)"); } catch (e) { console.error(e); }
     } catch (e) {
       console.error(e);
@@ -257,6 +268,13 @@
       if (!silencieux) afficherBanniere("ℹ️ Mode démonstration : aucune donnée réelle à actualiser. Connectez-vous avec Google.", "info");
       return;
     }
+    // Une archive (voir §11.11) est une photo figée d'un onglet clos — inutile (et
+    // perturbant) de l'écraser silencieusement par les données de l'onglet actif ;
+    // revenir à "Année active" dans le sélecteur relance un chargement normal.
+    if (state.anneeConsultee) {
+      if (!silencieux) afficherBanniere("ℹ️ Vous consultez une archive. Revenez à \"Année active\" pour actualiser.", "info");
+      return;
+    }
     if (actualisationEnCours) {
       if (!silencieux) afficherBanniere("ℹ️ Actualisation déjà en cours, patientez un instant.", "info");
       return;
@@ -274,6 +292,7 @@
       rafraichirModalOuvert();
       try { peuplerFiltresInterventions(); } catch (e) { console.error(e); }
       try { afficherRoleBadge(); } catch (e) { console.error(e); }
+      if (!silencieux) { try { await peuplerSelecteurAnnees(); } catch (e) { console.error(e); } }
       if (!silencieux) afficherBanniere("✅ Données actualisées depuis Google Sheets.", "info");
     } catch (e) {
       console.error(e);
@@ -287,9 +306,97 @@
     }
   }
 
+  /** Repeuple le sélecteur d'année (§11.11) : "Année active" + un onglet par archive Interventions {année}. */
+  async function peuplerSelecteurAnnees() {
+    if (state.modeDemo) { els.selecteurAnneeInterventions.hidden = true; els.btnArchiverAnnee.hidden = true; return; }
+    const annees = await GoogleSheetsAPI.listerAnneesArchiveesInterventions();
+    els.btnArchiverAnnee.hidden = !aPermission("validerIntervention") || !!state.anneeConsultee;
+    if (!annees.length && !state.anneeConsultee) { els.selecteurAnneeInterventions.hidden = true; return; }
+    els.selecteurAnneeInterventions.hidden = false;
+    els.selecteurAnneeInterventions.innerHTML = '<option value="">Année active</option>' +
+      annees.map((a) => `<option value="${escapeHtml(a.nom)}" data-annee="${a.annee}">${a.annee} (archive)</option>`).join("");
+    els.selecteurAnneeInterventions.value = state.anneeConsultee ? state.anneeConsultee.nom : "";
+    els.selecteurAnneeInterventions.style.borderColor = state.anneeConsultee ? "var(--color-warn)" : "";
+    els.selecteurAnneeInterventions.style.fontWeight = state.anneeConsultee ? "700" : "";
+  }
+
+  /** Charge en lecture seule un onglet d'archive Interventions {année} (voir §11.11), à la place de l'onglet actif. */
+  async function chargerAnneeArchive(nomFeuille, annee) {
+    if (state.modeDemo) { afficherBanniere("ℹ️ Mode démonstration : pas d'archives disponibles.", "info"); return; }
+    try {
+      const interventions = await GoogleSheetsAPI.chargerInterventionsArchivees(nomFeuille, state.materiels);
+      state.interventions = interventions;
+      state.anneeConsultee = { nom: nomFeuille, annee };
+      appliquerNomsLisibles();
+      afficherVue(state.vue);
+      rafraichirModalOuvert();
+      els.btnArchiverAnnee.hidden = true;
+      els.selecteurAnneeInterventions.style.borderColor = "var(--color-warn)";
+      els.selecteurAnneeInterventions.style.fontWeight = "700";
+      afficherBanniere(`📁 Consultation de l'archive ${annee} — lecture seule, aucune écriture possible.`, "info");
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur lors du chargement de l'archive : " + e.message, "warn");
+      await peuplerSelecteurAnnees();
+    }
+  }
+
+  /** Quitte la consultation d'une archive et recharge l'onglet Interventions actif. */
+  async function revenirAnneeActive() {
+    state.anneeConsultee = null;
+    await actualiserDonnees();
+  }
+
+  /**
+   * Archive l'onglet Interventions actif sous "Interventions {année}" (lecture seule
+   * ensuite) et recrée un onglet "Interventions" vierge pour la suite — voir §11.11.
+   * Action rare et structurante (renomme un onglet du classeur) : demande l'année à
+   * archiver puis une confirmation explicite avant d'agir.
+   */
+  async function archiverAnneeAction() {
+    if (!aPermission("validerIntervention")) {
+      afficherBanniere("⛔ Vous n'avez pas la permission d'archiver les interventions.", "warn");
+      return;
+    }
+    if (state.modeDemo) { afficherBanniere("ℹ️ Mode démonstration : l'archivage nécessite une connexion Google Sheets réelle.", "info"); return; }
+    if (state.anneeConsultee) { afficherBanniere("ℹ️ Revenez d'abord à \"Année active\" avant d'archiver.", "info"); return; }
+    let anneesExistantes;
+    try {
+      anneesExistantes = await GoogleSheetsAPI.listerAnneesArchiveesInterventions();
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur : " + e.message, "warn");
+      return;
+    }
+    const anneeSuggeree = anneesExistantes.length ? anneesExistantes[0].annee + 1 : new Date().getFullYear();
+    const saisie = prompt(
+      `Quelle année archiver sous "Interventions ${anneeSuggeree}" ? L'onglet "Interventions" actif sera renommé, ` +
+      `et un nouvel onglet "Interventions" vierge sera créé pour la suite.`,
+      String(anneeSuggeree)
+    );
+    if (!saisie) return;
+    const annee = Number(saisie);
+    if (!Number.isInteger(annee) || annee < 2000 || annee > 2100) { alert("Année invalide."); return; }
+    if (!confirm(`Confirmer : l'onglet "Interventions" sera renommé "Interventions ${annee}" (lecture seule dans l'appli), et un nouvel onglet "Interventions" vierge sera créé. Cette action modifie directement votre classeur Google Sheets. Continuer ?`)) return;
+    els.btnArchiverAnnee.disabled = true;
+    els.btnArchiverAnnee.textContent = "⏳ Archivage…";
+    try {
+      await GoogleSheetsAPI.archiverInterventions(annee);
+      journaliser(`Archivage GMAO — Interventions ${annee}`);
+      await actualiserDonnees();
+      afficherBanniere(`✅ Année ${annee} archivée sous "Interventions ${annee}". Nouvel onglet "Interventions" prêt pour la suite.`, "info");
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur lors de l'archivage : " + e.message, "warn");
+    } finally {
+      els.btnArchiverAnnee.disabled = false;
+      els.btnArchiverAnnee.textContent = "🗄️ Archiver l'année";
+    }
+  }
+
   const DUREE_ACTUALISATION_AUTO_MS = 60 * 1000;
   setInterval(() => {
-    if (!state.modeDemo && state.vue !== "interventionForm") actualiserDonnees({ silencieux: true });
+    if (!state.modeDemo && state.vue !== "interventionForm" && !state.anneeConsultee) actualiserDonnees({ silencieux: true });
   }, DUREE_ACTUALISATION_AUTO_MS);
 
   function afficherBanniere(texte, type) {
@@ -338,6 +445,14 @@
     els.btnActualiser.addEventListener("click", () => actualiserDonnees());
     els.btnVoirCalendrier.addEventListener("click", () => afficherVue("calendrier"));
     els.btnVoirSemaine.addEventListener("click", () => afficherVue("semaine"));
+    els.btnArchiverAnnee.addEventListener("click", archiverAnneeAction);
+    els.selecteurAnneeInterventions.addEventListener("change", () => {
+      const nom = els.selecteurAnneeInterventions.value;
+      if (!nom) { revenirAnneeActive(); return; }
+      const option = els.selecteurAnneeInterventions.selectedOptions[0];
+      const annee = option ? Number(option.dataset.annee) : null;
+      chargerAnneeArchive(nom, annee);
+    });
 
     els.modalClose.addEventListener("click", fermerModal);
     els.modalOverlay.addEventListener("click", (e) => { if (e.target === els.modalOverlay) fermerModal(); });
@@ -650,7 +765,8 @@
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `interventions_${new Date().toISOString().slice(0, 10)}.csv`;
+    const suffixe = state.anneeConsultee ? `archive-${state.anneeConsultee.annee}` : new Date().toISOString().slice(0, 10);
+    a.href = url; a.download = `interventions_${suffixe}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
 
@@ -776,6 +892,10 @@
    * vue semaine (voir docs/11 §11.8).
    */
   async function marquerInterventionRealiseeAction(id, dateRealisationChoisie) {
+    if (!aPermission("validerIntervention") && !aPermission("nouvelleIntervention")) {
+      afficherBanniere("⛔ Vous n'avez pas la permission de marquer cette intervention réalisée.", "warn");
+      return;
+    }
     const iv = state.interventions.find((x) => x.id === id);
     if (!iv) return;
     const dateRealisation = dateRealisationChoisie || new Date().toISOString().slice(0, 10);
@@ -823,6 +943,10 @@
 
   /** Annule un "Marquer réalisée" fait par erreur — remet l'intervention à son état précédent (efface la date de réalisation, sans toucher à la validation). */
   async function annulerRealisationAction(id) {
+    if (!aPermission("validerIntervention")) {
+      afficherBanniere("⛔ Vous n'avez pas la permission d'annuler cette réalisation.", "warn");
+      return;
+    }
     const iv = state.interventions.find((x) => x.id === id);
     if (!iv) return;
     if (!confirm(`Remettre "${iv.materiel}" à l'état non réalisé ?`)) return;
