@@ -100,6 +100,13 @@ ou, sur une intervention déjà réalisée, revenir en arrière avec "↩️ Rem
 réalisé" (efface uniquement `DateRealisation` — la validation n'est pas remise en cause)
 si le bouton "Marquer réalisée" a été cliqué par erreur.
 
+Si l'intervention est déjà réalisée mais que `DateRealisation` s'avère fausse (le champ
+"Date de réalisation" ci-dessus a été laissé sur "aujourd'hui" au lieu du vrai jour du
+travail), inutile de repasser par "Remettre à l'état non réalisé" puis "Marquer
+réalisée" : la fiche détaillée affiche, sous "Réalisée le", un champ **"Corriger la
+date"** + bouton **"✏️ Corriger"** qui réécrit directement `DateRealisation` (même
+permission `validerIntervention`) sans toucher au reste de la fiche.
+
 ## 11.3 Permissions
 
 Trois nouvelles clés dans `PERMISSIONS_CONFIG` (`js/google-config.js`), gérées comme les

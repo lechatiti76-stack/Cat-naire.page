@@ -683,7 +683,21 @@
       </dl>
       <div class="modal__section"><h3>Impact</h3><p style="color:var(--color-danger); font-weight:700;">${escapeHtml(impactAffichable(iv)) || "—"}</p></div>
       ${iv.commentaires ? `<div class="modal__section"><h3>Commentaires</h3><p>${escapeHtml(iv.commentaires)}</p></div>` : ""}
-      ${iv.dateRealisation ? `<div class="modal__section"><h3>Réalisée le</h3><p style="font-weight:700;">${formatDate(iv.dateRealisation)}</p></div>` : ""}
+      ${iv.dateRealisation ? `
+        <div class="modal__section">
+          <h3>Réalisée le</h3>
+          <div style="display:flex; align-items:flex-end; gap:8px; flex-wrap:wrap;">
+            <p style="font-weight:700; margin:0;">${formatDate(iv.dateRealisation)}</p>
+            ${aPermission("validerIntervention") ? `
+              <div class="field" style="margin:0;">
+                <label for="realisationDateCorrection">Corriger la date</label>
+                <input type="date" id="realisationDateCorrection" value="${iv.dateRealisation}">
+              </div>
+              <button class="btn btn--secondary btn--small" id="btnCorrigerDateRealisation" type="button">✏️ Corriger</button>
+            ` : ""}
+          </div>
+        </div>
+      ` : ""}
       <div style="display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; align-items:flex-end;">
         ${!iv.dateValidation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnValiderInterventionModal" type="button">✅ Valider</button>' : ""}
         ${!iv.dateRealisation && aPermission("validerIntervention") ? '<button class="btn btn--primary btn--small" id="btnPlanifierInterventionModal" type="button">📌 Planifier</button>' : ""}
@@ -706,6 +720,11 @@
     if (btnRealiser) btnRealiser.addEventListener("click", () => {
       const dateInput = els.modalBody.querySelector("#realisationDateInput");
       marquerInterventionRealiseeAction(id, dateInput ? dateInput.value : "");
+    });
+    const btnCorrigerDate = els.modalBody.querySelector("#btnCorrigerDateRealisation");
+    if (btnCorrigerDate) btnCorrigerDate.addEventListener("click", () => {
+      const dateInput = els.modalBody.querySelector("#realisationDateCorrection");
+      corrigerDateRealisationAction(id, dateInput ? dateInput.value : "");
     });
     const btnAnnulerRealisation = els.modalBody.querySelector("#btnAnnulerRealisationModal");
     if (btnAnnulerRealisation) btnAnnulerRealisation.addEventListener("click", () => annulerRealisationAction(id));
@@ -765,6 +784,34 @@
       iv.dateRealisation = dateRealisation;
       journaliser(`Intervention marquée réalisée — ${iv.materiel} (${formatDate(iv.dateIntervention)})`);
       afficherBanniere("✅ Intervention marquée réalisée" + (state.modeDemo ? " (simulation locale)." : "."), "info");
+      ouvrirDetailIntervention(id);
+      renderStatsGlobales(); renderInterventionsBanniere(); renderBandeauFlash();
+      if (state.vue === "interventions") renderInterventions();
+    } catch (e) {
+      console.error(e);
+      afficherBanniere("⚠️ Erreur : " + e.message, "warn");
+    }
+  }
+
+  /**
+   * Corrige directement DateRealisation sur une intervention déjà marquée réalisée —
+   * sans passer par "↩️ Remettre à l'état non réalisé" puis "☑️ Marquer réalisée" à
+   * nouveau. Utile quand la date saisie au clic (souvent "aujourd'hui" par défaut,
+   * §11.2/§11.8) ne correspondait pas au jour réel du travail.
+   */
+  async function corrigerDateRealisationAction(id, nouvelleDate) {
+    if (!aPermission("validerIntervention")) {
+      afficherBanniere("⛔ Vous n'avez pas la permission de corriger cette date.", "warn");
+      return;
+    }
+    if (!nouvelleDate) { alert("Veuillez renseigner une date valide."); return; }
+    const iv = state.interventions.find((x) => x.id === id);
+    if (!iv) return;
+    try {
+      if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateRealisation: nouvelleDate });
+      iv.dateRealisation = nouvelleDate;
+      journaliser(`Date de réalisation corrigée — ${iv.materiel} (${formatDate(nouvelleDate)})`);
+      afficherBanniere("✅ Date de réalisation corrigée" + (state.modeDemo ? " (simulation locale)." : "."), "info");
       ouvrirDetailIntervention(id);
       renderStatsGlobales(); renderInterventionsBanniere(); renderBandeauFlash();
       if (state.vue === "interventions") renderInterventions();
