@@ -536,12 +536,6 @@
     return iv.dateRealisation || iv.dateProgrammee || iv.dateIntervention;
   }
 
-  /** Précise, en vue semaine/impression/e-mail, d'où vient la date affichée par dateAffichageIntervention(). */
-  function suffixeDateAffichage(iv) {
-    if (iv.dateRealisation) return " (réalisée)";
-    if (iv.dateProgrammee) return " (programmée)";
-    return "";
-  }
   function joursRestantsIntervention(iv) {
     const echeance = dateEcheanceIntervention(iv);
     if (!echeance) return null;
@@ -726,7 +720,7 @@
         <div class="materiel-card__entete">
           <div>
             <p class="materiel-card__nom">${escapeHtml(iv.materiel || iv.numSerie)}</p>
-            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}${iv.dateProgrammee && !iv.dateRealisation ? ` · <span style="color:var(--color-primary); font-weight:600;">📌 Programmée le ${formatDate(iv.dateProgrammee)}</span>` : ""}</p>
+            <p class="materiel-card__meta">${escapeHtml(iv.type) || "—"} · ${periode}${iv.priorite ? ` · Priorité ${escapeHtml(iv.priorite)}` : ""}${iv.coupureCatenaire ? " · ⚡ Consignation caténaire" : ""}${iv.dateProgrammee && !iv.dateRealisation ? ` · <span style="color:var(--color-primary); font-weight:600;">📌 Programmée le ${formatDate(iv.dateProgrammee)}</span>` : ""}${iv.dateRealisation ? ` · <span style="color:var(--color-ok); font-weight:700;">✅ Réalisée le ${formatDate(iv.dateRealisation)}</span>` : ""}</p>
           </div>
           <span class="badge ${info.badge}">${info.label}</span>
         </div>
@@ -1523,108 +1517,108 @@
     const samediIso = dateISO(samedi);
 
     // Une intervention appartient à la semaine si sa date d'affichage (DateRealisation
-    // une fois réalisée, sinon DateProgrammee une fois programmée via "Planifier",
-    // sinon son jour prévu) y tombe — traitée comme un point isolé ce jour-là. Seule une
-    // intervention ni réalisée ni programmée retombe sur le chevauchement de sa fenêtre
-    // planifiée théorique (import d'un plan externe, voir docs/11 §11.6), pour ne rien
-    // oublier d'actif pendant la période imprimée/envoyée.
+    // une fois réalisée, sinon DateProgrammee une fois programmée via "Planifier", sinon
+    // son jour théorique DateIntervention) tombe dans la semaine — toujours comparée comme
+    // un jour précis, jamais comme le chevauchement de la fenêtre théorique complète
+    // (DateIntervention→DateFinPlanifiee) : une fenêtre théorique de plusieurs mois ne doit
+    // pas faire apparaître l'intervention dans chacune des semaines qu'elle traverse — même
+    // logique que le calendrier (§11.5), pour un point hebdomadaire qui ne montre que ce qui
+    // est réellement programmé ou dû cette semaine-là, pas le bruit des plans à long terme.
     const interventions = state.interventions
       .filter((iv) => {
-        if (iv.dateRealisation) return iv.dateRealisation <= samediIso && iv.dateRealisation >= lundiIso;
-        if (iv.dateProgrammee) return iv.dateProgrammee <= samediIso && iv.dateProgrammee >= lundiIso;
-        if (!iv.dateIntervention) return false;
-        const debut = iv.dateIntervention;
-        const fin = iv.dateFinPlanifiee || iv.dateIntervention;
-        return debut <= samediIso && fin >= lundiIso;
+        const date = dateAffichageIntervention(iv);
+        return !!date && date <= samediIso && date >= lundiIso;
       })
       .sort((a, b) => (dateAffichageIntervention(a) < dateAffichageIntervention(b) ? -1 : 1));
 
-    const blocages = interventions.filter((iv) => iv.coupureCatenaire || impactAffichable(iv) || iv.consequences);
+    return { lundi, samedi, numeroSemaine: numeroSemaineISO(lundi), interventions };
+  }
 
-    return { lundi, samedi, numeroSemaine: numeroSemaineISO(lundi), interventions, blocages };
+  /**
+   * Regroupe les interventions de la semaine par jour (Lundi→Samedi), façon bulletin
+   * papier "Information Travaux" que la personne utilisatrice imprimait depuis Excel
+   * avant GMAO — chaque jour montre uniquement ce qui lui est réellement affecté
+   * (dateAffichageIntervention, voir construireResumeSemaine ci-dessus), jamais le
+   * chevauchement d'une fenêtre théorique de plusieurs mois.
+   */
+  function grouperInterventionsParJour(lundi, interventions) {
+    const jours = [];
+    for (let i = 0; i < 6; i++) {
+      const date = new Date(lundi);
+      date.setDate(date.getDate() + i);
+      const iso = dateISO(date);
+      const nomBrut = date.toLocaleDateString("fr-FR", { weekday: "long" });
+      jours.push({
+        iso,
+        nom: nomBrut.charAt(0).toUpperCase() + nomBrut.slice(1),
+        interventions: interventions.filter((iv) => dateAffichageIntervention(iv) === iso),
+      });
+    }
+    return jours;
+  }
+
+  /** Décompose une intervention en parties affichables sur sa ligne du bulletin ("horaires", "consignation", "impact"). */
+  function partiesLigneJour(iv) {
+    const heures = iv.heureDebut ? `${iv.heureDebut}${iv.heureFin ? "-" + iv.heureFin : ""}` : "";
+    const impact = impactAffichable(iv);
+    const parties = [];
+    if (heures) parties.push(heures);
+    if (iv.coupureCatenaire) parties.push(`consignation ${iv.coupureDebut || "?"}-${iv.coupureFin || "?"}`);
+    if (impact) parties.push(impact);
+    return { materiel: iv.materiel || iv.numSerie, parties, impact };
+  }
+
+  function ligneJourHtml(iv) {
+    const { materiel, parties, impact } = partiesLigneJour(iv);
+    const partiesHtml = parties.map((p) => p === impact ? `<span style="color:var(--color-danger); font-weight:700;">${escapeHtml(p)}</span>` : escapeHtml(p)).join(" - ");
+    return `<li data-intervention="${iv.id}" style="cursor:pointer;"><strong>${escapeHtml(materiel)}</strong>${partiesHtml ? " : " + partiesHtml : ""}</li>`;
+  }
+
+  function ligneJourTexte(iv) {
+    const { materiel, parties } = partiesLigneJour(iv);
+    return `- ${materiel}${parties.length ? " : " + parties.join(" - ") : ""}`;
+  }
+
+  /** Bloc jour théme-aware (adapte les couleurs au mode clair/sombre) pour l'écran "Vue semaine". */
+  function blocJourHtmlEcran(jour) {
+    return `
+      <div style="margin-top:14px; border-radius:8px; overflow:hidden; border:1px solid var(--border);">
+        <div style="background:var(--color-primary); color:#fff; padding:8px 14px; font-weight:700; font-size:13px;">${escapeHtml(jour.nom.toUpperCase())} ${formatDate(jour.iso)}</div>
+        ${jour.interventions.length
+          ? `<ul style="margin:0; padding:10px 14px 10px 30px; background:var(--surface-alt); color:var(--text); font-size:13.5px; line-height:1.7;">${jour.interventions.map(ligneJourHtml).join("")}</ul>`
+          : `<p style="margin:0; padding:10px 14px; background:var(--surface-alt); color:var(--text-muted); font-size:13px; font-style:italic;">Aucune intervention prévue</p>`}
+      </div>`;
+  }
+
+  /** Bloc jour à couleurs fixes (le mode sombre de l'appli ne doit jamais se retrouver sur une page imprimée) pour "🖨️ Imprimer la semaine". */
+  function blocJourHtmlImpression(jour) {
+    return `
+      <div style="margin-top:12px; border:1px solid #ccc; border-radius:6px; overflow:hidden;">
+        <div style="background:#0078D4; color:#fff; padding:6px 12px; font-weight:700; font-size:12px;">${escapeHtml(jour.nom.toUpperCase())} ${formatDate(jour.iso)}</div>
+        ${jour.interventions.length
+          ? `<ul style="margin:0; padding:8px 12px 8px 26px; background:#F7F8FA; color:#000; font-size:11.5px; line-height:1.6;">${jour.interventions.map(ligneJourHtml).join("")}</ul>`
+          : `<p style="margin:0; padding:8px 12px; background:#F7F8FA; color:#666; font-size:11px; font-style:italic;">Aucune intervention prévue</p>`}
+      </div>`;
   }
 
   function renderSemaine() {
-    const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
+    const { lundi, samedi, numeroSemaine, interventions } = construireResumeSemaine();
     els.semaineTitre.textContent = `Semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
-
-    if (interventions.length === 0) {
-      els.semaineContenu.innerHTML = `<p style="margin-top:16px;">Aucun travaux prévu cette semaine.</p>`;
-      return;
-    }
-
-    const ligne = (iv) => {
-      const cle = statutIntervention(iv);
-      const info = INTERVENTION_STATUT_LABELS[cle];
-      const dateAffichage = dateAffichageIntervention(iv);
-      const jourNom = dateAffichage ? new Date(dateAffichage).toLocaleDateString("fr-FR", { weekday: "long" }) : "";
-      const categorie = categorieAffichable(iv);
-      const zep = zepAffichable(iv);
-      return `
-        <div class="historique-ligne">
-          <div class="historique-ligne__entete" style="cursor:default;">
-            <span>${jourNom ? jourNom.charAt(0).toUpperCase() + jourNom.slice(1) + " " : ""}${formatDate(dateAffichage)}${suffixeDateAffichage(iv)} — ${escapeHtml(iv.materiel || iv.numSerie)}</span>
-            <span class="badge ${info.badge}">${info.label}</span>
-          </div>
-          <div class="historique-ligne__detail">
-            <p>${categorie ? `<strong>Catégorie :</strong> ${escapeHtml(categorie)} · ` : ""}<strong>Nature des travaux :</strong> ${escapeHtml(iv.type) || "—"}${iv.priorite ? ` (priorité ${escapeHtml(iv.priorite)})` : ""}</p>
-            <p><strong>Matériel :</strong> ${escapeHtml(iv.materiel || iv.numSerie) || "—"}</p>
-            <p><strong>Début :</strong> ${escapeHtml(iv.heureDebut) || "—"} · <strong>Fin :</strong> ${escapeHtml(iv.heureFin) || "—"}</p>
-            <p><strong>Zone (ZEP) :</strong> ${escapeHtml(zep) || "—"}</p>
-            ${iv.coupureCatenaire ? `<p><strong>⚡ Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
-            ${impactAffichable(iv) ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(impactAffichable(iv))}</p>` : ""}
-            ${iv.consequences ? `<p><strong>Conséquences / blocages :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
-          </div>
-        </div>`;
-    };
-
-    els.semaineContenu.innerHTML = `
-      <div class="modal__section">
-        <h3>Travaux de la semaine (${interventions.length})</h3>
-        ${interventions.map(ligne).join("")}
-      </div>
-      ${blocages.length ? `
-        <div class="modal__section">
-          <h3>⚠ Blocages / consignations de la semaine (${blocages.length})</h3>
-          ${blocages.map(ligne).join("")}
-        </div>
-      ` : ""}
-    `;
+    const jours = grouperInterventionsParJour(lundi, interventions);
+    els.semaineContenu.innerHTML = jours.map(blocJourHtmlEcran).join("");
+    els.semaineContenu.querySelectorAll("li[data-intervention]").forEach((li) => {
+      li.addEventListener("click", () => ouvrirDetailIntervention(idDepuisAttribut(li.dataset.intervention)));
+    });
   }
 
   function imprimerSemaine() {
-    const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
-    const genererLigne = (iv) => `
-      <tr>
-        <td>${formatDate(dateAffichageIntervention(iv))}${suffixeDateAffichage(iv)}</td>
-        <td>${escapeHtml(iv.materiel || iv.numSerie)}</td>
-        <td>${escapeHtml(categorieAffichable(iv)) || "—"}</td>
-        <td>${escapeHtml(iv.type) || "—"}</td>
-        <td>${escapeHtml(iv.heureDebut) || "—"}</td>
-        <td>${escapeHtml(iv.heureFin) || "—"}</td>
-        <td>${escapeHtml(zepAffichable(iv)) || "—"}</td>
-        <td>${iv.coupureCatenaire ? `⚡ ${escapeHtml(iv.coupureDebut) || "?"}-${escapeHtml(iv.coupureFin) || "?"}` : "—"}</td>
-        <td>${escapeHtml(INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label)}</td>
-      </tr>`;
+    const { lundi, samedi, numeroSemaine, interventions } = construireResumeSemaine();
+    const jours = grouperInterventionsParJour(lundi, interventions);
     els.zoneImpression.innerHTML = `
-      <h1>Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} → ${formatDate(dateISO(samedi))})</h1>
-      <table style="width:100%; border-collapse:collapse; font-size:11px;">
-        <thead><tr>
-          ${["Date", "Matériel", "Catégorie", "Type", "Début", "Fin", "Zone (ZEP)", "Consignation", "Statut"].map((h) => `<th style="border:1px solid #ccc; padding:4px 6px; text-align:left;">${h}</th>`).join("")}
-        </tr></thead>
-        <tbody>${interventions.map(genererLigne).join("")}</tbody>
-      </table>
-      ${blocages.length ? `
-        <h2>⚠ Blocages / consignations à surveiller</h2>
-        ${blocages.map((iv) => `
-          <div class="impression-controle">
-            <h3>${formatDate(dateAffichageIntervention(iv))} — ${escapeHtml(iv.materiel || iv.numSerie)}</h3>
-            ${iv.coupureCatenaire ? `<p><strong>Consignation caténaire :</strong> ${escapeHtml(iv.coupureDebut) || "?"} → ${escapeHtml(iv.coupureFin) || "?"}</p>` : ""}
-            ${impactAffichable(iv) ? `<p style="color:var(--color-danger); font-weight:700;"><strong>Impact :</strong> ${escapeHtml(impactAffichable(iv))}</p>` : ""}
-            ${iv.consequences ? `<p><strong>Conséquences :</strong> ${escapeHtml(iv.consequences)}</p>` : ""}
-          </div>
-        `).join("")}
-      ` : ""}
+      <h1 style="text-align:center;">INFORMATION TRAVAUX</h1>
+      <p style="text-align:center; font-weight:700;">SEMAINE ${numeroSemaine}</p>
+      <p style="text-align:center;">Du <strong>${formatDate(dateISO(lundi))}</strong> au <strong>${formatDate(dateISO(samedi))}</strong></p>
+      ${jours.map(blocJourHtmlImpression).join("")}
     `;
     window.print();
   }
@@ -1635,22 +1629,14 @@
    * envoyer un e-mail lui-même, seulement préparer le brouillon — voir docs/11 §11.9.
    */
   function envoyerEmailSemaine() {
-    const { lundi, samedi, numeroSemaine, interventions, blocages } = construireResumeSemaine();
-    const sujet = `Travaux semaine S${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
-    const ligneTexte = (iv) => `- ${formatDate(dateAffichageIntervention(iv))}${suffixeDateAffichage(iv)} · ${iv.materiel || iv.numSerie} · ${categorieAffichable(iv) || "—"} / ${iv.type || "—"} · ${iv.heureDebut || "?"}→${iv.heureFin || "?"} · ${zepAffichable(iv) || "—"} (${INTERVENTION_STATUT_LABELS[statutIntervention(iv)].label})`;
-    let corps = `Travaux — Semaine S${numeroSemaine} (${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))})\n\n`;
-    corps += interventions.length ? interventions.map(ligneTexte).join("\n") : "Aucun travaux prévu cette semaine.";
-    if (blocages.length) {
-      corps += `\n\n⚠ BLOCAGES / CONSIGNATIONS À SURVEILLER :\n`;
-      corps += blocages.map((iv) => {
-        const details = [
-          iv.coupureCatenaire ? `consignation caténaire ${iv.coupureDebut || "?"}→${iv.coupureFin || "?"}` : "",
-          impactAffichable(iv) ? `IMPACT : ${impactAffichable(iv)}` : "",
-          iv.consequences ? `conséquences : ${iv.consequences}` : "",
-        ].filter(Boolean).join(" — ");
-        return `- ${formatDate(dateAffichageIntervention(iv))} · ${iv.materiel || iv.numSerie} : ${details}`;
-      }).join("\n");
-    }
+    const { lundi, samedi, numeroSemaine, interventions } = construireResumeSemaine();
+    const sujet = `Information travaux — Semaine ${numeroSemaine} — du ${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))}`;
+    const jours = grouperInterventionsParJour(lundi, interventions);
+    const corps = `INFORMATION TRAVAUX — SEMAINE ${numeroSemaine} (${formatDate(dateISO(lundi))} au ${formatDate(dateISO(samedi))})\n\n` +
+      jours.map((jour) =>
+        `${jour.nom.toUpperCase()} ${formatDate(jour.iso)}\n` +
+        (jour.interventions.length ? jour.interventions.map(ligneJourTexte).join("\n") : "Aucune intervention prévue")
+      ).join("\n\n");
     const lien = `mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(corps)}`;
     window.location.href = lien;
   }

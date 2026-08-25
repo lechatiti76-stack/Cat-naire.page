@@ -93,7 +93,10 @@ en place (docs/09) :
    **modifiable** : si le clic dans l'appli intervient plus tard que le travail réel (ex.
    contrôles faits sur le terrain la semaine 26, saisis dans l'appli seulement la semaine
    34), corrigez cette date avant de valider pour que `DateRealisation` — et donc le
-   calendrier/la vue semaine (§11.8) — reflète le jour réel, pas le jour de la saisie.
+   calendrier/la vue semaine (§11.8) — reflète le jour réel, pas le jour de la saisie. Une
+   fois réalisée, cette date réelle est mise en évidence (vert, gras : "✅ Réalisée le
+   JJ/MM/AAAA") directement sur la carte de l'intervention dans la vue Interventions, pas
+   seulement dans sa fiche détaillée.
 
 Un Administrateur peut aussi annuler une demande non réalisée ("🗑️ Annuler la demande"),
 ou, sur une intervention déjà réalisée, revenir en arrière avec "↩️ Remettre à l'état non
@@ -424,18 +427,18 @@ lieu, ou a réellement eu lieu. La fonction `dateAffichageIntervention(iv)`
 2. Sinon **`DateProgrammee`** si elle a été programmée via "📌 Planifier" — le jour
    concrètement prévu, même très différent de la fenêtre théorique (ex. avancée de
    plusieurs mois par rapport au plan annuel).
-3. Sinon **`DateIntervention`/`DateFinPlanifiee`** — la fenêtre théorique, en dernier
-   recours pour une intervention ni programmée ni réalisée.
+3. Sinon **`DateIntervention`** seule — en dernier recours, pour une intervention ni
+   programmée ni réalisée. Toujours traitée comme **un jour précis**, jamais comme le
+   chevauchement de toute la fenêtre théorique (`DateIntervention`→`DateFinPlanifiee`,
+   qui peut s'étendre sur plusieurs mois, §11.6) : sans cela, une intervention au long
+   cours apparaîtrait à tort dans chaque semaine/mois qu'elle traverse.
 
-Chaque étiquette (jour/e-mail/impression) précise entre parenthèses d'où vient la date
-affichée — "(programmée)" ou "(réalisée)" — sauf quand elle vient simplement de la
-fenêtre théorique. Si "☑️ Marquer réalisée" est annulé par erreur (bouton "↩️ Remettre à
-l'état non réalisé", §11.2), l'affichage revient automatiquement à `DateProgrammee` (ou,
-à défaut, à la fenêtre théorique) — aucune donnée n'est perdue, seul l'affichage suit la
-priorité ci-dessus.
-
-Cette bascule ne modifie ni n'écrit rien dans `DateIntervention`/`DateFinPlanifiee` :
-c'est un choix d'affichage au même titre que la résolution du référentiel (§11.7bis).
+Si "☑️ Marquer réalisée" est annulé par erreur (bouton "↩️ Remettre à l'état non
+réalisé", §11.2), l'affichage revient automatiquement à `DateProgrammee` (ou, à défaut, à
+`DateIntervention`) — aucune donnée n'est perdue, seul l'affichage suit la priorité
+ci-dessus. Cette bascule ne modifie ni n'écrit rien dans
+`DateIntervention`/`DateFinPlanifiee` : c'est un choix d'affichage au même titre que la
+résolution du référentiel (§11.7bis).
 
 ## 11.9 Vue semaine : imprimer et envoyer par e-mail (GMAO uniquement)
 
@@ -447,25 +450,29 @@ S1-S52 — ISO-8601).
 
 - **Navigation** : "‹ Semaine précédente" / "Semaine suivante ›", comme le calendrier
   mensuel.
-- **Contenu** : toutes les interventions dont le jour prévu (ou la fenêtre planifiée,
-  voir §11.6) chevauche la semaine affichée — ou, une fois réalisées, dont la date réelle
-  tombe dans la semaine (voir "Calendrier et vue semaine" en §11.8) — triées par date.
-  Pour chaque intervention :
-  catégorie et nature des travaux, nom du matériel, heure de début/fin, zone (ZEP —
-  résolue depuis le référentiel comme en §11.8), consignation caténaire si applicable, et
-  l'impact mis en évidence (gras, en rouge) lorsqu'il est renseigné — le lieu générique et
-  l'intervenant ne sont plus affichés ici (redondants avec la zone ZEP et peu utiles pour
-  ce point hebdomadaire). Une seconde section **"⚠ Blocages / consignations de la
-  semaine"** isole celles qui ont une consignation caténaire, un impact ou des
-  conséquences renseignés — la réponse directe au besoin d'avoir "les travaux et les
-  blocages éventuels" en un coup d'œil.
-- **🖨️ Imprimer la semaine** : génère une vue imprimable (tableau des travaux + détail
-  des blocages) et ouvre la boîte d'impression du navigateur, sur le même principe que
-  l'export PDF d'un matériel (docs/09 §9.5) — choisir "Enregistrer au format PDF" comme
-  imprimante pour obtenir un fichier.
+- **Contenu, groupé par jour** : depuis la version qui reproduit le bulletin papier
+  "Information Travaux" que la personne utilisatrice imprimait auparavant depuis Excel,
+  la semaine est découpée en **six blocs Lundi → Samedi**, chacun avec son propre bandeau
+  de date. Un jour sans aucune intervention affiche simplement "Aucune intervention
+  prévue" plutôt que de disparaître ou de se mélanger aux autres jours. Chaque
+  intervention n'apparaît que dans **le jour où elle se trouve réellement affectée**
+  (`dateAffichageIntervention()`, voir §11.8 : la date réelle une fois réalisée, sinon la
+  date programmée via "📌 Planifier", sinon son jour théorique) — jamais répétée sur
+  toute une fenêtre planifiée de plusieurs mois qui la traverserait (§11.6) : c'est
+  précisément ce qui rendait la vue "très mélangée" avant cette version. Sur chaque ligne
+  d'un jour : nom du matériel, puis horaires/consignation/impact séparés par des tirets —
+  l'impact est mis en évidence (gras, rouge) exactement comme sur le bulletin papier de
+  référence. Cliquer une ligne ouvre la fiche détaillée complète de l'intervention.
+- **🖨️ Imprimer la semaine** : génère le même découpage par jour dans une mise en page
+  imprimable ("INFORMATION TRAVAUX — SEMAINE {n}") et ouvre la boîte d'impression du
+  navigateur, sur le même principe que l'export PDF d'un matériel (docs/09 §9.5) —
+  choisir "Enregistrer au format PDF" comme imprimante pour obtenir un fichier. Les
+  couleurs de l'impression sont fixes (fond blanc, pas le thème sombre de l'appli), pour
+  qu'une page imprimée reste toujours lisible quel que soit le thème actif au moment du
+  clic.
 - **📧 Envoyer par e-mail** : ouvre le client de messagerie par défaut (lien `mailto:`)
-  avec un sujet et un corps déjà rédigés (mêmes travaux + blocages, en texte). L'appli
-  ne peut pas envoyer l'e-mail elle-même — site statique, pas de serveur d'envoi — elle
+  avec un sujet et un corps déjà rédigés, même découpage par jour en texte. L'appli ne
+  peut pas envoyer l'e-mail elle-même — site statique, pas de serveur d'envoi — elle
   prépare le brouillon, à vérifier et envoyer depuis le client de messagerie.
 
 ## 11.10 Limites connues
