@@ -489,6 +489,16 @@ S1-S52 — ISO-8601).
   (§11.6bis, §11.9) sont figés dans le code au moment de leur rédaction : une évolution
   du classeur source (nouvelle nature de travaux, nouveau poste ZEP, etc.) ne se
   répercute pas automatiquement dans GMAO.
+- Toutes les dates affichées ("AAAA-MM-JJ" → "JJ/MM/AAAA", en-têtes de jour de la vue
+  semaine, calendrier) passent par des fonctions qui parsent les composantes à la main
+  (`formatDate`, `dateISO`) plutôt que par `new Date("AAAA-MM-JJ")` : cette dernière est
+  interprétée par JavaScript comme minuit **UTC**, puis réaffichée en heure locale — un
+  piège classique qui décale la date d'un jour selon le fuseau horaire du navigateur (en
+  avance sur UTC comme la France : le jour affiché peut être bon par coïncidence pour la
+  fenêtre théorique mais faux pour une date recalculée localement ; en retard sur UTC
+  comme les Amériques : systématiquement faux). Corrigé dans les deux applis (`js/app.js`
+  et `gmao/js/app.js`) — toute nouvelle fonction manipulant des dates doit éviter
+  `new Date(chaineISO)` et `toISOString()` de la même façon.
 
 ## 11.11 Archivage annuel des interventions
 

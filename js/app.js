@@ -63,7 +63,7 @@
   function journaliser(action) {
     const nomUtilisateur = (state.utilisateur && (state.utilisateur.nom || state.utilisateur.email)) || "Anonyme";
     if (state.modeDemo) {
-      state.journal.unshift({ date: new Date().toISOString().slice(0, 10), heure: new Date().toTimeString().slice(0, 8), utilisateur: nomUtilisateur, action, ip: "(mode démonstration)" });
+      state.journal.unshift({ date: aujourdhuiISO(), heure: new Date().toTimeString().slice(0, 8), utilisateur: nomUtilisateur, action, ip: "(mode démonstration)" });
       return;
     }
     GoogleSheetsAPI.enregistrerJournal({ utilisateur: nomUtilisateur, action });
@@ -265,8 +265,8 @@
     state.controleurs = state.utilisateurs;
     state.utilisateur = { id: null, nom: "Utilisateur de démonstration", email: "" };
     state.journal = [
-      { date: new Date().toISOString().slice(0, 10), heure: "08:12:00", utilisateur: "Amandine Roy", action: "Connexion", ip: "(exemple)" },
-      { date: new Date().toISOString().slice(0, 10), heure: "08:15:42", utilisateur: "Julien Marchand", action: "Contrôle validé — LED bleu n°55", ip: "(exemple)" },
+      { date: aujourdhuiISO(), heure: "08:12:00", utilisateur: "Amandine Roy", action: "Connexion", ip: "(exemple)" },
+      { date: aujourdhuiISO(), heure: "08:15:42", utilisateur: "Julien Marchand", action: "Contrôle validé — LED bleu n°55", ip: "(exemple)" },
     ];
     els.headerSubtitle.textContent = "Mode démonstration — cliquez sur \"Se connecter avec Google\" pour vos données réelles";
     afficherBanniere("ℹ️ Mode démonstration — données d'exemple, aucune écriture réelle. Connectez-vous à Google pour vos vraies données.", "info");
@@ -1168,7 +1168,7 @@
     els.controleSousTitre.textContent = `${materiel.numSerie} · ${materiel.reference}`;
     els.controleBadgeCategorie.textContent = materiel.categorie;
     els.controleBadgeCategorie.className = "badge badge--neutral";
-    els.controleDate.value = new Date().toISOString().slice(0, 10);
+    els.controleDate.value = aujourdhuiISO();
     renderSelecteurControleur();
     els.controleObservations.value = "";
     els.controleActions.value = "";
@@ -1439,7 +1439,7 @@
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `verifications-materiel_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.href = url; a.download = `verifications-materiel_${aujourdhuiISO()}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
 
@@ -1474,7 +1474,7 @@
     for (let jour = 1; jour <= nbJours; jour++) {
       const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
       const echeancesJour = echeances.filter((e) => e.controle.dateProchainControle === dateJour);
-      const estAujourdhui = dateJour === new Date().toISOString().slice(0, 10);
+      const estAujourdhui = dateJour === aujourdhuiISO();
       html += `
         <div class="calendrier-jour ${estAujourdhui ? "calendrier-jour--aujourdhui" : ""}">
           <span class="calendrier-jour__numero">${jour}</span>
@@ -1917,9 +1917,30 @@
   }
 
   // -- Utilitaires --------------------------------------------------------------
+  /**
+   * Date du jour au format "AAAA-MM-JJ", en heure LOCALE — jamais
+   * `new Date().toISOString()`, qui convertit en UTC : dans un fuseau en avance sur
+   * UTC (France, UTC+1/+2), les quelques heures qui suivent minuit localement
+   * affichent encore la veille selon l'UTC, ce qui décale à tort "aujourd'hui"
+   * (calendrier, dates par défaut) d'un jour pendant cette fenêtre.
+   */
+  function aujourdhuiISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  /**
+   * Formate une date "AAAA-MM-JJ" en "JJ/MM/AAAA". Parse les composantes à la main
+   * plutôt que `new Date(isoDate)` : une chaîne AAAA-MM-JJ sans heure est interprétée
+   * par JavaScript comme minuit **UTC**, puis réaffichée en heure locale — dans un
+   * fuseau en retard sur UTC (ex. Amérique), ça fait glisser la date affichée d'un
+   * jour en arrière. `new Date(annee, mois-1, jour)` reste toujours local, sans ce piège.
+   */
   function formatDate(isoDate) {
     if (!isoDate) return "—";
-    const d = new Date(isoDate);
+    const [annee, mois, jour] = String(isoDate).slice(0, 10).split("-").map(Number);
+    if (!annee || !mois || !jour) return "—";
+    const d = new Date(annee, mois - 1, jour);
     return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
   function escapeHtml(str) {

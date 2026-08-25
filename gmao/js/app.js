@@ -759,7 +759,7 @@
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const suffixe = state.anneeConsultee ? `archive-${state.anneeConsultee.annee}` : new Date().toISOString().slice(0, 10);
+    const suffixe = state.anneeConsultee ? `archive-${state.anneeConsultee.annee}` : aujourdhuiISO();
     a.href = url; a.download = `interventions_${suffixe}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
@@ -814,7 +814,7 @@
         ${iv.dateValidation && !iv.dateRealisation && (aPermission("validerIntervention") || aPermission("nouvelleIntervention")) ? `
           <div class="field" style="margin:0;">
             <label for="realisationDateInput">Date de réalisation</label>
-            <input type="date" id="realisationDateInput" value="${new Date().toISOString().slice(0, 10)}">
+            <input type="date" id="realisationDateInput" value="${aujourdhuiISO()}">
           </div>
           <button class="btn btn--primary btn--small" id="btnRealiserInterventionModal" type="button">☑️ Marquer réalisée</button>
         ` : ""}
@@ -862,7 +862,7 @@
     const iv = state.interventions.find((x) => x.id === id);
     if (!iv) return;
     const nom = (state.utilisateur && state.utilisateur.nom) || "";
-    const dateValidation = new Date().toISOString().slice(0, 10);
+    const dateValidation = aujourdhuiISO();
     try {
       if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateValidation, validePar: nom });
       iv.dateValidation = dateValidation;
@@ -892,7 +892,7 @@
     }
     const iv = state.interventions.find((x) => x.id === id);
     if (!iv) return;
-    const dateRealisation = dateRealisationChoisie || new Date().toISOString().slice(0, 10);
+    const dateRealisation = dateRealisationChoisie || aujourdhuiISO();
     try {
       if (!state.modeDemo) await GoogleSheetsAPI.mettreAJourIntervention(iv.ligne, { ...iv, dateRealisation });
       iv.dateRealisation = dateRealisation;
@@ -1013,7 +1013,7 @@
     els.intervCoupureChamps.hidden = true;
     els.intervCoupureDebut.value = "";
     els.intervCoupureFin.value = "";
-    els.intervDemandeInfo.textContent = `Date de demande : ${formatDate(new Date().toISOString().slice(0, 10))} — nécessitera la validation d'un administrateur.`;
+    els.intervDemandeInfo.textContent = `Date de demande : ${formatDate(aujourdhuiISO())} — nécessitera la validation d'un administrateur.`;
     els.intervResultat.hidden = true;
     els.btnValiderNouvelleIntervention.disabled = false;
     els.btnValiderNouvelleIntervention.textContent = "📩 Enregistrer la demande";
@@ -1218,7 +1218,7 @@
     }
 
     const nom = (state.utilisateur && state.utilisateur.nom) || "";
-    const dateDemande = new Date().toISOString().slice(0, 10);
+    const dateDemande = aujourdhuiISO();
     const nouvelleIntervention = {
       materielId: materiel ? materiel.id : null,
       materiel: materiel ? materiel.title : (materielHorsListe || posteTechnique),
@@ -1334,7 +1334,7 @@
     els.planifHeureFin.value = "";
     els.planifCoupureCatenaire.checked = false; els.planifCoupureChamps.hidden = true;
     els.planifCoupureDebut.value = ""; els.planifCoupureFin.value = "";
-    els.planifDateValidation.value = new Date().toISOString().slice(0, 10);
+    els.planifDateValidation.value = aujourdhuiISO();
     els.planifValideParInfo.textContent = (state.utilisateur && state.utilisateur.nom) || "—";
     els.planifRetardInfo.innerHTML = "";
   }
@@ -1360,7 +1360,7 @@
     els.planifCoupureDebut.value = iv.coupureDebut || "";
     els.planifCoupureFin.value = iv.coupureFin || "";
     calculerHeureFin();
-    els.planifDateValidation.value = iv.dateValidation || new Date().toISOString().slice(0, 10);
+    els.planifDateValidation.value = iv.dateValidation || aujourdhuiISO();
     els.planifValideParInfo.textContent = (state.utilisateur && state.utilisateur.nom) || iv.validePar || "—";
     const retard = joursDepassementActuel(iv);
     els.planifRetardInfo.innerHTML = retard
@@ -1411,7 +1411,7 @@
       coupureCatenaire,
       coupureDebut: coupureCatenaire ? els.planifCoupureDebut.value : "",
       coupureFin: coupureCatenaire ? els.planifCoupureFin.value : "",
-      dateValidation: els.planifDateValidation.value || new Date().toISOString().slice(0, 10),
+      dateValidation: els.planifDateValidation.value || aujourdhuiISO(),
       validePar: (state.utilisateur && state.utilisateur.nom) || iv.validePar || "",
     };
 
@@ -1461,7 +1461,7 @@
     for (let jour = 1; jour <= nbJours; jour++) {
       const dateJour = `${annee}-${String(moisIndex + 1).padStart(2, "0")}-${String(jour).padStart(2, "0")}`;
       const interventionsJour = echeancesInterventions.filter((iv) => dateAffichageIntervention(iv) === dateJour);
-      const estAujourdhui = dateJour === new Date().toISOString().slice(0, 10);
+      const estAujourdhui = dateJour === aujourdhuiISO();
       html += `
         <div class="calendrier-jour ${estAujourdhui ? "calendrier-jour--aujourdhui" : ""}">
           <span class="calendrier-jour__numero">${jour}</span>
@@ -1506,7 +1506,19 @@
     return Math.ceil(((d - debutAnnee) / 86400000 + 1) / 7);
   }
 
-  function dateISO(date) { return date.toISOString().slice(0, 10); }
+  /**
+   * Convertit un Date en chaîne "AAAA-MM-JJ" à partir de ses composantes LOCALES
+   * (jamais `toISOString()`, qui convertit en UTC : un Date à minuit local un jour
+   * donné, ex. lundi 24/08 00:00 en France (UTC+1/+2), correspond à la veille en UTC —
+   * "23/08" au lieu de "24/08" — ce qui décalait tous les jours de la vue semaine et de
+   * l'impression d'un jour en arrière, voir §11.9).
+   */
+  function dateISO(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+
+  /** Date du jour au format "AAAA-MM-JJ", en heure locale (voir dateISO ci-dessus). */
+  function aujourdhuiISO() { return dateISO(new Date()); }
 
   /** Rassemble les données de la semaine affichée (partagé entre l'écran, l'impression et l'e-mail). */
   function construireResumeSemaine() {
@@ -1652,9 +1664,18 @@
   }
 
   // -- Utilitaires --------------------------------------------------------------
+  /**
+   * Formate une date "AAAA-MM-JJ" en "JJ/MM/AAAA". Parse les composantes à la main
+   * plutôt que `new Date(isoDate)` : une chaîne AAAA-MM-JJ sans heure est interprétée
+   * par JavaScript comme minuit **UTC**, puis réaffichée en heure locale — dans un
+   * fuseau en retard sur UTC (ex. Amérique), ça fait glisser la date affichée d'un
+   * jour en arrière. `new Date(annee, mois-1, jour)` reste toujours local, sans ce piège.
+   */
   function formatDate(isoDate) {
     if (!isoDate) return "—";
-    const d = new Date(isoDate);
+    const [annee, mois, jour] = String(isoDate).slice(0, 10).split("-").map(Number);
+    if (!annee || !mois || !jour) return "—";
+    const d = new Date(annee, mois - 1, jour);
     return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
   function escapeHtml(str) {
